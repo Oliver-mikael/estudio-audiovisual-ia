@@ -41,6 +41,16 @@ export class VideoExporter {
     const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const destNode = audioCtx.createMediaStreamDestination();
 
+    // Create subtle ambient background tone generator into Web Audio stream destination
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, audioCtx.currentTime); // Soft A3 tone
+    gain.gain.setValueAtTime(0.02, audioCtx.currentTime); // Gentle ambient level
+    osc.connect(gain);
+    gain.connect(destNode);
+    osc.start();
+
     // Prepare speech synthesis or audio tones for demo narration synchronization
     const synthesisUtterances: { sceneStart: number; text: string }[] = [];
     let accumTime = 0;
@@ -81,6 +91,9 @@ export class VideoExporter {
 
     return new Promise((resolve, reject) => {
       mediaRecorder.onstop = () => {
+        try {
+          osc.stop();
+        } catch (_) {}
         const finalBlob = new Blob(recordedChunks, { type: mimeType });
         audioCtx.close();
         onProgress(100, 'Exportación finalizada exitosamente.');

@@ -1,22 +1,23 @@
 import { Project } from '../types';
+import { DEMO_ASSETS } from './assets';
 
 export const DEMO_PROJECT: Project = {
   id: 'demo-project-001',
-  title: 'El Futuro de la Inteligencia Artificial Local',
-  description: 'Un micro-documental explicativo sobre la importancia del procesamiento local y la privacidad.',
+  title: 'El Futuro de la Creación Audiovisual Local',
+  description: 'Un micro-documental explicativo de 60 segundos sobre el procesamiento local, privacidad y autonomía creativa.',
   createdAt: Date.now(),
   updatedAt: Date.now(),
   angles: [
     {
       id: 'ang-1',
-      title: 'Privacidad y Soberanía Digital',
-      hook: '¿Por qué enviar todos tus pensamientos a un servidor centralizado?',
-      perspective: 'Analiza el impacto del cómputo local frente a la nube en términos de privacidad personal y autonomía.',
+      title: 'Soberanía Digital y Creación Local',
+      hook: '¿Por qué depender de servidores de pago para crear tus videos?',
+      perspective: 'Analiza la transición del software en la nube al paradigma local-first.',
       criticalQuestions: [
-        '¿Es realmente más lento ejecutar modelos en local?',
-        '¿Qué coste energético oculta la nube de IA?'
+        '¿Es realmente necesario subir gigabytes a un servidor remoto?',
+        '¿Cómo garantizamos la propiedad intelectual de nuestros guiones y recursos?'
       ],
-      alternativeApproach: 'Centrar la narrativa en un desarrollador que crea contenido sin conexión a internet.'
+      alternativeApproach: 'Demostrar mediante renderizado directo en el navegador cómo crear producciones profesionales de 60 segundos offline.'
     }
   ],
   sources: [
@@ -27,56 +28,114 @@ export const DEMO_PROJECT: Project = {
       author: 'Peter van Hardenberg et al.',
       license: 'CC-BY',
       evidenceType: 'Fact',
-      notes: 'Establece los 7 ideales del software local-first.',
+      notes: 'Establece los 7 ideales del software local-first para retener el control de datos.',
+      verified: true
+    },
+    {
+      id: 'src-2',
+      title: 'Web Media Specifications & W3C HTML Canvas Standard',
+      url: 'https://www.w3.org/TR/html52/semantics-scripting.html',
+      author: 'W3C',
+      license: 'Public Domain',
+      evidenceType: 'Fact',
+      notes: 'Especificaciones estándar de renderizado en Canvas 2D y captura de MediaStream en navegadores modernos.',
       verified: true
     }
   ],
   script: {
-    title: 'Guion: IA en tu dispositivo',
-    summary: 'Explicación concisa en 3 escenas del poder de procesar video y texto en local.',
-    targetAudience: 'Creadores de contenido y entusiastas tecnológicos',
+    title: 'Guion: La Revolución del Estudio Local',
+    summary: 'Micro-documental estructurado en 6 escenas continuas de 10 segundos cada una (60 segundos en total).',
+    targetAudience: 'Investigadores, educadores y creadores audiovisuales independientes',
     tone: 'Divulgativo',
     scenes: [
       {
         id: 'scene-1',
-        title: 'Escena 1: La Nube Concentrada',
-        narrationText: 'Durante años nos dijeron que la inteligencia artificial solo podía existir en gigantescos centros de datos.',
-        visualIntent: 'Fondo abstracto tecnológico con texto dinámico enfático',
+        title: 'Escena 1: La Era de la Nube Concentrada',
+        narrationText: 'Durante la última década, la creación de video dependía casi exclusivamente de gigantescos servidores en la nube.',
+        visualIntent: 'Diagrama de centros de datos centralizados con flujo de datos masivo',
         cameraMotion: 'Zoom In',
         transition: 'Fade',
         durationSeconds: 10,
+        imageUrl: DEMO_ASSETS.cloudServer,
         subtitles: [
-          'Durante años nos dijeron',
-          'que la inteligencia artificial',
-          'solo podía existir en gigantescos centros de datos.'
+          'Durante la última década,',
+          'la creación de video dependía casi exclusivamente',
+          'de gigantescos servidores en la nube.'
         ]
       },
       {
         id: 'scene-2',
-        title: 'Escena 2: La Revolución Local',
-        narrationText: 'Pero la tecnología ha cambiado. Hoy es posible investigar, escribir y renderizar producciones completas en tu propia máquina.',
-        visualIntent: 'Demostración de procesamiento local en tiempo real con cinética',
+        title: 'Escena 2: Latencia, Costes y Fuga de Datos',
+        narrationText: 'Esta dependencia introdujo tarifas mensuales recurrentes, latencia de red y serios riesgos de privacidad.',
+        visualIntent: 'Visualización de latencia de red y transferencia constante de gigabytes',
         cameraMotion: 'Pan Left',
         transition: 'Slide',
         durationSeconds: 10,
+        imageUrl: DEMO_ASSETS.dataStream,
         subtitles: [
-          'Pero la tecnología ha cambiado.',
-          'Hoy es posible investigar, escribir y renderizar',
-          'producciones completas en tu propia máquina.'
+          'Esta dependencia introdujo tarifas mensuales recurrentes,',
+          'latencia de red y serios riesgos',
+          'de privacidad e intelectualidad.'
         ]
       },
       {
         id: 'scene-3',
-        title: 'Escena 3: Control Total',
-        narrationText: 'Sin suscripciones obligatorias, sin filtrar tus datos y con total autonomía creativa.',
-        visualIntent: 'Cierre con llamado a la acción y tipografía cinética de alto contraste',
+        title: 'Escena 3: El Paradigma Local-First',
+        narrationText: 'Pero los dispositivos modernos poseen GPU y NPU capaces de procesar gráficos y audio directamente en tu máquina.',
+        visualIntent: 'Procesamiento de hardware local y soberanía de datos',
         cameraMotion: 'Zoom Out',
+        transition: 'Cut',
+        durationSeconds: 10,
+        imageUrl: DEMO_ASSETS.localDevice,
+        subtitles: [
+          'Pero los dispositivos modernos poseen GPU y NPU',
+          'capaces de procesar gráficos y audio',
+          'directamente en tu propia máquina.'
+        ]
+      },
+      {
+        id: 'scene-4',
+        title: 'Escena 4: El Motor Audiovisual Web',
+        narrationText: 'Utilizando HTML5 Canvas y Web Audio API, es posible renderizar animaciones y subtítulos fotograma a fotograma.',
+        visualIntent: 'Diagrama del motor de animación en tiempo real con Web Audio',
+        cameraMotion: 'Pan Right',
+        transition: 'Zoom',
+        durationSeconds: 10,
+        imageUrl: DEMO_ASSETS.canvasRender,
+        subtitles: [
+          'Utilizando HTML5 Canvas y Web Audio API,',
+          'es posible renderizar animaciones y subtítulos',
+          'fotograma a fotograma sin servidores.'
+        ]
+      },
+      {
+        id: 'scene-5',
+        title: 'Escena 5: Autonomía Creativa Sin Costes',
+        narrationText: 'Sin cuotas de suscripción, sin límites de renderizado y con retención total del material original.',
+        visualIntent: 'Iconografía de coste cero y soberanía completa del creador',
+        cameraMotion: 'Kinetic Text',
         transition: 'Fade',
         durationSeconds: 10,
+        imageUrl: DEMO_ASSETS.zeroCosts,
         subtitles: [
-          'Sin suscripciones obligatorias,',
-          'sin filtrar tus datos',
-          'y con total autonomía creativa.'
+          'Sin cuotas de suscripción,',
+          'sin límites de renderizado',
+          'y con retención total del material original.'
+        ]
+      },
+      {
+        id: 'scene-6',
+        title: 'Escena 6: Conclusión y Futuro',
+        narrationText: 'El Estudio Audiovisual Inteligente une investigación rigurosa, guion crítico y producción local bajo tu supervisión humana.',
+        visualIntent: 'Cierre institucional con llamado a la creación autónoma',
+        cameraMotion: 'Zoom In',
+        transition: 'Slide',
+        durationSeconds: 10,
+        imageUrl: DEMO_ASSETS.conclusion,
+        subtitles: [
+          'El Estudio Audiovisual Inteligente une investigación,',
+          'guion crítico y producción local',
+          'siempre bajo tu supervisión humana.'
         ]
       }
     ]

@@ -9,7 +9,7 @@ describe('Estudio Audiovisual Core Logic', () => {
       0
     );
 
-    expect(totalSecs).toBe(30); // Demo project is exactly 30s
+    expect(totalSecs).toBe(60); // 60s demo project
   });
 
   it('should have non-empty narration text and subtitles for all demo scenes', () => {
