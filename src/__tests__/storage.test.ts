@@ -9,9 +9,8 @@ describe('Project Persistence Data Model & Validation', () => {
     const parsed: Project = JSON.parse(serialized);
 
     expect(parsed.id).toBe(DEMO_PROJECT.id);
-    expect(parsed.script.scenes.length).toBe(6);
-    expect(parsed.sources.length).toBe(2);
-    expect(parsed.angles.length).toBe(1);
+    expect(parsed.script.scenes.length).toBe(1);
+    expect(parsed.sources.length).toBe(0); // Clean initial template
   });
 
   it('should properly link scenes with subtitles', () => {

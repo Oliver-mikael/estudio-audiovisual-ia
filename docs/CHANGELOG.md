@@ -1,9 +1,7 @@
 # Registro de Cambios - Estudio Audiovisual Inteligente
 
-## [1.1.0] - Prueba Real de Producción Audiovisual de 60s
+## [1.2.0] - Inicialización del Primer Documental y Cierre de Análisis
 ### Añadido
-- **Prueba Real de Producción de 60s**: Proyecto de producción completo con 6 escenas de 10s sobre soberanía digital y procesamiento local (`src/data/demoProject.ts`).
-- **Colección de Recursos Vectoriales CC0**: Diagramas vectoriales SVG Data URIs con procedencia de licencia libre (`src/data/assets.ts`).
-- **Mejora del Motor de Audio en Exportación**: Integración de tono ambiental sintético en `MediaStreamDestination` de Web Audio API para asegurar la presencia de pista de audio constante en contenedores WebM/MP4 (`src/engine/exporter.ts`).
-- **Informe de Producción Audiovisual**: Documentación detallada en `docs/PRODUCTION_TEST.md`.
-- **Pruebas de Unidad Actualizadas**: Cobertura de tests para el proyecto de 60s (1800 fotogramas calculados) en `src/__tests__/`.
+- **Proyecto Documental Oficial Preparado**: Proyecto de producción inicializado para *"La primera página web: el comienzo de algo que cambiaría el mundo"* (`src/data/demoProject.ts`).
+- **Análisis de Pista de Audio y Códecs**: Documentación exhaustiva en `docs/PRODUCTION_TEST.md` sobre `SpeechSynthesis` vs `WebAudioDestination`, códec VP8 en WebM y limitaciones Android.
+- **Batería de Pruebas Unitarias Actualizada**: Tests adaptados a la plantilla inicial del documental en `src/__tests__/`.

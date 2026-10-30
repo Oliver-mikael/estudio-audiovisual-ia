@@ -9,22 +9,20 @@ describe('Estudio Audiovisual Core Logic', () => {
       0
     );
 
-    expect(totalSecs).toBe(60); // 60s demo project
+    expect(totalSecs).toBe(10); // Initial template scene
   });
 
-  it('should have non-empty narration text and subtitles for all demo scenes', () => {
+  it('should have non-empty narration text for demo scene', () => {
     DEMO_PROJECT.script.scenes.forEach((scene) => {
       expect(scene.narrationText.length).toBeGreaterThan(10);
-      expect(scene.subtitles && scene.subtitles.length).toBeGreaterThan(0);
       expect(scene.durationSeconds).toBeGreaterThan(0);
     });
   });
 
-  it('should contain valid verified sources in research matrix', () => {
-    expect(DEMO_PROJECT.sources.length).toBeGreaterThan(0);
-    const verifiedSource = DEMO_PROJECT.sources.find((s) => s.verified);
-    expect(verifiedSource).toBeDefined();
-    expect(verifiedSource?.license).toBe('CC-BY');
+  it('should match the official documentary project title', () => {
+    expect(DEMO_PROJECT.title).toBe(
+      'La primera página web: el comienzo de algo que cambiaría el mundo'
+    );
   });
 
   it('should validate 720p 30fps default settings', () => {
