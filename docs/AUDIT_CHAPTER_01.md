@@ -2,7 +2,7 @@
 
 **Documental:** *"La primera página web: el comienzo de algo que cambiaría el mundo"*
 **Capítulo Evaluado:** Capítulo 1: El problema invisible (80 segundos, 5 escenas)
-**Fecha de Auditoría:** Marzo 2025
+**Fecha de Auditoría:** 30 de Octubre de 2026
 **Auditor:** Estudio Audiovisual Inteligente (Evaluación Sistemática y Calificación Multidimensional)
 **Artefactos Generados y Verificados:**
 - Exportación de Video WebM: `bf029341946061e314ca233848657e92.webm` (720p @ 30 FPS, 80 segundos, 1.45 MB)

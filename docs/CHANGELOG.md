@@ -1,5 +1,14 @@
 # Registro de Cambios - Estudio Audiovisual Inteligente
 
+## [2.0.0] - Implementación Cloud-First y Desarrollo del Capítulo 2
+### Añadido
+- **Arquitectura Cloud-First & Multiplataforma**: Documentación de arquitectura (`docs/CLOUD_ARCHITECTURE.md`), modelo de seguridad RLS (`docs/SECURITY_MODEL.md`) y guía de despliegue (`docs/DEPLOYMENT_GUIDE.md`).
+- **Esquema Relacional PostgreSQL/Supabase**: Definición SQL completa en `supabase/schema.sql` con Row Level Security por usuario.
+- **Sincronización Incremental Offline-First**: Implementación de `SyncEngine` (`src/services/sync/syncEngine.ts`) y documentación en `docs/STORAGE_AND_SYNC.md`.
+- **Cola de Trabajos Asíncronos Cloud**: Gestor de trabajos pesados `JobQueueManager` (`src/services/jobs/jobQueue.ts`) y especificación de costos/renderizado (`docs/CLOUD_RENDERING.md`).
+- **Configuración Native Android**: Integración de Capacitor JS (`capacitor.config.json`).
+- **Capítulo 2 del Documental**: Guion completo de 85s en `docs/SCRIPT_CHAPTER_02.md` y sincronización con `src/data/demoProject.ts`.
+
 ## [1.3.0] - Auditoría Narrativa, Histórica y Audiovisual del Capítulo 1
 ### Añadido
 - **Informe de Auditoría Completo (`docs/AUDIT_CHAPTER_01.md`)**: Evaluación del Capítulo 1 ("El problema invisible", 80s) obteniendo una puntuación global integrada de **9.0/10**.

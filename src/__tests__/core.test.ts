@@ -9,7 +9,7 @@ describe('Estudio Audiovisual Core Logic', () => {
       0
     );
 
-    expect(totalSecs).toBe(80); // Chapter 1 (80 seconds)
+    expect(totalSecs).toBe(85); // Chapter 2 (85 seconds)
   });
 
   it('should have non-empty narration text for demo scene', () => {

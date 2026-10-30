@@ -11,9 +11,9 @@ describe('VideoExporter Core Logic', () => {
     const fps = DEMO_PROJECT.settings.fps;
     const totalFrames = Math.ceil(totalSecs * fps);
 
-    expect(totalSecs).toBe(80);
+    expect(totalSecs).toBe(85);
     expect(fps).toBe(30);
-    expect(totalFrames).toBe(2400); // 80s * 30fps = 2400 frames
+    expect(totalFrames).toBe(2550); // 85s * 30fps = 2550 frames
   });
 
   it('should verify resolution configuration for 720p', () => {

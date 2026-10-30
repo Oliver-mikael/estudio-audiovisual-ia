@@ -84,84 +84,84 @@ export const DEMO_PROJECT: Project = {
     }
   ],
   script: {
-    title: 'Guion: Capítulo 1 - El problema invisible',
-    summary: 'Guion del Capítulo 1 estructurado en 5 escenas dinámicas (80 segundos totales).',
+    title: 'Guion: Capítulo 2 - Una idea que parecía demasiado ambiciosa',
+    summary: 'Guion del Capítulo 2 estructurado en 5 escenas dinámicas (85 segundos totales) sobre ENQUIRE, la propuesta de 1989, Mike Sendall, Robert Cailliau y la transición técnica.',
     targetAudience: 'Audiencia general e interesados en historia de la tecnología',
     tone: 'Divulgativo',
     scenes: [
       {
-        id: 'c1-scene-1',
-        title: 'Escena 1: La paradoja del CERN',
-        narrationText: 'Ginebra, 1989. Miles de los mejores físicos e ingenieros del planeta trabajan en el CERN para desentrañar los secretos del universo. Sin embargo, dentro de los pasillos del laboratorio, existe un obstáculo silencioso: los ordenadores no se entienden entre sí.',
-        visualIntent: 'Fotografía de archivo histórico del CERN a finales de los años 80',
-        cameraMotion: 'Zoom Out',
+        id: 'c2-scene-1',
+        title: 'Escena 1: El antecedente — ENQUIRE (1980)',
+        narrationText: 'Nueve años antes, en 1980, durante su primera estancia como consultor en el CERN, Tim Berners-Lee escribió un pequeño programa privado llamado ENQUIRE. No era una red de ordenadores ni tenía gráficos, sino un sistema personal para recordar las conexiones entre personas, proyectos y programas en el laboratorio.',
+        visualIntent: 'Esquema gráfico de tarjetas de notas interconectadas por enlaces asociativos',
+        cameraMotion: 'Zoom In',
         transition: 'Fade',
-        durationSeconds: 15,
+        durationSeconds: 16,
         imageUrl: DEMO_ASSETS.cloudServer,
         subtitles: [
-          'Ginebra, 1989. Miles de los mejores físicos del planeta',
-          'trabajan en el CERN para desentrañar el universo.',
-          'Sin embargo, los ordenadores no se entienden entre sí.'
+          'En 1980, Berners-Lee escribió ENQUIRE:',
+          'un sistema personal para recordar conexiones',
+          'entre proyectos y personas en el CERN.'
         ]
       },
       {
-        id: 'c1-scene-2',
-        title: 'Escena 2: La torre de Babel informática',
-        narrationText: 'Cada equipo utiliza sistemas totalmente incompatibles. Archivos guardados en ordenadores VMS no pueden abrirse en máquinas Unix; los documentos de Apple Mac son ilegibles para los terminales MS-DOS. Para consultar un dato, un investigador debe aprender un programa diferente en cada máquina.',
-        visualIntent: 'Diagrama gráfico vectorial de terminales incompatibles (VMS, Unix, Mac, MS-DOS)',
+        id: 'c2-scene-2',
+        title: 'Escena 2: La propuesta de marzo de 1989',
+        narrationText: 'Al regresar al CERN con un contrato de tres años, Berners-Lee comprendió que el hipertexto debía combinarse con Internet. En marzo de 1989 redactó "Information Management: A Proposal", planteando una malla de datos donde los documentos pudieran vincularse sin importar en qué servidor estuvieran guardados.',
+        visualIntent: 'Fotografía histórica del documento impreso original con el diagrama de malla',
         cameraMotion: 'Pan Left',
-        transition: 'Slide',
+        transition: 'Cut',
         durationSeconds: 18,
         imageUrl: DEMO_ASSETS.dataStream,
         subtitles: [
-          'Cada equipo utiliza sistemas incompatibles.',
-          'Archivos de VMS no abren en Unix; Mac es ilegible en MS-DOS.',
-          'Para cada máquina, se requiere un programa distinto.'
+          'En marzo de 1989 redactó "Information Management: A Proposal"',
+          'planteando una malla de datos donde los documentos pudieran vincularse',
+          'sin importar el servidor donde estuvieran guardados.'
         ]
       },
       {
-        id: 'c1-scene-3',
-        title: 'Escena 3: La fragmentación del conocimiento',
-        narrationText: 'A esto se suma un problema humano: los científicos llegan al CERN con contratos temporales de dos o tres años. Cuando regresan a sus países, el conocimiento de cómo construyeron un programa o un detector se queda atrapado en documentos inaccesibles.',
-        visualIntent: 'Fotografía de archivo de científicos e ingenieros en la sala de control del CERN',
+        id: 'c2-scene-3',
+        title: 'Escena 3: "Vague but exciting..."',
+        narrationText: 'El documento llegó a manos de su supervisor, Mike Sendall. Aunque el proyecto no encajaba en ninguna línea oficial de investigación en física de partículas, Sendall no lo rechazó. Escribió en la portada un comentario célebre: "Vague but exciting..." — Vago pero emocionante.',
+        visualIntent: 'Plano de detalle manuscrito con la anotación en lápiz de Mike Sendall',
         cameraMotion: 'Zoom In',
-        transition: 'Cut',
-        durationSeconds: 15,
+        transition: 'Slide',
+        durationSeconds: 17,
         imageUrl: DEMO_ASSETS.localDevice,
         subtitles: [
-          'Los científicos llegan con contratos de dos o tres años.',
-          'Al regresar a sus países, el conocimiento sobre sus proyectos',
-          'se queda atrapado en documentos inaccesibles.'
+          'Su supervisor Mike Sendall no lo rechazó.',
+          'Escribió en la portada el célebre comentario:',
+          '"Vague but exciting..." (Vago pero emocionante).'
         ]
       },
       {
-        id: 'c1-scene-4',
-        title: 'Escena 4: El concepto de la red asociativa',
-        narrationText: 'Las carpetas de archivos tradicionales obligaban a organizar todo en estructuras rígidas de árbol. Pero el cerebro humano no piensa de forma jerárquica: piensa por asociación. Para conectar ideas dispersas, hacía falta una red que no dependiera de ningún ordenador central.',
-        visualIntent: 'Animación gráfica comparando estructura jerárquica rígida vs malla asociativa flexible',
-        cameraMotion: 'Kinetic Text',
+        id: 'c2-scene-4',
+        title: 'Escena 4: El aliado clave — Robert Cailliau',
+        narrationText: 'Ninguna revolución tecnológica ocurre en solitario. En 1990, el ingeniero belga Robert Cailliau se convirtió en el principal aliado de la propuesta. Juntos reescribieron el proyecto para conseguir presupuesto y convencer a la dirección de que el hipertexto transformaría el laboratorio.',
+        visualIntent: 'Fotografía histórica de archivo de Tim Berners-Lee y Robert Cailliau en el CERN',
+        cameraMotion: 'Pan Right',
         transition: 'Zoom',
-        durationSeconds: 17,
+        durationSeconds: 18,
         imageUrl: DEMO_ASSETS.canvasRender,
         subtitles: [
-          'Las carpetas tradicionales obligaban a usar árboles rígidos.',
-          'Pero el cerebro humano piensa por asociación.',
-          'Hacía falta una red sin ordenador central.'
+          'El ingeniero belga Robert Cailliau se convirtió en su aliado clave.',
+          'Juntos reescribieron el proyecto para obtener presupuesto',
+          'e impulso institucional en el CERN.'
         ]
       },
       {
-        id: 'c1-scene-5',
-        title: 'Escena 5: Transición hacia el Capítulo 2',
-        narrationText: 'En marzo de 1989, un programador británico de 33 años decide poner por escrito una solución a este caos. Un documento de apenas unas páginas que cambiaría la historia... si alguien se tomaba el tiempo de leerlo.',
-        visualIntent: 'Fotografía histórica de la portada de "Information Management: A Proposal"',
-        cameraMotion: 'Zoom In',
+        id: 'c2-scene-5',
+        title: 'Escena 5: La transición técnica',
+        narrationText: 'Pero una propuesta en papel no hace funcionar una red. Para convertir esta idea abstracta en realidad, era necesario inventar un código de marcado, un protocolo de comunicación y construir el primer servidor en un ordenador de última generación.',
+        visualIntent: 'Composición gráfica pasando del documento impreso a líneas de código y servidor',
+        cameraMotion: 'Kinetic Text',
         transition: 'Fade',
-        durationSeconds: 15,
+        durationSeconds: 16,
         imageUrl: DEMO_ASSETS.conclusion,
         subtitles: [
-          'En marzo de 1989, un programador británico de 33 años',
-          'decide poner por escrito una solución a este caos.',
-          'Un documento que cambiaría la historia... si alguien lo leía.'
+          'Para convertir la propuesta abstracta en realidad,',
+          'hacían falta tres estándares técnicos',
+          'y el primer servidor web de la historia.'
         ]
       }
     ]
