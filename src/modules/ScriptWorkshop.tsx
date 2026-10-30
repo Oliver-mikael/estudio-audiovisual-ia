@@ -1,0 +1,326 @@
+// Script Workshop Component for Estudio Audiovisual Inteligente
+import React, { useState } from 'react';
+import { Project, Scene } from '../types';
+import { FileText, Plus, Trash2, Clock, MessageSquare, AlertCircle, Sparkles } from 'lucide-react';
+
+interface ScriptWorkshopProps {
+  project: Project;
+  onUpdateProject: (updated: Project) => void;
+}
+
+export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdateProject }) => {
+  const [scenes, setScenes] = useState<Scene[]>(project.script.scenes || []);
+  const [selectedSceneId, setSelectedSceneId] = useState<string>(
+    project.script.scenes.length > 0 ? project.script.scenes[0].id : ''
+  );
+
+  const activeScene = scenes.find((s) => s.id === selectedSceneId);
+
+  const totalDuration = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
+
+  const handleUpdateActiveScene = (updatedFields: Partial<Scene>) => {
+    if (!selectedSceneId) return;
+    const updatedScenes = scenes.map((s) =>
+      s.id === selectedSceneId ? { ...s, ...updatedFields } : s
+    );
+    setScenes(updatedScenes);
+    onUpdateProject({
+      ...project,
+      script: {
+        ...project.script,
+        scenes: updatedScenes,
+      },
+    });
+  };
+
+  const handleAddScene = () => {
+    const newScene: Scene = {
+      id: `scene-${Date.now()}`,
+      title: `Escena ${scenes.length + 1}: Nueva Escena`,
+      narrationText: 'Escribe aquí la narración explicativa...',
+      visualIntent: 'Detalla el concepto visual deseado para la escena',
+      cameraMotion: 'Static',
+      transition: 'Fade',
+      durationSeconds: 10,
+      subtitles: ['Escribe aquí la narración explicativa...'],
+    };
+
+    const updatedScenes = [...scenes, newScene];
+    setScenes(updatedScenes);
+    setSelectedSceneId(newScene.id);
+    onUpdateProject({
+      ...project,
+      script: {
+        ...project.script,
+        scenes: updatedScenes,
+      },
+    });
+  };
+
+  const handleDeleteScene = (id: string) => {
+    const updatedScenes = scenes.filter((s) => s.id !== id);
+    setScenes(updatedScenes);
+    if (selectedSceneId === id) {
+      setSelectedSceneId(updatedScenes.length > 0 ? updatedScenes[0].id : '');
+    }
+    onUpdateProject({
+      ...project,
+      script: {
+        ...project.script,
+        scenes: updatedScenes,
+      },
+    });
+  };
+
+  // Critical feedback analyzer
+  const getCriticalFeedback = () => {
+    const feedback: string[] = [];
+    if (scenes.length === 0) {
+      feedback.push('El guion no tiene escenas creadas.');
+      return feedback;
+    }
+
+    const shortScenes = scenes.filter((s) => s.narrationText.length < 20);
+    if (shortScenes.length > 0) {
+      feedback.push(`Hay ${shortScenes.length} escena(s) con narración demasiado breve o vacía.`);
+    }
+
+    const genericIntro = scenes[0]?.narrationText.toLowerCase().includes('hola a todos');
+    if (genericIntro) {
+      feedback.push('La introducción usa una fórmula clónica ("Hola a todos"). Prueba un gancho directo.');
+    }
+
+    if (totalDuration < 15) {
+      feedback.push('La duración total es menor a 15s. Es recomendable profundizar en los conceptos.');
+    }
+
+    return feedback;
+  };
+
+  const criticalFeedback = getCriticalFeedback();
+
+  return (
+    <div className="space-y-6">
+      {/* Top Banner */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-lg">
+            <FileText className="w-5 h-5" />
+            <span>Taller de Guion & Desglose de Escenas</span>
+          </div>
+          <p className="text-slate-400 text-sm mt-1">
+            Construye la estructura narrativa, ajusta el ritmo de la locución y recibe críticas automáticas de tono y duración.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-center px-4 py-2 bg-slate-950 rounded-lg border border-slate-800 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-indigo-400" />
+            <div>
+              <span className="block text-xs text-slate-400">Duración Est.</span>
+              <span className="text-lg font-bold text-slate-200">{totalDuration}s</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleAddScene}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg text-sm transition-colors shadow-lg shadow-indigo-600/20"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Añadir Escena</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Critical Feedback Panel if issues found */}
+      {criticalFeedback.length > 0 && (
+        <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-amber-300">Crítica de Guion (IA Assistant)</h4>
+            <ul className="text-xs text-amber-200/80 list-disc list-inside space-y-0.5">
+              {criticalFeedback.map((fb, idx) => (
+                <li key={idx}>{fb}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Main Grid: Scene List Sidebar + Active Scene Editor */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Sidebar: Scene List */}
+        <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-300 px-2 flex items-center justify-between">
+            <span>Escenas del Guion</span>
+            <span className="text-xs text-slate-500 font-mono">{scenes.length} Escenas</span>
+          </h3>
+
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+            {scenes.map((sc, index) => {
+              const isSelected = sc.id === selectedSceneId;
+              return (
+                <div
+                  key={sc.id}
+                  onClick={() => setSelectedSceneId(sc.id)}
+                  className={`p-3 rounded-lg border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
+                    isSelected
+                      ? 'bg-indigo-950/60 border-indigo-500 text-slate-100 shadow-md'
+                      : 'bg-slate-950 border-slate-800/80 text-slate-400 hover:border-slate-700 hover:text-slate-300'
+                  }`}
+                >
+                  <div className="space-y-1 overflow-hidden">
+                    <span className="text-xs font-mono text-indigo-400 font-semibold">
+                      #0{index + 1} ({sc.durationSeconds}s)
+                    </span>
+                    <h4 className="text-sm font-medium truncate">{sc.title}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2">{sc.narrationText}</p>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteScene(sc.id);
+                    }}
+                    className="text-slate-600 hover:text-red-400 transition-colors p-1"
+                    title="Eliminar escena"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Pane: Active Scene Editor */}
+        <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
+          {activeScene ? (
+            <>
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <span className="text-xs font-mono text-indigo-400 uppercase tracking-wider">
+                    Editando Escena
+                  </span>
+                  <input
+                    type="text"
+                    value={activeScene.title}
+                    onChange={(e) => handleUpdateActiveScene({ title: e.target.value })}
+                    className="block text-xl font-bold text-slate-100 bg-transparent focus:outline-none focus:border-b focus:border-indigo-500 w-full mt-1"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1 font-mono">Duración (seg)</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="60"
+                      value={activeScene.durationSeconds}
+                      onChange={(e) =>
+                        handleUpdateActiveScene({ durationSeconds: Math.max(1, parseInt(e.target.value) || 5) })
+                      }
+                      className="w-20 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm font-mono text-indigo-300 text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Narration Text Input */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-indigo-400" />
+                    <span>Texto de Narración / Locución</span>
+                  </span>
+                  <span className="text-slate-500 font-mono text-[11px]">
+                    ~{activeScene.narrationText.split(' ').length} palabras
+                  </span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={activeScene.narrationText}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    handleUpdateActiveScene({
+                      narrationText: text,
+                      subtitles: text.split('. ').filter(Boolean),
+                    });
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500"
+                  placeholder="Escribe la narración que leerá la voz..."
+                />
+              </div>
+
+              {/* Visual Intent & Camera Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                    Intención Visual Narrative
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={activeScene.visualIntent}
+                    onChange={(e) => handleUpdateActiveScene({ visualIntent: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                    placeholder="E.g. Gráfico explicativo con animación cinética..."
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                      Movimiento de Cámara
+                    </label>
+                    <select
+                      value={activeScene.cameraMotion}
+                      onChange={(e) =>
+                        handleUpdateActiveScene({
+                          cameraMotion: e.target.value as Scene['cameraMotion'],
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="Static">Estático</option>
+                      <option value="Zoom In">Zoom In (Acercamiento)</option>
+                      <option value="Zoom Out">Zoom Out (Alejamiento)</option>
+                      <option value="Pan Left">Panorámica Izquierda</option>
+                      <option value="Pan Right">Panorámica Derecha</option>
+                      <option value="Kinetic Text">Texto Cinético Dinámico</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                      Transición de Entrada
+                    </label>
+                    <select
+                      value={activeScene.transition}
+                      onChange={(e) =>
+                        handleUpdateActiveScene({
+                          transition: e.target.value as Scene['transition'],
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="Cut">Corte Directo (Cut)</option>
+                      <option value="Fade">Fundido (Fade)</option>
+                      <option value="Slide">Desplazamiento (Slide)</option>
+                      <option value="Zoom">Enfoque Rápido (Zoom)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-16 text-slate-500 space-y-3">
+              <Sparkles className="w-8 h-8 text-slate-600 mx-auto" />
+              <p>Selecciona una escena o crea una nueva para comenzar a editar.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

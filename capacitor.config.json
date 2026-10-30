@@ -1,0 +1,15 @@
+{
+  "appId": "com.estudioaudiovisual.app",
+  "appName": "Estudio Audiovisual Inteligente",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#0f172a"
+    }
+  }
+}
