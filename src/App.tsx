@@ -10,7 +10,7 @@ import { ResearchModule } from './modules/ResearchModule';
 import { ScriptWorkshop } from './modules/ScriptWorkshop';
 import { StoryboardModule } from './modules/StoryboardModule';
 import { MediaLibraryModule } from './modules/MediaLibraryModule';
-import { Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw } from 'lucide-react';
+import { Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw, Smartphone } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<Project>(DEMO_PROJECT);
@@ -77,6 +77,16 @@ export const App: React.FC = () => {
 
         {/* Global Action Banner */}
         <div className="flex items-center gap-3">
+          <a
+            href="/app-debug.apk"
+            download="app-debug.apk"
+            className="flex items-center gap-2 px-3 py-2 bg-emerald-700/80 hover:bg-emerald-600 text-white font-medium text-xs rounded-lg border border-emerald-500/40 shadow-md transition-all"
+            title="Descargar paquete instalador Android APK (4.1 MB)"
+          >
+            <Smartphone className="w-4 h-4 text-emerald-300" />
+            <span>Descargar APK (4.1 MB)</span>
+          </a>
+
           <button
             onClick={handleExportVideo}
             disabled={isExporting}

@@ -9,6 +9,8 @@ build/
 *.tsbuildinfo
 android/
 *.apk
+!app-debug.apk
+!public/app-debug.apk
 gradle.log
 preview.log
 
