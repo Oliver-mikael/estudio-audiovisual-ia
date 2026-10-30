@@ -1,5 +1,9 @@
 # Registro de Cambios - Estudio Audiovisual Inteligente
 
+## [2.1.0] - Auditoría de Funcionamiento Real Cloud-First
+### Añadido
+- **Informe de Auditoría de Integración Cloud (`docs/CLOUD_INTEGRATION_AUDIT.md`)**: Diagnóstico detallado del funcionamiento real frente a simuladores, clasificación de las 6 áreas clave (Autenticación, Persistencia, Sincronización, Trabajos Cloud, Renderizado y Capacitor) y respuesta directa a las 9 preguntas clave del proyecto.
+
 ## [2.0.0] - Implementación Cloud-First y Desarrollo del Capítulo 2
 ### Añadido
 - **Arquitectura Cloud-First & Multiplataforma**: Documentación de arquitectura (`docs/CLOUD_ARCHITECTURE.md`), modelo de seguridad RLS (`docs/SECURITY_MODEL.md`) y guía de despliegue (`docs/DEPLOYMENT_GUIDE.md`).
