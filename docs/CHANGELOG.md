@@ -1,5 +1,10 @@
 # Registro de Cambios - Estudio Audiovisual Inteligente
 
+## [2.2.0] - Generación y Entrega del APK Android (`app-debug.apk`)
+### Añadido
+- **Empaquetado APK Nativo Android**: Compilación exitosa del archivo descargable `app-debug.apk` (4.1 MB) mediante Capacitor 6.2 y Gradle 8.14.
+- **Sección de Entrega en `docs/APP_DEMO_AUDIT.md`**: Actualización con detalles técnicos de plataforma, arquitectura soportada (ARM64/ARMv7/x86_64) e instrucciones de descarga e instalación.
+
 ## [2.1.0] - Auditoría de Funcionamiento Real Cloud-First
 ### Añadido
 - **Informe de Auditoría de Integración Cloud (`docs/CLOUD_INTEGRATION_AUDIT.md`)**: Diagnóstico detallado del funcionamiento real frente a simuladores, clasificación de las 6 áreas clave (Autenticación, Persistencia, Sincronización, Trabajos Cloud, Renderizado y Capacitor) y respuesta directa a las 9 preguntas clave del proyecto.

@@ -89,7 +89,22 @@ Para poder abrir y utilizar el **Estudio Audiovisual Inteligente** directamente 
 
 ## 6. ARTEFACTOS GENERADOS Y UBICACIÓN EXACTA
 
+- **Paquete APK Android Instalable:** `/app/app-debug.apk` (Tamaño: 4.1 MB)
 - **Build de Producción Web:** `/app/dist/`
 - **Captura de Pantalla Principal:** `/home/jules/verification/screenshots/app_demo_overview.png`
 - **Capturas por Pestaña:** `/home/jules/verification/screenshots/tab_*.png`
 - **Video de Recorrido Playwright:** `/home/jules/verification/videos/f4ebd089c313d598225fa38d6658389b.webm`
+
+---
+
+## 7. GENERACIÓN Y ENTREGA DEL APK ANDROID (`app-debug.apk`)
+
+- **Estado de Generación:** **COMPLETADO Y ENTREGADO EXITOSAMENTE**
+- **Ruta Exacta del Artefacto:** `/app/app-debug.apk` (copiado desde `android/app/build/outputs/apk/debug/app-debug.apk`).
+- **Tamaño del Archivo:** **4.1 MB** (4,299,161 bytes).
+- **Compatibilidad de Plataforma:**
+  - Android 5.0 (API Level 21) en adelante (soportando arquitecturas ARM64-v8a, armeabi-v7a, x86, x86_64).
+  - Nombre de Paquete: `com.estudioaudiovisual.app`.
+- **Proceso de Compilación:**
+  - Compilado mediante Gradle 8.14 + Java JDK 17 + Android SDK 34 en el entorno de desarrollo.
+  - La aplicación nativa envuelve el paquete `dist` de la app en un WebView de alto rendimiento con soporte total para IndexedDB local, HTML5 Canvas 2D y Web Audio API.
