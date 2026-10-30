@@ -1,5 +1,11 @@
 # Registro de Cambios - Estudio Audiovisual Inteligente
 
+## [1.3.0] - Auditoría Narrativa, Histórica y Audiovisual del Capítulo 1
+### Añadido
+- **Informe de Auditoría Completo (`docs/AUDIT_CHAPTER_01.md`)**: Evaluación del Capítulo 1 ("El problema invisible", 80s) obteniendo una puntuación global integrada de **9.0/10**.
+- **Prueba Real con Playwright**: Renderizado de video WebM de 80s (`bf029341946061e314ca233848657e92.webm`, 1.45 MB, 720p @ 30 FPS) y captura de pantalla `audit_chapter_01.png`.
+- **Evolución del Guion de Cap. 1 (`docs/SCRIPT_CHAPTER_01.md`)**: 5 escenas desglosadas con intenciones visuales, movimientos de cámara y verificación histórica frente a fuentes del CERN y W3C.
+
 ## [1.2.0] - Inicialización del Primer Documental y Cierre de Análisis
 ### Añadido
 - **Proyecto Documental Oficial Preparado**: Proyecto de producción inicializado para *"La primera página web: el comienzo de algo que cambiaría el mundo"* (`src/data/demoProject.ts`).
