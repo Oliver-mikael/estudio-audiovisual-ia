@@ -24,6 +24,23 @@
 - [ ] Módulo Biblioteca Multimedia (subida de recursos, previsualización, licencias).
 
 ## Fase 5: Validación Integral y Pruebas Automáticas
-- [ ] Pruebas unitarias para cálculo de tiempos y parsers de guion.
-- [ ] Verificación de exportación local sin fugas de memoria.
-- [ ] Documentación final y guía de usuario.
+- [x] Pruebas unitarias para cálculo de tiempos y parsers de guion (8 tests pasados).
+- [x] Verificación de exportación local sin fugas de memoria (WebM 720p @ 30 FPS).
+- [x] Documentación final y auditoría técnica completa.
+- [x] Compilación y empaquetado de APK Android (4.1 MB).
+
+## Fase 6: Transformación en Plataforma Cloud-First
+- [x] **Investigación, Diseño y Planificación Maestra (`docs/CLOUD_FIRST_TRANSFORMATION_PLAN.md`):**
+  - Entregable 1: Auditoría de arquitectura actual (real vs. simulado).
+  - Entregable 2: Comparación técnica PWA vs. Capacitor OTA vs. Híbrida.
+  - Entregable 3: Propuesta de arquitectura Cloud-First (Supabase + Workers FFmpeg).
+  - Entregable 4: Sistema de diseño visual profesional y compacto.
+  - Entregable 5: Propuesta de navegación adaptativa (Android vs. Computadora).
+  - Entregable 6: Plan de migración y protección de datos locales.
+  - Entregable 7: Estimación de costes y niveles gratuitos ($0/mes).
+  - Entregable 8: Plan de implementación secuencial por etapas.
+- [ ] **Etapa 6.1:** Rediseño visual compacto y navegación adaptativa.
+- [ ] **Etapa 6.2:** Autenticación de usuarios y perfiles en Supabase.
+- [ ] **Etapa 6.3:** Sincronización remota real y migración de datos IndexedDB.
+- [ ] **Etapa 6.4:** Actualizaciones silenciosas OTA (sin reinstalar APK).
+- [ ] **Etapa 6.5:** Worker cloud de renderizado FFmpeg y tareas asíncronas.

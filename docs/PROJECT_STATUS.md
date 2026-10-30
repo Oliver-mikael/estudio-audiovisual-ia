@@ -1,10 +1,15 @@
 # Estado del Proyecto - Estudio Audiovisual Inteligente
 
-**Última actualización:** Auditoría Técnica de Tamaño de APK Finalizada (`docs/APK_AUDIT.md`)
-**Estado:** APK DEPURACIÓN GENERADO (4.1 MB), ESTRUCTURA DE PAQUETE VERIFICADA Y AUDITADA AL 100%
+**Última actualización:** Fase 6 de Transformación Cloud-First Diseñada (`docs/CLOUD_FIRST_TRANSFORMATION_PLAN.md`)
+**Estado:** PLAN MAESTRO CLOUD-FIRST Y REDISEÑO UI/UX PENDIENTE DE APROBACIÓN
 
 ## Resumen del Estado
-1. **Auditoría Técnica del APK (`docs/APK_AUDIT.md`):**
+1. **Fase 6: Transformación Cloud-First (`docs/CLOUD_FIRST_TRANSFORMATION_PLAN.md`):**
+   - Análisis comparativo exhaustivo: PWA vs. Capacitor OTA (Capgo) vs. Arquitectura Híbrida.
+   - Especificación completa de backend real con Supabase (Auth, Postgres RLS, Storage S3) y Workers FFmpeg independientes.
+   - Nuevo sistema de diseño visual compacto y navegación diferenciada (móvil Android vs escritorio).
+   - Plan de migración no destructiva de IndexedDB y estimación de niveles gratuitos ($0/mes).
+2. **Auditoría Técnica del APK (`docs/APK_AUDIT.md`):**
    - Desglose detallado del APK de 4.1 MB: `classes.dex` (3.07 MB / 78%), `res/` (0.61 MB / 15.6%), `assets/public/` (0.08 MB / 2.0%).
    - Confirmado que el bundle de producción React/Vite en `assets/public/` está completo y optimizado.
    - Diagnóstico confirmado: El tamaño de 4.1 MB es normal, completo y totalmente funcional para una app Capacitor JS.
