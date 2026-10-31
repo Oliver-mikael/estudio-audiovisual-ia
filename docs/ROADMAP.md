@@ -44,3 +44,21 @@
 - [ ] **Etapa 6.3:** Sincronización remota real y migración de datos IndexedDB.
 - [ ] **Etapa 6.4:** Actualizaciones silenciosas OTA (sin reinstalar APK).
 - [ ] **Etapa 6.5:** Worker cloud de renderizado FFmpeg y tareas asíncronas.
+
+## Fase 7: Estudio Híbrido Profesional (Evolución Local-First y Control Creativo)
+- [x] **Fase 7A: Auditoría UX, Benchmarking y Arquitectura del Estudio Híbrido:**
+  - [x] Inspección exhaustiva del código fuente real y diagnóstico funcional (`docs/PHASE_7A_PRODUCT_AUDIT.md`).
+  - [x] Auditoría de experiencia de usuario y oportunidades de mejora (`docs/PHASE_7A_UX_AUDIT.md`).
+  - [x] Benchmarking competitivo oficial: DaVinci Resolve 21, Premiere Pro, Descript, Runway (`docs/PHASE_7A_COMPETITIVE_BENCHMARK.md`).
+  - [x] Mapa de navegación y arquitectura de información de 9 áreas (`docs/PHASE_7A_INFORMATION_ARCHITECTURE.md`).
+  - [x] Sistema de diseño profesional para postproducción audiovisual (`docs/PHASE_7A_DESIGN_SYSTEM.md`).
+  - [x] Estrategia de IA contextual no invasiva y ética socrática (`docs/PHASE_7A_AI_EXPERIENCE.md`).
+  - [x] Arquitectura de producción y solución de audio Web Audio API (`docs/PHASE_7A_PRODUCTION_ARCHITECTURE.md`).
+  - [x] Hoja de ruta maestra y priorización P0 a P3 (`docs/PHASE_7A_MASTER_ROADMAP.md`).
+  - [x] Registro de decisiones arquitectónicas y mitigación de riesgos (`docs/PHASE_7A_DECISION_REGISTER.md`).
+- [ ] **Fase 7B:** Sistema de Navegación Unificada, Barra de Estado Global y Responsive Layout.
+- [ ] **Fase 7C:** Timeline Multipista y Sincronización Narrativa Guion-Video.
+- [ ] **Fase 7D:** Motor de Audio Híbrido Web Audio API y Locución Grabable.
+- [ ] **Fase 7E:** Biblioteca de Medios Inteligente (Bins, Previsualización y Vinculación Dinámica).
+- [ ] **Fase 7F:** Asistencia IA Contextual Profunda y Auditoría de Coherencia.
+- [ ] **Fase 7G:** Optimización de Renderizado, Exportación Multiformato y Validación Integral en Android.
