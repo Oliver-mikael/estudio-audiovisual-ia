@@ -12,11 +12,14 @@ import { StoryboardModule } from './modules/StoryboardModule';
 import { MediaLibraryModule } from './modules/MediaLibraryModule';
 import { HomeDashboard } from './modules/HomeDashboard';
 import { downloadProjectEAI } from './services/storage/projectBackup';
-import { Home, Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw, Smartphone, DownloadCloud } from 'lucide-react';
+import { AIAssistantDrawer } from './components/AIAssistantDrawer';
+import { Home, Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw, Smartphone, DownloadCloud, Sparkles } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<Project>(DEMO_PROJECT);
   const [activeTab, setActiveTab] = useState<'home' | 'ideas' | 'research' | 'script' | 'storyboard' | 'media'>('home');
+  const [isAIDrawerOpen, setIsAIDrawerOpen] = useState(false);
+  const [activeAssistantSceneId, setActiveAssistantSceneId] = useState<string | undefined>(undefined);
 
   // Export state
   const [isExporting, setIsExporting] = useState(false);
@@ -86,6 +89,15 @@ export const App: React.FC = () => {
           >
             <DownloadCloud className="w-3.5 h-3.5 text-indigo-400" />
             <span className="hidden sm:inline">Copia .eai</span>
+          </button>
+
+          <button
+            onClick={() => setIsAIDrawerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-xs rounded-lg shadow-md shadow-purple-600/20 transition-all"
+            title="Abrir Asistente Central de Inteligencia Artificial (Fase 6C)"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Asistente IA</span>
           </button>
 
           <a
@@ -266,14 +278,58 @@ export const App: React.FC = () => {
                 onOpenProjectEditor={() => setActiveTab('script')}
               />
             )}
-            {activeTab === 'ideas' && <IdeaLab project={project} onUpdateProject={handleUpdateProject} />}
-            {activeTab === 'research' && <ResearchModule project={project} onUpdateProject={handleUpdateProject} />}
-            {activeTab === 'script' && <ScriptWorkshop project={project} onUpdateProject={handleUpdateProject} />}
-            {activeTab === 'storyboard' && <StoryboardModule project={project} />}
-            {activeTab === 'media' && <MediaLibraryModule project={project} onUpdateProject={handleUpdateProject} />}
+            {activeTab === 'ideas' && (
+              <IdeaLab
+                project={project}
+                onUpdateProject={handleUpdateProject}
+                onNavigateToScript={() => setActiveTab('script')}
+              />
+            )}
+            {activeTab === 'research' && (
+              <ResearchModule project={project} onUpdateProject={handleUpdateProject} />
+            )}
+            {activeTab === 'script' && (
+              <ScriptWorkshop
+                project={project}
+                onUpdateProject={handleUpdateProject}
+                onRequestAIAssist={(sceneId) => {
+                  setActiveAssistantSceneId(sceneId);
+                  setIsAIDrawerOpen(true);
+                }}
+              />
+            )}
+            {activeTab === 'storyboard' && (
+              <StoryboardModule
+                project={project}
+                onUpdateProject={handleUpdateProject}
+              />
+            )}
+            {activeTab === 'media' && (
+              <MediaLibraryModule project={project} onUpdateProject={handleUpdateProject} />
+            )}
           </div>
         </div>
       </div>
+
+      {/* Global AI Assistant Drawer */}
+      <AIAssistantDrawer
+        isOpen={isAIDrawerOpen}
+        onClose={() => setIsAIDrawerOpen(false)}
+        project={project}
+        currentSceneId={activeAssistantSceneId}
+        onApplyResult={(task, data) => {
+          if (task === 'EXPAND_SCENE_NARRATION' && data?.expandedNarration && activeAssistantSceneId) {
+            const updatedScenes = project.script.scenes.map((s) =>
+              s.id === activeAssistantSceneId ? { ...s, narrationText: data.expandedNarration } : s
+            );
+            handleUpdateProject({
+              ...project,
+              script: { ...project.script, scenes: updatedScenes },
+            });
+            setIsAIDrawerOpen(false);
+          }
+        }}
+      />
     </div>
   );
 };

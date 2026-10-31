@@ -2,7 +2,7 @@
 
 **Fecha de actualización:** 31 de Octubre de 2026
 **Rama activa de trabajo:** `development` (protegida y desacoplada de `main`)
-**Compromiso de integridad:** 100% de funcionalidades preservadas, APK original de 4.1 MB intacto, 17/17 pruebas pasando.
+**Compromiso de integridad:** 100% de funcionalidades preservadas, APK original de 4.1 MB intacto, 26/26 pruebas pasando.
 
 ---
 
@@ -40,6 +40,17 @@
    - Selector de tema (`dark`, `light`, `auto`) con persistencia en `localStorage`.
    - Compatibilidad total con viewport móvil y desktop.
 
+7. **Motor de IA Modular y Asistencia Bidireccional (Fase 6C):**
+   - Arquitectura desacoplada multi-proveedor (`offline-heuristic`, `gemini-free`, `openai-compatible`).
+   - 100% operativo offline con costo $0 en modo heurístico nativo.
+   - Aislamiento estricto de credenciales en `sessionStorage` (sin fugas en disco, repo ni backups).
+   - Laboratorio de ideas: generación de ángulos críticos contextuales y promoción instantánea a escena.
+   - Taller de guion: métricas de cadencia (palabras por segundo), auditoría de ritmo y expansiones no destructivas con historial automático de versiones.
+   - Diagnóstico de evidencias y balance de hechos/hipótesis en módulo de investigación.
+   - Recomendaciones cinematográficas de cámara y transición en Storyboard.
+   - Etiquetado semántico inteligente en Biblioteca Multimedia.
+   - Panel global flotante `AIAssistantDrawer` con contexto integral inyectado.
+
 ---
 
 ## 2. Contenido Documental Integrado
@@ -51,7 +62,7 @@
 
 ## 3. Estado de Pruebas y Cobertura
 
-- Pruebas unitarias: 17/17 superadas (100% de éxito en Vitest).
+- Pruebas unitarias: 26/26 superadas (100% de éxito en Vitest, 5 suites de pruebas).
 - Compilación TypeScript: 0 errores (`npx tsc --noEmit`).
 - Bundle de producción: Generado exitosamente (`npm run build`).
-- Pruebas visuales Playwright: Verificadas y capturadas en modo claro, oscuro y móvil.
+- Pruebas visuales Playwright: Verificadas y capturadas en modo claro, oscuro, asistente IA y vistas modulares rediseñadas.

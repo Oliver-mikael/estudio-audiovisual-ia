@@ -4,6 +4,34 @@ Todos los cambios notables realizados en el proyecto quedan registrados en este 
 
 ---
 
+## [Fase 6C] - 2026-10-31
+
+### Agregado
+- **Motor de IA Modular y Desacoplado (`src/services/ai/aiEngine.ts`, `types.ts`):**
+  - Soporte multi-proveedor sin dependencias de pago obligatorias: `offline-heuristic` ($0/mes, local determinista), `gemini-free` (Google Gemini 1.5 Flash Free Tier) y `openai-compatible` (Groq/Ollama/OpenAI).
+  - Aislamiento estricto de claves API en `sessionStorage` (sin fugas en disco, repo ni paquetes de respaldo `.eai`).
+  - Soporte para cancelación mediante `AbortController` y seguimiento de progreso.
+- **Asistente Global Flotante (`src/components/AIAssistantDrawer.tsx`):**
+  - Panel lateral deslizable para interacciones asistidas con inyección automática del estado completo del proyecto activo.
+- **Rediseño e Integración Bidireccional en Módulos de Estudio:**
+  - `IdeaLab.tsx`: Generación de ángulos críticos contextuales y promoción instantánea a escena en guion ("A Guion").
+  - `ScriptWorkshop.tsx`: Auditoría de cadencia/ritmo, cálculo de palabras por segundo, expansión con IA e historial de versiones no destructivo ("Antes de expansión IA").
+  - `ResearchModule.tsx`: Diagnóstico automático de evidencias y balance de hechos/interpretaciones/hipótesis.
+  - `StoryboardModule.tsx`: Recomendaciones automáticas de movimientos de cámara y transiciones según la densidad de texto.
+  - `MediaLibraryModule.tsx`: Etiquetado semántico inteligente para assets.
+- **Batería de Pruebas Unitarias de IA (`src/__tests__/aiEngine.test.ts`):**
+  - 9 pruebas unitarias exhaustivas elevando el total a 26 pruebas pasando al 100% en Vitest.
+- **Documentación Completa:**
+  - `docs/PHASE_6_UX_AUDIT.md`: Auditoría de componentes de IA existentes (Categorías A, B, C, D).
+  - `docs/PHASE_6_UX_BENCHMARK.md`: Análisis comparativo frente a Linear, Figma, Descript y DaVinci Resolve.
+  - `docs/PHASE_6_DESIGN_SYSTEM_REPORT.md`: Sistema de diseño consolidado (paleta, tipografía, ergonomía pro).
+  - `docs/PHASE_6C_PROVIDER_COMPARISON.md`: Comparativa técnica y económica de proveedores de IA.
+  - `docs/PHASE_6C_AI_ARCHITECTURE.md`: Diagrama y flujos arquitectónicos del subsistema de IA.
+  - `docs/PHASE_6C_AI_IMPLEMENTATION_REPORT.md`: Reporte de implementación técnica.
+  - `docs/PHASE_6_PRODUCT_ACCEPTANCE_REPORT.md`: Reporte de aceptación final de producto.
+
+---
+
 ## [Fase 6A & 6B] - 2026-10-31
 
 ### Agregado
