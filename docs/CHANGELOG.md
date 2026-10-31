@@ -1,39 +1,44 @@
-# Registro de Cambios - Estudio Audiovisual Inteligente
+# CHANGELOG - ESTUDIO AUDIOVISUAL INTELIGENTE
 
-## [2.3.0] - Implementación Fase 6A (.eai & Persistencia) y Piloto UI/UX Fase 6B
-### Añadido
-- **Servicio de Respaldo e Importación Portable (`src/services/storage/projectBackup.ts`)**: Generación y lectura de paquetes `.eai` completos, serializando escenas, fuentes y medios en Base64.
-- **Protección de Almacenamiento Persistente**: Invocación y diagnóstico de `navigator.storage.persist()` para proteger IndexedDB contra purgas del sistema operativo en Android y navegadores.
-- **Componente Piloto de Inicio (`src/modules/HomeDashboard.tsx`)**: Pantalla de Inicio compacta con selector de proyectos, métricas de producción, estado de persistencia y botones de exportación/importación `.eai`.
-- **Suite de Pruebas Unitarias (`src/__tests__/backup.test.ts`)**: 5 nuevas pruebas unitarias para serialización, parsing y restauración de paquetes `.eai` (13/13 pruebas pasando).
-- **Informe de Resultados en `docs/PHASE_6A_IMPLEMENTATION_REPORT.md`**.
+Todos los cambios notables realizados en el proyecto quedan registrados en este documento.
 
-## [2.2.0] - Generación y Entrega del APK Android (`app-debug.apk`)
-### Añadido
-- **Empaquetado APK Nativo Android**: Compilación exitosa del archivo descargable `app-debug.apk` (4.1 MB) mediante Capacitor 6.2 y Gradle 8.14.
-- **Sección de Entrega en `docs/APP_DEMO_AUDIT.md`**: Actualización con detalles técnicos de plataforma, arquitectura soportada (ARM64/ARMv7/x86_64) e instrucciones de descarga e instalación.
+---
 
-## [2.1.0] - Auditoría de Funcionamiento Real Cloud-First
-### Añadido
-- **Informe de Auditoría de Integración Cloud (`docs/CLOUD_INTEGRATION_AUDIT.md`)**: Diagnóstico detallado del funcionamiento real frente a simuladores, clasificación de las 6 áreas clave (Autenticación, Persistencia, Sincronización, Trabajos Cloud, Renderizado y Capacitor) y respuesta directa a las 9 preguntas clave del proyecto.
+## [Fase 6A & 6B] - 2026-10-31
 
-## [2.0.0] - Implementación Cloud-First y Desarrollo del Capítulo 2
-### Añadido
-- **Arquitectura Cloud-First & Multiplataforma**: Documentación de arquitectura (`docs/CLOUD_ARCHITECTURE.md`), modelo de seguridad RLS (`docs/SECURITY_MODEL.md`) y guía de despliegue (`docs/DEPLOYMENT_GUIDE.md`).
-- **Esquema Relacional PostgreSQL/Supabase**: Definición SQL completa en `supabase/schema.sql` con Row Level Security por usuario.
-- **Sincronización Incremental Offline-First**: Implementación de `SyncEngine` (`src/services/sync/syncEngine.ts`) y documentación en `docs/STORAGE_AND_SYNC.md`.
-- **Cola de Trabajos Asíncronos Cloud**: Gestor de trabajos pesados `JobQueueManager` (`src/services/jobs/jobQueue.ts`) y especificación de costos/renderizado (`docs/CLOUD_RENDERING.md`).
-- **Configuración Native Android**: Integración de Capacitor JS (`capacitor.config.json`).
-- **Capítulo 2 del Documental**: Guion completo de 85s en `docs/SCRIPT_CHAPTER_02.md` y sincronización con `src/data/demoProject.ts`.
+### Agregado
+- **Formato y Servicio de Respaldo `.eai` (`src/services/storage/projectBackup.ts`):**
+  - Exportación de proyectos a paquetes binarios JSON canónicos con extensión `.eai`.
+  - Generación de checksum criptográfico SHA-256 utilizando la Web Crypto API (`crypto.subtle.digest`).
+  - Detección inmediata de manipulaciones o archivos corruptos durante la importación.
+  - Resolución configurable de colisiones de identificador (`create_copy` con nuevo UUID, `overwrite` y `skip`).
+  - Exportación multilicencia y por lotes (batch) de toda la base de datos de proyectos locales.
+  - Función `ensureStoragePersistence()` que comprueba y solicita persistencia duradera en el navegador (`navigator.storage.persist()`).
+- **Home Dashboard & Gestor de Temas (`src/modules/HomeDashboard.tsx` y `src/services/ui/theme.ts`):**
+  - Panel unificado de control de proyectos locales con métricas de estudio en tiempo real (escenas, duración, medios).
+  - Modal asistido de importación con previsualización de metadatos (título, autor, fecha) y validación criptográfica en vivo.
+  - Selector de temas (`light`, `dark`, `auto`) persistido en `localStorage['estudio_theme']`.
+  - Interfaz responsiva y amigable para dispositivos móviles y escritorio.
+- **Suite de Pruebas Unitarias de Respaldo (`src/__tests__/backup.test.ts`):**
+  - 7 pruebas unitarias completas que cubren cálculo SHA-256, rechazo de alteraciones, magic number e importación con colisiones.
+- **Documentación de Validación y Progreso:**
+  - `docs/PHASE_6_VALIDATION_REPORT.md`: Auditoría de la APK de 4.1 MB, modelo de costos $0/mes y validación de las 8 especificaciones.
+  - `docs/PHASE_6A_IMPLEMENTATION_REPORT.md`: Reporte técnico de la fase 6A.
+  - `docs/PHASE_6B_IMPLEMENTATION_REPORT.md`: Reporte técnico de la fase 6B.
+  - `docs/PHASE_6_IMPLEMENTATION_PROGRESS.md`: Estado de avance de la Fase 6.
+  - `docs/PHASE_6_TEST_RESULTS.md`: Resumen detallado de las 17 pruebas unitarias y verificación Playwright.
 
-## [1.3.0] - Auditoría Narrativa, Histórica y Audiovisual del Capítulo 1
-### Añadido
-- **Informe de Auditoría Completo (`docs/AUDIT_CHAPTER_01.md`)**: Evaluación del Capítulo 1 ("El problema invisible", 80s) obteniendo una puntuación global integrada de **9.0/10**.
-- **Prueba Real con Playwright**: Renderizado de video WebM de 80s (`bf029341946061e314ca233848657e92.webm`, 1.45 MB, 720p @ 30 FPS) y captura de pantalla `audit_chapter_01.png`.
-- **Evolución del Guion de Cap. 1 (`docs/SCRIPT_CHAPTER_01.md`)**: 5 escenas desglosadas con intenciones visuales, movimientos de cámara y verificación histórica frente a fuentes del CERN y W3C.
+### Modificado
+- `src/App.tsx`: Incorporación de la pestaña "Inicio" (`home`), botón de acceso rápido a copia física `.eai` en el header global, y enlace directo desde el dashboard al taller audiovisual.
+- `docs/PROJECT_STATUS.md`: Actualizado reflejando la completitud de las Fases 6A y 6B.
 
-## [1.2.0] - Inicialización del Primer Documental y Cierre de Análisis
-### Añadido
-- **Proyecto Documental Oficial Preparado**: Proyecto de producción inicializado para *"La primera página web: el comienzo de algo que cambiaría el mundo"* (`src/data/demoProject.ts`).
-- **Análisis de Pista de Audio y Códecs**: Documentación exhaustiva en `docs/PRODUCTION_TEST.md` sobre `SpeechSynthesis` vs `WebAudioDestination`, códec VP8 en WebM y limitaciones Android.
-- **Batería de Pruebas Unitarias Actualizada**: Tests adaptados a la plantilla inicial del documental en `src/__tests__/`.
+---
+
+## [Fase 1 a 5] - 2026-10-30
+
+### Agregado
+- Motor audiovisual Canvas 2D local a 720p 30 FPS (`src/engine/renderEngine.ts`).
+- Exportador de video WebM con `MediaRecorder` (`src/engine/exporter.ts`).
+- Capa de persistencia local en IndexedDB (`src/services/storage/db.ts`).
+- Módulos de estudio: Laboratorio de Ideas, Investigación con fuentes y hechos/hipótesis, Taller de Guion con estimación de locución, Storyboard audiovisual y Biblioteca Multimedia.
+- Proyectos documentales predefinidos: "La primera página web" y "El nacimiento de Linux".

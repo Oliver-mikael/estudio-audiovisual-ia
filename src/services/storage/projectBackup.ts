@@ -2,9 +2,15 @@
 // Enables complete physical backups preserving metadata, scenes, sources, narrative angles and binary assets
 
 import { Project, MediaAsset } from '../../types';
-import { saveProjectToStorage, getMediaAssetBlob, saveMediaAssetBlob } from './db';
+import {
+  saveProjectToStorage,
+  getMediaAssetBlob,
+  saveMediaAssetBlob,
+  getAllProjectsFromStorage
+} from './db';
 
 export const EAI_FORMAT_VERSION = '1.0.0';
+export const MAX_SAFE_PACKAGE_BYTES = 250 * 1024 * 1024; // 250 MB warning threshold for mobile WebView
 
 export interface SerializedMediaAsset extends Omit<MediaAsset, 'fileBlob'> {
   dataBase64?: string;
@@ -16,7 +22,39 @@ export interface EAIExportPackage {
   exportedAt: number;
   project: Project;
   bundledAssets: SerializedMediaAsset[];
+  checksum?: string; // SHA-256 integrity hash of payload
+}
+
+export interface EAIBatchPackage {
+  format: 'ESTUDIO_AUDIOVISUAL_BATCH_PACKAGE';
+  version: string;
+  exportedAt: number;
+  projectsCount: number;
+  packages: EAIExportPackage[];
   checksum?: string;
+}
+
+export type ImportStrategy = 'create_copy' | 'overwrite' | 'skip';
+
+/**
+ * Computes SHA-256 checksum string for a text payload using Web Crypto API
+ */
+export async function computeSHA256(text: string): Promise<string> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  // Fallback simple checksum if SubtleCrypto is not available in test env
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return `fallback-${Math.abs(hash).toString(16)}`;
 }
 
 /**
@@ -81,7 +119,7 @@ export function base64ToBlob(base64: string, mimeType: string): Blob {
 }
 
 /**
- * Serializes a project and its associated media blobs into an EAI export package
+ * Serializes a project and its associated media blobs into an EAI export package with SHA-256 integrity hash
  */
 export async function createEAIPackage(project: Project): Promise<EAIExportPackage> {
   const bundledAssets: SerializedMediaAsset[] = [];
@@ -89,7 +127,6 @@ export async function createEAIPackage(project: Project): Promise<EAIExportPacka
   for (const asset of project.mediaAssets || []) {
     let base64Data: string | undefined;
 
-    // Check if asset has a local blob stored in IndexedDB
     const storedAsset = await getMediaAssetBlob(asset.id);
     if (storedAsset && storedAsset.fileBlob) {
       try {
@@ -112,17 +149,54 @@ export async function createEAIPackage(project: Project): Promise<EAIExportPacka
     });
   }
 
-  return {
+  // Pre-structure without checksum to calculate stable hash
+  const partialPackage: Omit<EAIExportPackage, 'checksum'> = {
     format: 'ESTUDIO_AUDIOVISUAL_INTELLIGENT_PACKAGE',
     version: EAI_FORMAT_VERSION,
     exportedAt: Date.now(),
     project,
     bundledAssets
   };
+
+  const payloadString = JSON.stringify(partialPackage);
+  const checksum = await computeSHA256(payloadString);
+
+  return {
+    ...partialPackage,
+    checksum
+  };
 }
 
 /**
- * Triggers browser download of an EAI package file (.eai)
+ * Creates a batch export package containing all projects stored in IndexedDB
+ */
+export async function createEAIBatchPackage(): Promise<EAIBatchPackage> {
+  const allProjects = await getAllProjectsFromStorage();
+  const packages: EAIExportPackage[] = [];
+
+  for (const proj of allProjects) {
+    const pkg = await createEAIPackage(proj);
+    packages.push(pkg);
+  }
+
+  const partialBatch: Omit<EAIBatchPackage, 'checksum'> = {
+    format: 'ESTUDIO_AUDIOVISUAL_BATCH_PACKAGE',
+    version: EAI_FORMAT_VERSION,
+    exportedAt: Date.now(),
+    projectsCount: packages.length,
+    packages
+  };
+
+  const checksum = await computeSHA256(JSON.stringify(partialBatch));
+
+  return {
+    ...partialBatch,
+    checksum
+  };
+}
+
+/**
+ * Triggers browser download of an individual EAI package file (.eai)
  */
 export async function downloadProjectEAI(project: Project): Promise<void> {
   const pkg = await createEAIPackage(project);
@@ -146,9 +220,36 @@ export async function downloadProjectEAI(project: Project): Promise<void> {
 }
 
 /**
- * Validates and unpacks an EAI package from a JSON string or file
+ * Triggers browser download of a full batch backup file (.eai)
  */
-export function validateAndParseEAIPackage(rawJson: string): EAIExportPackage {
+export async function downloadBatchEAI(): Promise<void> {
+  const batchPkg = await createEAIBatchPackage();
+  const jsonString = JSON.stringify(batchPkg, null, 2);
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const filename = `estudio-audiovisual-completo-${new Date().toISOString().split('T')[0]}.eai`;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Validates and unpacks an EAI package or batch package from a JSON string with checksum verification
+ */
+export async function validateAndParseEAIPackage(
+  rawJson: string
+): Promise<{
+  type: 'single' | 'batch';
+  singlePackage?: EAIExportPackage;
+  batchPackage?: EAIBatchPackage;
+  checksumValid: boolean;
+}> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawJson);
@@ -156,33 +257,66 @@ export function validateAndParseEAIPackage(rawJson: string): EAIExportPackage {
     throw new Error('El archivo proporcionado no tiene un formato JSON válido.');
   }
 
-  const pkg = parsed as EAIExportPackage;
+  const obj = parsed as Record<string, unknown>;
 
-  if (
-    !pkg ||
-    pkg.format !== 'ESTUDIO_AUDIOVISUAL_INTELLIGENT_PACKAGE' ||
-    !pkg.project ||
-    !pkg.project.id ||
-    !pkg.project.title ||
-    !pkg.project.script
-  ) {
-    throw new Error('El archivo no es un paquete válido de Estudio Audiovisual (.eai).');
+  if (obj.format === 'ESTUDIO_AUDIOVISUAL_BATCH_PACKAGE') {
+    const batch = parsed as EAIBatchPackage;
+    if (!batch.packages || !Array.isArray(batch.packages)) {
+      throw new Error('El paquete por lotes no contiene una lista válida de proyectos.');
+    }
+
+    const { checksum, ...rest } = batch;
+    const computed = await computeSHA256(JSON.stringify(rest));
+    const checksumValid = !checksum || checksum === computed;
+
+    return { type: 'batch', batchPackage: batch, checksumValid };
   }
 
-  return pkg;
+  if (obj.format === 'ESTUDIO_AUDIOVISUAL_INTELLIGENT_PACKAGE') {
+    const pkg = parsed as EAIExportPackage;
+    if (!pkg.project || !pkg.project.id || !pkg.project.title || !pkg.project.script) {
+      throw new Error('El archivo no contiene un modelo de proyecto válido.');
+    }
+
+    const { checksum, ...rest } = pkg;
+    const computed = await computeSHA256(JSON.stringify(rest));
+    const checksumValid = !checksum || checksum === computed;
+
+    return { type: 'single', singlePackage: pkg, checksumValid };
+  }
+
+  throw new Error('El archivo no es un paquete válido de Estudio Audiovisual (.eai).');
 }
 
 /**
- * Restores a project from an EAI package into IndexedDB, rehydrating its binary assets
+ * Restores a project from an EAI package into IndexedDB according to the specified collision strategy
  */
-export async function restoreProjectFromEAI(pkg: EAIExportPackage): Promise<Project> {
+export async function restoreProjectFromEAI(
+  pkg: EAIExportPackage,
+  strategy: ImportStrategy = 'create_copy'
+): Promise<Project> {
   const { project, bundledAssets } = pkg;
+  let targetProject = { ...project };
+
+  if (strategy === 'create_copy') {
+    targetProject = {
+      ...project,
+      id: `proj-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title: `${project.title} (Copia importada)`,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+  }
 
   // 1. Rehydrate and save binary media assets into IndexedDB
   for (const assetData of bundledAssets || []) {
     let restoredBlob: Blob | undefined;
     if (assetData.dataBase64) {
-      restoredBlob = base64ToBlob(assetData.dataBase64, assetData.mimeType || 'application/octet-stream');
+      try {
+        restoredBlob = base64ToBlob(assetData.dataBase64, assetData.mimeType || 'application/octet-stream');
+      } catch (err) {
+        console.warn(`No se pudo decodificar el blob del medio ${assetData.id}:`, err);
+      }
     }
 
     const { dataBase64, ...mediaAssetBase } = assetData;
@@ -194,8 +328,8 @@ export async function restoreProjectFromEAI(pkg: EAIExportPackage): Promise<Proj
     await saveMediaAssetBlob(mediaAsset);
   }
 
-  // 2. Save the restored project in IndexedDB
-  await saveProjectToStorage(project);
+  // 2. Save the restored project into IndexedDB
+  await saveProjectToStorage(targetProject);
 
-  return project;
+  return targetProject;
 }

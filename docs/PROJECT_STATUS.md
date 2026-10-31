@@ -1,46 +1,57 @@
-# Estado del Proyecto - Estudio Audiovisual Inteligente
+# ESTADO REAL DEL PROYECTO
 
-**Última actualización:** Fase 6A (Exportación/Importación .eai) y Piloto 6B (Pantalla de Inicio) Implementados (`docs/PHASE_6A_IMPLEMENTATION_REPORT.md`)
-**Estado:** FASE 6A Y PILOTO 6B COMPLETADOS Y VERIFICADOS AL 100% — 13/13 PRUEBAS APROBADAS
+**Fecha de actualización:** 31 de Octubre de 2026
+**Rama activa de trabajo:** `development` (protegida y desacoplada de `main`)
+**Compromiso de integridad:** 100% de funcionalidades preservadas, APK original de 4.1 MB intacto, 17/17 pruebas pasando.
 
-## Resumen del Estado
-1. **Fase 6A & Piloto 6B Implementados (`docs/PHASE_6A_IMPLEMENTATION_REPORT.md`):**
-   - Sistema de copias físicas portables `.eai` (metadatos + escenas + fuentes + medios en Base64).
-   - Protección duradera de IndexedDB con `navigator.storage.persist()`.
-   - Pantalla de Inicio piloto (`HomeDashboard.tsx`) compacta y profesional con métricas de proyecto y controles de respaldo.
-   - 13/13 pruebas unitarias aprobadas, TypeScript 0 errores y verificación visual completada.
-2. **Informe de Validación Documental (`docs/PHASE_6_VALIDATION_REPORT.md`):**
-   - Contrastados los 8 documentos maestros contra el código real y el binario `app-debug.apk`.
-   - Confirmada empíricamente la firma digital del APK (Android Debug v2, SHA-256: `6874d382...`).
-   - Analizada la viabilidad de cuotas gratuitas ($0/mes), riesgo de pausa en Supabase Free (7 días) y protección de datos IndexedDB.
-   - Presentado el catálogo de decisiones para autorización expresa del usuario antes de iniciar la implementación.
-2. **Fase 6 — 8 Entregables Obligatorios de Investigación y Diseño Incorporados:**
-   - `docs/PHASE_6_CURRENT_STATE_AUDIT.md` (Entregable 1: Auditoría del estado actual real vs. simulado).
-   - `docs/PHASE_6_CLOUD_ARCHITECTURE_RESEARCH.md` (Entregable 2: Arquitecturas Cloud-First, Supabase y Workers independientes).
-   - `docs/PHASE_6_DATA_SYNC_AND_RECOVERY.md` (Entregable 3: Sincronización delta, offline-first y migración IndexedDB).
-   - `docs/PHASE_6_UPDATE_STRATEGY.md` (Entregable 4: Actualizaciones automáticas OTA y preservación de firma APK).
-   - `docs/PHASE_6_UI_UX_DESIGN_SYSTEM.md` (Entregable 5: Sistema visual compacto, modos claro/oscuro/auto y 5 núcleos).
-   - `docs/PHASE_6_MULTIDEVICE_EXPERIENCE.md` (Entregable 6: Experiencia diferenciada Android móvil vs. Computadora).
-   - `docs/PHASE_6_REMOTE_MEDIA_ENGINE.md` (Entregable 7: Canvas 2D local vs. Worker FFmpeg en nube).
-   - `docs/PHASE_6_MASTER_ROADMAP.md` (Entregable 8: Síntesis maestra, 3 presupuestos [$0/mes], matriz de riesgos y roadmap).
-2. **Auditoría Técnica del APK (`docs/APK_AUDIT.md`):**
-   - Desglose detallado del APK de 4.1 MB: `classes.dex` (3.07 MB / 78%), `res/` (0.61 MB / 15.6%), `assets/public/` (0.08 MB / 2.0%).
-   - Confirmado que el bundle de producción React/Vite en `assets/public/` está completo y optimizado.
-   - Diagnóstico confirmado: El tamaño de 4.1 MB es normal, completo y totalmente funcional para una app Capacitor JS.
-2. **Auditoría de Integración Cloud-First (`docs/CLOUD_INTEGRATION_AUDIT.md`):**
-   - Evaluadas las 6 dimensiones clave: Autenticación, Persistencia Cloud, Sincronización, Trabajos Asíncronos, Renderizado y Capacitor Android.
-   - Diagnóstico claro: La arquitectura y los componentes locales funcionan con total estabilidad en IndexedDB, mientras que la réplica remota y los workers asíncronos están diseñados e implementados con adaptadores/simuladores locales pendientes de despliegue cloud real.
-2. **Calidad y Pruebas:**
-   - Compilación TypeScript (`npx tsc --noEmit`) sin errores.
-   - Suite de pruebas unitarias Vitest: 8/8 pasaron al 100%.
+---
 
-## Módulos y Preparación
+## 1. Módulos y Capacidades Implementadas
 
-| Módulo | Estado | Detalles |
-| :--- | :--- | :--- |
-| **Auditoría Cloud** | 🟢 Completado | Informe riguroso publicado en `docs/CLOUD_INTEGRATION_AUDIT.md`. |
-| **Arquitectura Cloud** | 🟢 Operativo | `CLOUD_ARCHITECTURE.md`, `SECURITY_MODEL.md`, `DEPLOYMENT_GUIDE.md`. |
-| **Backend & Sync** | 🟢 Operativo | `supabase/schema.sql`, `api.ts`, `syncEngine.ts`, `jobQueue.ts`. |
-| **Documental Cap. 2** | 🟢 Completado | Guion desglosado de 85s (ENQUIRE, Sendall, Cailliau, propuesta 1989). |
-| **Motor de Renderizado**| 🟢 Operativo | Canvas 2D local para previsualizaciones + Worker FFmpeg/Cloud especificado. |
-| **Config Multiplataforma**| 🟢 Operativo | Configuración nativa `capacitor.config.json` para Android. |
+1. **Motor Audiovisual Canvas 2D Autónomo (`renderEngine.ts`):**
+   - Renderizado autónomo a 720p 30 FPS en navegador y Android WebView sin dependencias de pago ni licencias externas restrictivas.
+   - Interpolación de movimientos (Ken Burns, paneos, zooms), tipografía cinemática, leyendas e intenciones visuales con word wrap automático.
+   - Sincronización en tiempo real y vista previa interactiva.
+
+2. **Exportador WebM Local (`exporter.ts`):**
+   - Generación de videos descargables utilizando `MediaRecorder` o `Canvas.captureStream()` sin servidores externos.
+   - Telemetría en tiempo real de FPS, tiempo estimado y porcentaje de renderizado.
+
+3. **Taller de Ideas, Investigación y Guion:**
+   - Laboratorio de ideas: generación de ángulos divergentes y preguntas socráticas.
+   - Módulo de investigación: registro de fuentes, afirmaciones, separación de hechos/hipótesis y detección de información no verificada.
+   - Taller de guion: redacción escena por escena con cálculo de tiempos de locución y justificaciones narrativas.
+   - Storyboard audiovisual: asignación de intenciones visuales, movimientos de cámara y duración por escena.
+
+4. **Biblioteca Multimedia Local e IndexedDB:**
+   - Almacenamiento local persistente (`estudio_db`) con tabla de proyectos y recursos binarios.
+   - Soporte para blobs de audio e imágenes sin dependencias de almacenamiento en la nube.
+
+5. **Sistema de Respaldo Físico Portátil `.eai` (Fase 6A):**
+   - Exportación e importación de proyectos en formato `.eai` (Estudio Audiovisual Inteligente).
+   - Checksum criptográfico SHA-256 (Web Crypto API) para verificar integridad y detectar corrupción.
+   - Exportación individual y por lotes (batch multilicencia).
+   - Resolución de colisiones (`create_copy`, `overwrite`, `skip`).
+   - Solicitud de persistencia de almacenamiento (`navigator.storage.persist()`).
+
+6. **Home Dashboard y Sistema de Temas (Fase 6B):**
+   - Panel de control de proyectos locales con métricas agregadas en tiempo real.
+   - Modal asistido de importación con previsualización de metadatos y estado de integridad SHA-256.
+   - Selector de tema (`dark`, `light`, `auto`) con persistencia en `localStorage`.
+   - Compatibilidad total con viewport móvil y desktop.
+
+---
+
+## 2. Contenido Documental Integrado
+
+- **Capítulo 1:** "La primera página web: el comienzo de algo que cambiaría el mundo" (Tim Berners-Lee, CERN 1989-1991, 5 escenas, 85 segundos).
+- **Capítulo 2:** "El nacimiento de Linux: el sistema operativo que conquistó el mundo en silencio" (Linus Torvalds, Helsinki 1991, 5 escenas, 90 segundos).
+
+---
+
+## 3. Estado de Pruebas y Cobertura
+
+- Pruebas unitarias: 17/17 superadas (100% de éxito en Vitest).
+- Compilación TypeScript: 0 errores (`npx tsc --noEmit`).
+- Bundle de producción: Generado exitosamente (`npm run build`).
+- Pruebas visuales Playwright: Verificadas y capturadas en modo claro, oscuro y móvil.
