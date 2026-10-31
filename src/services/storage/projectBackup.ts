@@ -94,14 +94,24 @@ export async function ensureStoragePersistence(): Promise<{
  */
 export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const res = reader.result as string;
-      const base64 = res.includes(',') ? res.split(',')[1] : res;
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+    if (typeof FileReader !== 'undefined') {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const res = reader.result as string;
+        const base64 = res.includes(',') ? res.split(',')[1] : res;
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    } else {
+      // Node.js / non-browser test environment fallback
+      blob.arrayBuffer()
+        .then((buf) => {
+          const buffer = Buffer.from(buf);
+          resolve(buffer.toString('base64'));
+        })
+        .catch(reject);
+    }
   });
 }
 

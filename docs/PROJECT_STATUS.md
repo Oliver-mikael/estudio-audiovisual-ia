@@ -2,7 +2,7 @@
 
 **Fecha de actualización:** 31 de Octubre de 2026
 **Rama activa de trabajo:** `development` (protegida y desacoplada de `main`)
-**Compromiso de integridad:** 100% de funcionalidades preservadas, APK original de 4.1 MB intacto, 26/26 pruebas pasando.
+**Compromiso de integridad:** 100% de funcionalidades preservadas, APK original de 4.1 MB intacto con SHA-256 verificado, 33/33 pruebas pasando (7 suites).
 
 ---
 
@@ -62,7 +62,8 @@
 
 ## 3. Estado de Pruebas y Cobertura
 
-- Pruebas unitarias: 26/26 superadas (100% de éxito en Vitest, 5 suites de pruebas).
+- Pruebas unitarias y de integración: 33/33 superadas (100% de éxito en Vitest, 7 suites de pruebas, incluyendo `integrationEAI.test.ts` y `aiRestoredFlow.test.ts`).
 - Compilación TypeScript: 0 errores (`npx tsc --noEmit`).
 - Bundle de producción: Generado exitosamente (`npm run build`).
-- Pruebas visuales Playwright: Verificadas y capturadas en modo claro, oscuro, asistente IA y vistas modulares rediseñadas.
+- Pruebas visuales Playwright: Verificadas en Pixel 7 móvil y escritorio con responsividad comprobada.
+- Documentación de auditoría completa disponible en `docs/PHASE_6_*.md`.

@@ -13,6 +13,10 @@ El proyecto implementa pruebas continuas en tres niveles:
 | Fecha | Entorno | Tipo | Descripción | Resultado |
 | :--- | :--- | :--- | :--- | :--- |
 | Inicial | Dev | Configuración | Estructura base de documentación | 🟢 Pasó |
+| 2026-10-31 | Vitest | Unitarias & Integración | 33 pruebas en 7 suites (Storage, Core, Backup, AI Engine, integrationEAI, aiRestoredFlow) | 🟢 33/33 Pasó |
+| 2026-10-31 | TypeScript | Tipado estático | `npx tsc --noEmit` sin advertencias | 🟢 Pasó |
+| 2026-10-31 | Playwright | Visual / Responsividad | Auditoría Pixel 7 móvil y 1366x768 desktop | 🟢 Pasó |
+| 2026-10-31 | SHA-256 | Integridad Binario APK | Verificación de hash `cba367c...` en `app-debug.apk` | 🟢 Intacto |
 
 ## Procedimiento de Verificación de Exportación de Video
 Para comprobar que un video generado es válido:
