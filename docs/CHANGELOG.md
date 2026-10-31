@@ -1,5 +1,13 @@
 # Registro de Cambios - Estudio Audiovisual Inteligente
 
+## [2.3.0] - Implementación Fase 6A (.eai & Persistencia) y Piloto UI/UX Fase 6B
+### Añadido
+- **Servicio de Respaldo e Importación Portable (`src/services/storage/projectBackup.ts`)**: Generación y lectura de paquetes `.eai` completos, serializando escenas, fuentes y medios en Base64.
+- **Protección de Almacenamiento Persistente**: Invocación y diagnóstico de `navigator.storage.persist()` para proteger IndexedDB contra purgas del sistema operativo en Android y navegadores.
+- **Componente Piloto de Inicio (`src/modules/HomeDashboard.tsx`)**: Pantalla de Inicio compacta con selector de proyectos, métricas de producción, estado de persistencia y botones de exportación/importación `.eai`.
+- **Suite de Pruebas Unitarias (`src/__tests__/backup.test.ts`)**: 5 nuevas pruebas unitarias para serialización, parsing y restauración de paquetes `.eai` (13/13 pruebas pasando).
+- **Informe de Resultados en `docs/PHASE_6A_IMPLEMENTATION_REPORT.md`**.
+
 ## [2.2.0] - Generación y Entrega del APK Android (`app-debug.apk`)
 ### Añadido
 - **Empaquetado APK Nativo Android**: Compilación exitosa del archivo descargable `app-debug.apk` (4.1 MB) mediante Capacitor 6.2 y Gradle 8.14.

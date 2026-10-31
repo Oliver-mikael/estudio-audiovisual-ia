@@ -1,10 +1,15 @@
 # Estado del Proyecto - Estudio Audiovisual Inteligente
 
-**Última actualización:** Validación Documental de Fase 6 Finalizada (`docs/PHASE_6_VALIDATION_REPORT.md`)
-**Estado:** PLANIFICACIÓN FASE 6 VALIDADA AL 100% — IMPLEMENTACIÓN DETENIDA A LA ESPERA DE APROBACIÓN
+**Última actualización:** Fase 6A (Exportación/Importación .eai) y Piloto 6B (Pantalla de Inicio) Implementados (`docs/PHASE_6A_IMPLEMENTATION_REPORT.md`)
+**Estado:** FASE 6A Y PILOTO 6B COMPLETADOS Y VERIFICADOS AL 100% — 13/13 PRUEBAS APROBADAS
 
 ## Resumen del Estado
-1. **Informe de Validación Documental (`docs/PHASE_6_VALIDATION_REPORT.md`):**
+1. **Fase 6A & Piloto 6B Implementados (`docs/PHASE_6A_IMPLEMENTATION_REPORT.md`):**
+   - Sistema de copias físicas portables `.eai` (metadatos + escenas + fuentes + medios en Base64).
+   - Protección duradera de IndexedDB con `navigator.storage.persist()`.
+   - Pantalla de Inicio piloto (`HomeDashboard.tsx`) compacta y profesional con métricas de proyecto y controles de respaldo.
+   - 13/13 pruebas unitarias aprobadas, TypeScript 0 errores y verificación visual completada.
+2. **Informe de Validación Documental (`docs/PHASE_6_VALIDATION_REPORT.md`):**
    - Contrastados los 8 documentos maestros contra el código real y el binario `app-debug.apk`.
    - Confirmada empíricamente la firma digital del APK (Android Debug v2, SHA-256: `6874d382...`).
    - Analizada la viabilidad de cuotas gratuitas ($0/mes), riesgo de pausa en Supabase Free (7 días) y protección de datos IndexedDB.

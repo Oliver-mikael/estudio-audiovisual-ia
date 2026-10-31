@@ -10,11 +10,13 @@ import { ResearchModule } from './modules/ResearchModule';
 import { ScriptWorkshop } from './modules/ScriptWorkshop';
 import { StoryboardModule } from './modules/StoryboardModule';
 import { MediaLibraryModule } from './modules/MediaLibraryModule';
-import { Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw, Smartphone } from 'lucide-react';
+import { HomeDashboard } from './modules/HomeDashboard';
+import { downloadProjectEAI } from './services/storage/projectBackup';
+import { Home, Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw, Smartphone, DownloadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<Project>(DEMO_PROJECT);
-  const [activeTab, setActiveTab] = useState<'ideas' | 'research' | 'script' | 'storyboard' | 'media'>('script');
+  const [activeTab, setActiveTab] = useState<'home' | 'ideas' | 'research' | 'script' | 'storyboard' | 'media'>('home');
 
   // Export state
   const [isExporting, setIsExporting] = useState(false);
@@ -76,26 +78,35 @@ export const App: React.FC = () => {
         </div>
 
         {/* Global Action Banner */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => downloadProjectEAI(project)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs rounded-lg shadow-sm transition-all"
+            title="Descargar copia de seguridad física del proyecto completo (.eai)"
+          >
+            <DownloadCloud className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">Copia .eai</span>
+          </button>
+
           <a
             href="/app-debug.apk"
             download="app-debug.apk"
-            className="flex items-center gap-2 px-3 py-2 bg-emerald-700/80 hover:bg-emerald-600 text-white font-medium text-xs rounded-lg border border-emerald-500/40 shadow-md transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white font-medium text-xs rounded-lg border border-emerald-500/40 shadow-md transition-all"
             title="Descargar paquete instalador Android APK (4.1 MB)"
           >
-            <Smartphone className="w-4 h-4 text-emerald-300" />
-            <span>Descargar APK (4.1 MB)</span>
+            <Smartphone className="w-3.5 h-3.5 text-emerald-300" />
+            <span className="hidden sm:inline">APK (4.1 MB)</span>
           </a>
 
           <button
             onClick={handleExportVideo}
             disabled={isExporting}
-            className={`flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs rounded-lg shadow-lg shadow-indigo-600/20 transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs rounded-lg shadow-lg shadow-indigo-600/20 transition-all ${
               isExporting ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            <span>{isExporting ? 'Renderizando...' : 'Exportar Video Local'}</span>
+            {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            <span>{isExporting ? 'Renderizando...' : 'Exportar Video'}</span>
           </button>
         </div>
       </header>
@@ -162,6 +173,18 @@ export const App: React.FC = () => {
           {/* Navigation Tabs */}
           <nav className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1.5 rounded-xl overflow-x-auto">
             <button
+              onClick={() => setActiveTab('home')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'home'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+            >
+              <Home className="w-4 h-4" />
+              <span>Inicio</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('ideas')}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'ideas'
@@ -224,6 +247,25 @@ export const App: React.FC = () => {
 
           {/* Active Tab Panel */}
           <div className="flex-1">
+            {activeTab === 'home' && (
+              <HomeDashboard
+                currentProject={project}
+                onSelectProject={handleUpdateProject}
+                onNewProject={() => {
+                  const newProj: Project = {
+                    ...DEMO_PROJECT,
+                    id: `proj-${Date.now()}`,
+                    title: 'Nuevo Proyecto Audiovisual',
+                    description: 'Inicia tu investigación y desglose narrativo.',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                  };
+                  handleUpdateProject(newProj);
+                  setActiveTab('script');
+                }}
+                onOpenProjectEditor={() => setActiveTab('script')}
+              />
+            )}
             {activeTab === 'ideas' && <IdeaLab project={project} onUpdateProject={handleUpdateProject} />}
             {activeTab === 'research' && <ResearchModule project={project} onUpdateProject={handleUpdateProject} />}
             {activeTab === 'script' && <ScriptWorkshop project={project} onUpdateProject={handleUpdateProject} />}
