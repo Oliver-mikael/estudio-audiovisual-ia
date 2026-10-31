@@ -1,14 +1,18 @@
 # Estado del Proyecto - Estudio Audiovisual Inteligente
 
-**Última actualización:** Fase 6 de Transformación Cloud-First Diseñada (`docs/CLOUD_FIRST_TRANSFORMATION_PLAN.md`)
-**Estado:** PLAN MAESTRO CLOUD-FIRST Y REDISEÑO UI/UX PENDIENTE DE APROBACIÓN
+**Última actualización:** 8 Entregables Obligatorios de Fase 6 Completados en `docs/`
+**Estado:** INVESTIGACIÓN COMPLETADA — ARQUITECTURA PROPUESTA — REDISEÑO DOCUMENTADO — IMPLEMENTACIÓN PENDIENTE DE APROBACIÓN
 
 ## Resumen del Estado
-1. **Fase 6: Transformación Cloud-First (`docs/CLOUD_FIRST_TRANSFORMATION_PLAN.md`):**
-   - Análisis comparativo exhaustivo: PWA vs. Capacitor OTA (Capgo) vs. Arquitectura Híbrida.
-   - Especificación completa de backend real con Supabase (Auth, Postgres RLS, Storage S3) y Workers FFmpeg independientes.
-   - Nuevo sistema de diseño visual compacto y navegación diferenciada (móvil Android vs escritorio).
-   - Plan de migración no destructiva de IndexedDB y estimación de niveles gratuitos ($0/mes).
+1. **Fase 6 — 8 Entregables Obligatorios de Investigación y Diseño Completados:**
+   - `docs/PHASE_6_CURRENT_STATE_AUDIT.md` (Entregable 1: Auditoría del estado actual real vs. simulado).
+   - `docs/PHASE_6_CLOUD_ARCHITECTURE_RESEARCH.md` (Entregable 2: Arquitecturas Cloud-First, Supabase y Workers independientes).
+   - `docs/PHASE_6_DATA_SYNC_AND_RECOVERY.md` (Entregable 3: Sincronización delta, offline-first y migración IndexedDB).
+   - `docs/PHASE_6_UPDATE_STRATEGY.md` (Entregable 4: Actualizaciones automáticas OTA y preservación de firma APK).
+   - `docs/PHASE_6_UI_UX_DESIGN_SYSTEM.md` (Entregable 5: Sistema visual compacto, modos claro/oscuro/auto y 5 núcleos).
+   - `docs/PHASE_6_MULTIDEVICE_EXPERIENCE.md` (Entregable 6: Experiencia diferenciada Android móvil vs. Computadora).
+   - `docs/PHASE_6_REMOTE_MEDIA_ENGINE.md` (Entregable 7: Canvas 2D local vs. Worker FFmpeg en nube).
+   - `docs/PHASE_6_MASTER_ROADMAP.md` (Entregable 8: Síntesis maestra, 3 presupuestos [$0/mes], matriz de riesgos y roadmap).
 2. **Auditoría Técnica del APK (`docs/APK_AUDIT.md`):**
    - Desglose detallado del APK de 4.1 MB: `classes.dex` (3.07 MB / 78%), `res/` (0.61 MB / 15.6%), `assets/public/` (0.08 MB / 2.0%).
    - Confirmado que el bundle de producción React/Vite en `assets/public/` está completo y optimizado.
