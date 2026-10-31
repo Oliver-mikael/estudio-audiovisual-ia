@@ -1,10 +1,15 @@
 # Estado del Proyecto - Estudio Audiovisual Inteligente
 
-**Última actualización:** 8 Entregables Obligatorios de Fase 6 Completados en `docs/`
-**Estado:** INVESTIGACIÓN COMPLETADA — ARQUITECTURA PROPUESTA — REDISEÑO DOCUMENTADO — IMPLEMENTACIÓN PENDIENTE DE APROBACIÓN
+**Última actualización:** Validación Documental de Fase 6 Finalizada (`docs/PHASE_6_VALIDATION_REPORT.md`)
+**Estado:** PLANIFICACIÓN FASE 6 VALIDADA AL 100% — IMPLEMENTACIÓN DETENIDA A LA ESPERA DE APROBACIÓN
 
 ## Resumen del Estado
-1. **Fase 6 — 8 Entregables Obligatorios de Investigación y Diseño Completados:**
+1. **Informe de Validación Documental (`docs/PHASE_6_VALIDATION_REPORT.md`):**
+   - Contrastados los 8 documentos maestros contra el código real y el binario `app-debug.apk`.
+   - Confirmada empíricamente la firma digital del APK (Android Debug v2, SHA-256: `6874d382...`).
+   - Analizada la viabilidad de cuotas gratuitas ($0/mes), riesgo de pausa en Supabase Free (7 días) y protección de datos IndexedDB.
+   - Presentado el catálogo de decisiones para autorización expresa del usuario antes de iniciar la implementación.
+2. **Fase 6 — 8 Entregables Obligatorios de Investigación y Diseño Incorporados:**
    - `docs/PHASE_6_CURRENT_STATE_AUDIT.md` (Entregable 1: Auditoría del estado actual real vs. simulado).
    - `docs/PHASE_6_CLOUD_ARCHITECTURE_RESEARCH.md` (Entregable 2: Arquitecturas Cloud-First, Supabase y Workers independientes).
    - `docs/PHASE_6_DATA_SYNC_AND_RECOVERY.md` (Entregable 3: Sincronización delta, offline-first y migración IndexedDB).

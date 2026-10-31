@@ -1,80 +1,154 @@
-# ENTREGABLE 5 — REDISEÑO DEL SISTEMA VISUAL UI/UX
-## Estudio Audiovisual Inteligente
+# Fase 6 — Sistema de diseño UI/UX
 
-**Fecha:** Octubre de 2026
-**Documento:** `docs/PHASE_6_UI_UX_DESIGN_SYSTEM.md`
-**Fase:** Fase 6 — Sistema de Diseño Visual y Experiencia de Usuario Profesional
-**Propósito:** Definir la identidad visual compacta, escalable y sobria del estudio audiovisual, eliminando la sensación de prototipo y optimizando el espacio en pantallas táctiles y escritorios.
+## 1. Dirección aprobada
 
----
+- Modo claro, oscuro y automático.
+- Selector manual.
+- Densidad compacta y profesional.
+- Buena legibilidad en móvil y escritorio.
+- Menos espacios y elementos gigantes.
+- Jerarquía visual clara y consistente.
 
-## 1. PRINCIPIOS Y DIAGNÓSTICO DE LA INTERFAZ ANTERIOR
+Este documento define principios y especificaciones; no ordena reconstruir la interfaz sin aprobación.
 
-La auditoría de la interfaz actual reveló varios problemas de usabilidad:
-- **Espaciado y Tarjetas Excesivas:** El uso de `gap-6` (24px) y paddings internos `p-6` obligaba al usuario móvil a realizar desplazamientos verticales continuos para ver un solo párrafo del guion.
-- **Botones y Tipografías Sobredimensionados:** Botones con alturas de 48px y textos descriptivos largos restaban espacio útil al monitor de previsualización.
-- **Falta de Modos de Color Profesionales:** La interfaz estaba anclada exclusivamente a un tema oscuro azulado (`slate-950`), sin soporte para modo claro o adaptación al sistema operativo.
+## 2. Objetivos de experiencia
 
-### Los Tres Modos de Apariencia Aprobados:
-1. **Modo Oscuro (Dark Mode Pro - Por Defecto):** Diseñado para salas de montaje y trabajo prolongado con bajo cansancio visual. Basado en grises neutros profundos (`neutral-900`/`neutral-950`) en lugar de tonos azules saturados.
-2. **Modo Claro (Light Mode Pro):** Diseñado para trabajo en exteriores o ambientes con alta luminosidad ambiental (fondo `neutral-50`, tarjetas `white` con bordes sutiles `neutral-200`).
-3. **Modo Automático:** Sincronizado dinámicamente con la preferencia del sistema operativo (`prefers-color-scheme`), editable en cualquier momento mediante un selector manual compacto en el encabezado.
+1. Que el usuario entienda dónde está y cuál es el siguiente paso.
+2. Priorizar el contenido de trabajo sobre tarjetas decorativas.
+3. Reducir desplazamiento innecesario.
+4. Mantener controles táctiles utilizables en Android.
+5. Aprovechar pantallas amplias en computadora.
+6. Comunicar claramente guardado, sincronización y procesamiento.
+7. Mantener una identidad visual consistente entre módulos.
 
----
+## 3. Tokens visuales
 
-## 2. PALETA DE COLORES Y TOKENS DE DISEÑO
+Definir tokens centralizados, no valores dispersos en componentes.
 
-### Paleta Neutra y Superficies:
-| Nivel de Superficie | Modo Oscuro | Modo Claro | Finalidad |
-| :--- | :--- | :--- | :--- |
-| **Canvas / Fondo Base** | `#0a0a0c` (`neutral-950`) | `#f8fafc` (`slate-50`) | Fondo estructural de la aplicación |
-| **Paneles / Barras Laterales** | `#121215` (`neutral-900`) | `#ffffff` (`white`) | Contenedores de herramientas y listas |
-| **Tarjetas / Elevación 1** | `#18181b` (`neutral-900/80`) | `#f1f5f9` (`slate-100`) | Cajas de escenas, notas y citas |
-| **Bordes Estructurales** | `#27272a` (`neutral-800`) | `#e2e8f0` (`slate-200`) | Separadores de paneles y cuadrículas |
+Categorías:
+- `color.background`
+- `color.surface`
+- `color.surfaceRaised`
+- `color.textPrimary`
+- `color.textSecondary`
+- `color.border`
+- `color.accent`
+- `color.success`
+- `color.warning`
+- `color.danger`
+- `space.1` a `space.6`
+- `radius.sm`, `radius.md`, `radius.lg`
+- `font.family`, `font.size.*`, `font.weight.*`
+- `shadow.subtle`
+- `motion.fast`, `motion.normal`
 
-### Acentos Semánticos Profesionales:
-- **Acento Primario (Índigo Cinematográfico):** `#6366f1` / `#4f46e5` (Botones de acción principal y pestañas activas).
-- **Éxito / Sincronizado:** `#10b981` (Esmeralda para estado en línea, cambios guardados y exportación completada).
-- **Procesamiento / Render en Curso:** `#f59e0b` (Ámbar para colas activas y rendering de frames).
-- **Alerta / Conflicto:** `#ef4444` (Rojo sobrio para inconsistencias bibliográficas o fallos de conexión).
+Los valores definitivos deben validarse con prototipos y contraste WCAG. No fijar una paleta sin probarla en los módulos reales.
 
----
+## 4. Temas
 
-## 3. TIPOGRAFÍA Y ESCALA DE ESPACIADO COMPACTA
+### Claro
+Fondo neutro claro, superficies diferenciadas sutilmente, texto oscuro y acento moderado.
 
-- **Fuente Primaria (UI):** `Inter`, `-apple-system`, `BlinkMacSystemFont`, `sans-serif`. Máxima legibilidad en densidades altas.
-- **Fuente Técnica / Timecode:** `JetBrains Mono`, `ui-monospace`. Utilizada para tiempos de escena (`00:01:25.10`), recuento de palabras, FPS y porcentaje de renders.
+### Oscuro
+Fondos neutros oscuros, superficies elevadas diferenciadas, texto de alto contraste y acento controlado.
 
-### Escala Tipográfica Optimizada:
-- **Títulos de Módulo:** `13px` / `text-xs font-semibold uppercase tracking-wider`
-- **Cuerpo de Locución / Guion:** `13px` / `text-[13px] leading-relaxed`
-- **Etiquetas y Metadatos:** `11px` / `text-[11px] font-mono text-neutral-400`
-- **Timecode y Métricas:** `12px` / `text-xs font-mono font-bold`
+### Automático
+Seguir la preferencia del sistema operativo.
 
-### Reducción Drástica de Espaciado:
-- **Gap entre Paneles:** Reducido de `24px` a **`10px` (`gap-2.5`)**.
-- **Padding de Tarjetas:** Reducido de `24px` a **`12px` (`p-3`)**.
-- **Altura de Botones:** Estandarizada a **`32px` (`h-8`)** en escritorio y **`36px` (`h-9`)** en pantallas táctiles móviles.
+El selector manual debe prevalecer hasta que el usuario elija volver a automático. Guardar preferencia local y sincronizarla solo si se define como preferencia de cuenta.
 
----
+## 5. Densidad y tipografía
 
-## 4. INDICADORES DE ESTADO GLOBAL Y RETROALIMENTACIÓN
+- Tipografía legible como Inter o equivalente de sistema.
+- Escala tipográfica compacta, sin texto diminuto.
+- Botones de altura moderada y área táctil suficiente.
+- Evitar márgenes y padding excesivos.
+- Una sola escala de espaciado.
+- No reducir objetivos táctiles por debajo de recomendaciones de accesibilidad.
+- Soportar zoom y tamaño de fuente del sistema.
 
-En la barra superior se sitúa un bloque permanente de estado del sistema:
-1. **Estado de Sincronización:**
-   - 🟢 `En línea • Sincronizado` (Ícono de nube con tilde verde).
-   - 🟡 `Sin conexión • Guardado localmente` (Ícono de disco local ámbar).
-   - 🔵 `Sincronizando deltas...` (Ícono giratorio sutil).
-2. **Estado de Renderizado / Workers:**
-   - Si hay un renderizado en la nube en curso, aparece un chip compacto: `⚙️ Renderizando Cap. 2 (45%)`, que al pulsar abre el panel de progreso detallado sin interrumpir la escritura del guion.
+## 6. Componentes
 
----
+Especificar variantes y estados para:
+- navegación;
+- botones primarios/secundarios/terciarios;
+- inputs y selectores;
+- tabs;
+- paneles;
+- tarjetas de proyecto;
+- tablas/listas;
+- diálogos;
+- menús;
+- reproductor;
+- timeline/storyboard;
+- indicadores de estado;
+- notificaciones y mensajes de error.
 
-## 5. ORGANIZACIÓN Y NAVEGACIÓN EN 5 NÚCLEOS DE TRABAJO
+Cada componente debe tener estados normal, hover/focus, pressed, disabled, loading y error cuando aplique.
 
-Se descarta la proliferación de pestañas redundantes. La aplicación se estructura en 5 espacios de trabajo interconectados:
-1. **Inicio & Proyectos:** Vista en cuadrícula o lista compacta con proyectos recientes, fecha de última edición y estado de sincronización.
-2. **Investigación:** Tablero de fuentes verificadas, afirmaciones cruzadas con evidencias y notas históricas (CERN, W3C).
-3. **Producción (Taller de Guion + Storyboard + Monitor):** Espacio integrado donde el usuario ve simultáneamente el texto de locución, las indicaciones de cámara y la respuesta visual en el Canvas 2D.
-4. **Biblioteca Multimedia:** Almacén de activos (audios MP3, capturas de pantalla, ilustraciones vectoriales) con licencias y atribución.
-5. **Configuración & Cuenta:** Preferencias de apariencia (claro/oscuro/auto), gestión de sesión de usuario y opciones de exportación/backup local.
+## 7. Navegación propuesta
+
+- Inicio
+- Investigación
+- Producción
+- Biblioteca
+- Configuración
+
+En móvil, navegación inferior o menú compacto según número de destinos y espacio. En escritorio, barra lateral compacta y área de trabajo amplia. No duplicar módulos por conveniencia visual: la navegación debe reflejar tareas reales.
+
+## 8. Pantalla Inicio — piloto de rediseño
+
+Propuesta de jerarquía:
+1. Cabecera compacta con identidad y estado de cuenta/sync.
+2. Acción principal: continuar proyecto o crear proyecto.
+3. Proyectos recientes con estado y fecha.
+4. Trabajos activos/recientes.
+5. Accesos a Investigación y Producción.
+6. Biblioteca como acceso secundario.
+
+No usar un dashboard de métricas vacías ni grandes tarjetas sin utilidad.
+
+## 9. Estados de sincronización y jobs
+
+Distinguir:
+- Guardado local.
+- Pendiente de sincronización.
+- Sincronizado.
+- Subiendo archivo.
+- Trabajo en cola.
+- Procesando en servidor.
+- Listo para revisar.
+- Error con acción de recuperación.
+
+No representar una tarea local como remota.
+
+## 10. Accesibilidad y pruebas
+
+- Contraste WCAG AA como objetivo.
+- Navegación por teclado en escritorio.
+- Focus visible.
+- Etiquetas para controles.
+- Texto alternativo donde corresponda.
+- Estados no comunicados solo por color.
+- Pruebas en ancho móvil estrecho, tablet y escritorio.
+- Verificar tema claro/oscuro en todos los módulos.
+- Prueba de legibilidad y uso táctil en Android físico.
+
+## 11. Plan de diseño
+
+1. Capturar pantallas actuales.
+2. Inventariar componentes y tokens existentes.
+3. Diseñar Inicio como piloto en móvil y escritorio.
+4. Probar tema claro/oscuro/automático.
+5. Evaluar con tareas reales.
+6. Aprobar sistema antes de extender a todos los módulos.
+
+## 12. Criterios de aceptación
+
+- Tokens centralizados.
+- Temas completos.
+- Densidad compacta sin sacrificar accesibilidad.
+- Navegación consistente.
+- Inicio probado en móvil y escritorio.
+- Estados de guardado y sincronización veraces.
+- Aprobación del usuario antes de rediseño general.

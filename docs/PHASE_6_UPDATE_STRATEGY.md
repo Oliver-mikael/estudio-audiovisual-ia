@@ -1,71 +1,80 @@
-# ENTREGABLE 4 — INVESTIGACIÓN DE ACTUALIZACIONES AUTOMÁTICAS
-## Estudio Audiovisual Inteligente
+# Fase 6 — Estrategia de actualización y preservación del APK
 
-**Fecha:** Octubre de 2026
-**Documento:** `docs/PHASE_6_UPDATE_STRATEGY.md`
-**Fase:** Fase 6 — Estrategia de Actualización Continua sin Reinstalación de APK
-**Propósito:** Definir el mecanismo técnico para distribuir mejoras de interfaz y lógica de negocio directamente desde la nube, cumpliendo las directivas de Google Play y preservando la firma digital del instalador.
+## 1. Objetivo
 
----
+Reducir la necesidad de descargar manualmente un APK por cada cambio, permitiendo actualizar recursos web cuando sea técnicamente y normativamente válido, sin poner en riesgo la instalación Android existente.
 
-## 1. EL DILEMA DEL APK MANUAL VS. ACTUALIZACIÓN TRANSPARENTE
+## 2. Distinción esencial
 
-El usuario no debe estar obligado a descargar e instalar manualmente un nuevo APK cada vez que se publica una corrección o una nueva funcionalidad.
+**Actualización web/remota:** HTML, CSS, JavaScript y recursos compatibles que se entregan dentro de los límites de la plataforma y de las políticas de distribución.
 
-Se evaluaron cuatro alternativas para actualizar la aplicación:
+**Actualización nativa:** cambios en código Android, plugins, permisos, manifiesto, SDK, bibliotecas nativas o configuración que requieren una nueva compilación y distribución.
 
-| Mecanismo de Actualización | ¿Requiere Descarga de APK? | ¿Interrumpe al Usuario? | ¿Cumple Políticas de Google Play? | Complejidad Técnica |
-| :--- | :---: | :---: | :---: | :---: |
-| **A. PWA (Progressive Web App)** | **Nunca** | No (actualización silenciosa vía Service Worker al recargar) | 100% conforme | Mínima |
-| **B. Capacitor con Live Updates (Capgo)** | **No** (para cambios web/JS/CSS) | No (descarga en segundo plano y se activa al reiniciar) | **100% conforme** (siempre que no descargue código nativo binario) | Baja |
-| **C. Compilación Tradicional de APK** | **Siempre** | Sí (descargar, autorizar orígenes desconocidos, reinstalar) | Conforme | Alta / Manual |
-| **D. Tauri 2 (Desktop)** | **No** (usa autoupdater binario integrado) | Mínima (solicita reiniciar app) | N/A (Distribución directa / Stores) | Media |
+No se debe prometer que todo cambio del APK puede actualizarse silenciosamente desde un servidor.
 
----
+## 3. Alternativas
 
-## 2. QUÉ PUEDE ACTUALIZARSE DESDE LA NUBE Y QUÉ REQUIERE NUEVO APK
+| Alternativa | Actualización de UI | Requiere APK para cambios nativos | Observaciones |
+|---|---|---|---|
+| PWA | Automática mediante service worker y caché | No es APK, aunque puede instalarse como PWA | Buena opción web; límites de integración nativa |
+| Capacitor con recursos remotos | Posible si se diseña y distribuye conforme a políticas | Sí | Revisar compatibilidad, políticas y mecanismo seguro |
+| Capacitor empaquetado | Recursos incluidos en APK; actualización por nueva versión | Sí | Modelo más controlable y predecible |
+| Tauri 2 | Depende de updater/plataforma | Para cambios nativos, sí | Evaluar por separado para escritorio y móvil |
 
-Es fundamental delimitar taxativamente el alcance técnico de las actualizaciones remotas:
+## 4. Preservación del APK instalado
 
-### Categoría 1: Actualizable 100% desde la Nube (Sin Tocar el APK)
-- **Interfaz de Usuario (UI/UX):** Nuevos estilos CSS, temas claro/oscuro, rediseño de tarjetas, botones compactos y barras de navegación adaptativas.
-- **Lógica de Negocio en TypeScript:** Algoritmos de crítica de guion, parsers de texto, cálculo de duraciones, validación de fuentes bibliográficas.
-- **Motor Audiovisual Web:** Modificaciones en `renderEngine.ts` (nuevas transiciones, efectos cinéticos de texto, mejoras de rendimiento Canvas 2D).
-- **Controladores de Sincronización:** Actualizaciones en `syncEngine.ts`, clientes de API y llamadas a Supabase.
-- **Plantillas y Recursos:** Nuevos assets SVG, iconos y datos del documental.
+Antes de cualquier nueva compilación:
+- registrar `applicationId`/package;
+- registrar `versionCode` y `versionName`;
+- identificar certificado/fingerprint de firma;
+- determinar si es APK debug o release;
+- identificar si existe keystore estable y respaldado;
+- confirmar que la clave privada no está en GitHub;
+- guardar una copia del APK actual;
+- registrar datos de prueba y comportamiento de actualización.
 
-### Categoría 2: Requiere Compilación y Reinstalación de APK
-- **Plugins Nativos de Android:** Si se agrega una nueva librería Java/Kotlin que no estaba en el APK (por ejemplo, un plugin nativo de Bluetooth o cámara avanzada).
-- **Permisos del Manifiesto Android:** Si se solicitan nuevos permisos en `AndroidManifest.xml` (por ejemplo, permiso de grabación en segundo plano `FOREGROUND_SERVICE_MEDIA_PROCESSING`).
-- **Configuración Base de Capacitor:** Modificaciones en `capacitor.config.json` que alteren el `appId` o el esquema nativo de la app.
+Una actualización Android normalmente requiere mismo identificador de aplicación y certificado de firma compatible, además de un `versionCode` válido y superior. Si la firma no coincide, la actualización puede fallar y exigir desinstalar; eso puede poner en riesgo datos locales. No recomendar desinstalar.
 
----
+El APK compartido anteriormente fue descrito como `app-debug.apk`, paquete `com.estudioaudiovisual.app`, aproximadamente 4.1 MB. Esto es información reportada, no inspección independiente del binario. Una firma debug puede no ser una identidad de publicación estable.
 
-## 3. CUMPLIMIENTO ESTRICTO DE POLÍTICAS DE GOOGLE PLAY Y SEGURIDAD
+## 5. Mecanismo seguro para recursos remotos
 
-### Directiva Oficial de Google Play (Sección de Código Malicioso y Ejecutable):
-> *"Una aplicación distribuida a través de Google Play no puede modificar, reemplazar ni actualizar su propio código binario utilizando ningún método que no sea el mecanismo de actualización de Google Play. No obstante, se permite la ejecución de código interpretado (como JavaScript) siempre que no infrinja las políticas del programa ni modifique de forma engañosa el propósito principal de la aplicación."*
+Si se aprueba Capacitor con recursos web remotos:
+- permitir solo origen HTTPS de confianza;
+- validar versión y manifiesto;
+- descargar a ubicación temporal;
+- verificar integridad/hash;
+- activar de forma atómica después de validar;
+- mantener versión anterior para rollback;
+- no aceptar scripts arbitrarios de terceros;
+- no descargar recursos de un origen editable por cualquiera;
+- registrar versión activa y resultado;
+- tener una política de compatibilidad entre frontend y API;
+- mantener una versión local funcional si falla la actualización.
 
-### Garantías de Seguridad Implementadas:
-1. **Firma Criptográfica de Bundles Web:** Cada archivo `.zip` de actualización web se firma con una clave privada (RSA/ECDSA). La app Capacitor verifica la firma antes de descomprimir el bundle en el almacenamiento local. Si la firma no coincide, el paquete se descarta inmediatamente.
-2. **Rollback Automático en Caso de Pantalla Blanca:**
-   - La aplicación incorpora un temporizador de arranque seguro (*Health Check*): Si tras aplicar una actualización la pantalla no dispara el evento `DOMContentLoaded` y el renderizado en menos de 5 segundos, la app revierte automáticamente al bundle de fábrica empaquetado originalmente en el APK.
-3. **Preservación de la Identidad Android (`keystore`):**
-   - El archivo de almacén de claves (*keystore*) y los alias de firma de depuración/producción se mantienen inalterados.
-   - El `versionCode` entero de Android solo se incrementará cuando sea estrictamente obligatorio recompilar el contenedor nativo.
+La aplicabilidad de actualizaciones dinámicas depende de las reglas vigentes de la tienda/canal de distribución y del tipo de cambios. Revisar políticas oficiales antes de habilitarlo.
 
----
+## 6. Estrategia recomendada
 
-## 4. ESTRATEGIA DE DISTRIBUCIÓN RECOMENDADA (MODELO DUAL)
+1. Mantener el APK instalado sin tocar.
+2. Auditar la firma y el método de distribución.
+3. Separar configuración nativa estable del frontend web.
+4. Diseñar actualización web versionada y con rollback, solo si cumple las reglas aplicables.
+5. Reservar nuevas compilaciones para cambios nativos y actualizaciones requeridas.
+6. Probar primero en una instalación secundaria con datos ficticios.
+7. Solo actualizar la instalación principal tras prueba de actualización in-place y restauración.
 
-1. **Para Celular (Android):**
-   - El usuario conserva su instalación actual del APK de 4.1 MB.
-   - Se integra la librería de actualización remota abierta (**Capgo** o endpoint propio en Supabase Storage).
-   - Al iniciar la app, comprueba silenciosamente:
-     ```json
-     GET /api/v1/app-versions/latest
-     { "version": "1.1.0", "url": "https://storage.estudio.cloud/updates/v1.1.0.zip", "checksum": "sha256:..." }
-     ```
-   - Si hay una versión más reciente, la descarga en segundo plano y la deja lista para la próxima vez que el usuario abra la aplicación.
-2. **Para Computadora / Web:**
-   - Se sirve directamente como **PWA instalable**. El navegador actualiza el Service Worker y el bundle Vite al instante tras cada despliegue en Vercel/Cloudflare.
+## 7. Coste US$0/mes
+
+El diseño y la prueba local pueden realizarse sin coste recurrente. El hosting de recursos puede mantenerse en un tier gratuito si sus condiciones y límites lo permiten. No se debe asumir que un CDN, almacenamiento, dominio, firma, tienda o servicio de distribución será gratuito indefinidamente.
+
+No comprar dominio, activar hosting de pago ni desplegar un updater remoto sin autorización.
+
+## 8. Criterios de aceptación
+
+- Identidad y firma documentadas.
+- Ruta de actualización compatible probada en instalación secundaria.
+- Rollback comprobado.
+- Datos locales preservados.
+- Reglas de distribución revisadas.
+- APK principal no alterado durante la investigación.

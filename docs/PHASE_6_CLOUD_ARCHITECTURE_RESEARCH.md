@@ -1,117 +1,183 @@
-# ENTREGABLE 2 — INVESTIGACIÓN DE ARQUITECTURAS CLOUD-FIRST
-## Estudio Audiovisual Inteligente
+# Fase 6 — Investigación de arquitectura Cloud-First
 
-**Fecha:** Octubre de 2026
-**Documento:** `docs/PHASE_6_CLOUD_ARCHITECTURE_RESEARCH.md`
-**Fase:** Fase 6 — Investigación Técnica de Infraestructura Cloud
-**Propósito:** Evaluar y justificar la arquitectura en la nube que permita independizar el procesamiento del dispositivo móvil del usuario.
+## 1. Objetivo
 
----
+Diseñar una arquitectura en la que el teléfono y la computadora sean clientes de control y edición, mientras que los datos compartidos y los trabajos remotos residan en servicios cloud persistentes.
 
-## 1. EL PROBLEMA FUNDAMENTAL DEL CÓMPUTO MÓVIL Y CLIENT-SIDE
+La aplicación debe seguir siendo útil cuando no haya conexión y no debe depender de que el teléfono permanezca encendido para completar trabajos remotos.
 
-En la versión actual de la aplicación, el procesamiento audiovisual y los temporizadores de trabajo se ejecutan en el hilo principal del navegador mediante JavaScript. En un dispositivo Android, esto genera los siguientes bloqueos operativos insalvables:
-1. **Suspensión por el Sistema Operativo (Doze Mode / App Standby):** En cuanto la pantalla del teléfono se apaga o el usuario cambia a otra aplicación (por ejemplo, para responder un mensaje), el sistema operativo Android suspende el hilo de ejecución de WebView. Los temporizadores `setTimeout`/`setInterval` se detienen, cortando la exportación del video o la cola de trabajos.
-2. **Limitaciones Térmicas y de Memoria (OOM Killer):** El renderizado de videos de más de 60 segundos a 720p/1080p satura la memoria RAM del navegador móvil, provocando que Android cierre forzosamente la aplicación por exceso de consumo (*Out of Memory*).
-3. **Imposibilidad de Continuidad Multidispositivo:** Un trabajo iniciado en el teléfono móvil no puede ser continuado ni monitoreado en la computadora porque no existe un estado centralizado persistente.
+## 2. Principios
 
----
+- **Cloud-first, no cloud-only:** el cliente conserva capacidades locales y modo offline.
+- **Persistencia real:** los proyectos sincronizados deben sobrevivir al cierre de sesión y al cambio de dispositivo.
+- **Ejecución desacoplada:** una solicitud crea un trabajo persistente; un worker independiente lo procesa.
+- **Fuente de verdad definida:** cada dato debe tener autoridad local o remota claramente establecida.
+- **Seguridad por defecto:** autenticación real, permisos mínimos, archivos privados y secretos solo en servidor.
+- **Coste controlado:** no mantener workers activos sin necesidad; límites de uso y cuotas.
+- **Migración reversible:** no borrar IndexedDB al activar cloud.
 
-## 2. COMPARACIÓN DE ALTERNATIVAS DE INFRAESTRUCTURA CLOUD
+## 3. Arquitectura lógica propuesta
 
-Se evaluaron tres enfoques para la plataforma central:
-
-| Dimensión Técnica | Opción 1: Supabase Gestionado (PostgreSQL + Auth + Storage) | Opción 2: Backend Propio (Node.js/FastAPI + PostgreSQL VPS) | Opción 3: Arquitectura Serverless Pura (Cloudflare Workers + D1 + R2) |
-| :--- | :--- | :--- | :--- |
-| **Autenticación y Sesión** | **Integrada:** Email/Password, confirmación de correo, tokens JWT automáticos y recuperación de cuenta listos para usar sin código backend adicional. | **Requiere Desarrollo:** Implementación manual de endpoints de registro, hash de contraseñas (Argon2/bcrypt), envío de correos SMTP y gestión de refresh tokens. | **Media:** Requiere integrar proveedores externos (Auth0, Clerk, Stytch) o escribir lógica de validación JWT personalizada. |
-| **Persistencia y Seguridad** | **PostgreSQL con RLS nativo:** Las reglas de acceso (`auth.uid() = user_id`) se aplican a nivel de base de datos directamente desde el cliente. | **Capa de Controladores API:** Toda la lógica de autorización debe programarse y mantenerse en código backend. | **Bases de datos Edge:** SQLite distribuido (D1). Excelente latencia pero sin el ecosistema relacional robusto de Postgres para transacciones complejas. |
-| **Almacenamiento de Archivos** | **Supabase Storage:** Compatible con S3, gestión de URLs firmadas temporales y políticas RLS directas sobre buckets. | **Requiere Integración:** Configuración de S3 o MinIO propio con endpoints de subida presignados. | **Cloudflare R2:** Almacenamiento S3 de ultra-bajo coste con 0$ en costes de transferencia (egress). |
-| **Procesamiento Audiovisual Pesado** | **No integrado:** Supabase Edge Functions tienen límites de tiempo (150 segundos) y no admiten binarios pesados como FFmpeg. Requiere un worker externo. | **Integrable en el VPS:** Puede ejecutar FFmpeg directamente, pero compite en recursos de CPU/RAM con la API web. | **Inviable en Edge puro:** Los Workers de Cloudflare no pueden ejecutar procesos de transcodificación FFmpeg de larga duración. Requiere worker externo. |
-| **Mantenimiento y DevOps** | **Mínimo:** Plataforma totalmente gestionada, respaldos automáticos, panel web visual y nivel gratuito generoso. | **Alto:** Mantenimiento de servidor Linux, parches de seguridad, renovación de certificados SSL, backups y monitoreo. | **Bajo:** Mantenimiento serverless, pero mayor fragmentación de servicios. |
-
-### Conclusión de la Comparación:
-La combinación más eficiente, segura y económica es una **Arquitectura Híbrida Gestionada**:
-- **Plataforma Central:** **Supabase** para Base de Datos relacional, Autenticación oficial y almacenamiento de metadatos.
-- **Almacenamiento de Objetos Pesados:** **Cloudflare R2** o Supabase Storage para activos de video y exportaciones finales.
-- **Workers de Procesamiento:** Contenedores independientes en **Render.com / Modal / Fly.io** dedicados exclusivamente a ejecutar FFmpeg y tareas asíncronas pesadas.
-
----
-
-## 3. DIAGRAMA DE ARQUITECTURA CLOUD-FIRST PROPUESTA
-
-```
-+---------------------------------------------------------------------------------------------------+
-|                                        CAPA DE CLIENTES                                           |
-|                                                                                                   |
-|   +------------------------------------+             +----------------------------------------+   |
-|   |         MÓVIL ANDROID (APK)        |             |         ESCRITORIO / NAVEGADOR         |   |
-|   |  - Interfaz compacta táctil        |             |  - Suite de edición completa           |   |
-|   |  - Caché local IndexedDB           |             |  - Monitor Canvas 2D local             |   |
-|   |  - Consulta de progreso vía polling|             |  - Sincronización en tiempo real       |   |
-|   +------------------+-----------------+             +-------------------+--------------------+   |
-+----------------------|---------------------------------------------------|------------------------+
-                       |                                                   |
-                       +-------------------------+-------------------------+
-                                                 |
-                                HTTPS / WSS (Supabase JS SDK)
-                                                 |
-+------------------------------------------------v--------------------------------------------------+
-|                               PLATAFORMA CENTRAL CLOUD (SUPABASE)                                 |
-|                                                                                                   |
-|   1. SUPABASE AUTH: Gestión de identidades, JWT, recuperación de contraseñas.                     |
-|                                                                                                   |
-|   2. POSTGRESQL 15 (Con Row Level Security):                                                      |
-|      - Tabla `projects`: Metadatos, título, configuración y versionado.                           |
-|      - Tabla `scenes`: Orden secuencial, locución, duración y parámetros de cámara.               |
-|      - Tabla `source_references`: Fuentes, citas bibliográficas y verificación de hechos.         |
-|      - Tabla `cloud_jobs`: Cola persistente de tareas asíncronas.                                 |
-|                                                                                                   |
-|   3. BUCKETS DE STORAGE (S3 Privado):                                                             |
-|      - `user-assets`: Imágenes y pistas de locución subidas por el usuario.                       |
-|      - `render-outputs`: Videos finales WebM/MP4 generados por los workers.                       |
-+------------------------------------------------+--------------------------------------------------+
-                                                 |
-                                     Cola de Trabajos en BD
-                           (SELECT * FROM cloud_jobs WHERE status = 'QUEUED')
-                                                 |
-+------------------------------------------------v--------------------------------------------------+
-|                              WORKERS INDEPENDIENTES DE PROCESAMIENTO                              |
-|                         (Contenedor Docker Node.js + FFmpeg en Render/Fly)                        |
-|                                                                                                   |
-|   1. Poll & Lock: Bloquea el trabajo con `status = 'PROCESSING'` y timestamp de inicio.           |
-|   2. Descarga de Recursos: Descarga el guion JSON y los assets multimedia desde el Storage S3.   |
-|   3. Transcodificación: Ejecuta FFmpeg para componer fotogramas, transiciones y audio en AAC/H264|
-|   4. Notificación: Actualiza el progreso (0-100%) periódicamente en la tabla `cloud_jobs`.        |
-|   5. Finalización: Sube el video resultante al Storage y marca el trabajo como `COMPLETED`.       |
-+---------------------------------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+  A[App Android] --> B[API / Backend]
+  C[App escritorio] --> B
+  A <--> L[Base local IndexedDB]
+  C <--> LC[Base local]
+  B --> D[Autenticación]
+  B --> E[(PostgreSQL)]
+  B --> F[Almacenamiento de objetos]
+  B --> Q[Cola persistente de trabajos]
+  Q --> W[Worker cloud independiente]
+  W --> F
+  W --> E
+  B --> N[Estado / notificaciones]
+  N --> A
+  N --> C
 ```
 
----
+El diagrama representa el objetivo, no el estado actualmente desplegado.
 
-## 4. FLUJO DE COMUNICACIÓN Y PROCESAMIENTO ASÍNCRONO
+## 4. Componentes recomendados
 
-Para garantizar que un trabajo continúe aunque el usuario cierre la aplicación o apague el teléfono:
+### 4.1 Cliente instalado
 
-1. **Creación del Trabajo:**
-   - El cliente no renderiza el video pesado localmente. En su lugar, envía una mutación insertando una fila en la tabla `cloud_jobs`:
-     ```sql
-     INSERT INTO cloud_jobs (user_id, project_id, job_type, status, progress, payload)
-     VALUES (auth.uid(), 'proj-001', 'RENDER_VIDEO', 'QUEUED', 0, '{"resolution":"720p","fps":30}');
-     ```
-2. **Independencia del Dispositivo:**
-   - Una vez confirmado el insert en Postgres, el cliente recibe el `job_id`. El usuario puede cerrar la aplicación, apagar el celular o cambiar de red. El trabajo queda salvaguardado en la nube.
-3. **Procesamiento en Worker Remoto:**
-   - El worker remoto (que corre en un servidor dedicado 24/7) detecta la tarea pendiente mediante una consulta atómica:
-     ```sql
-     UPDATE cloud_jobs
-     SET status = 'PROCESSING', started_at = NOW()
-     WHERE id = (
-       SELECT id FROM cloud_jobs WHERE status = 'QUEUED' ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED
-     ) RETURNING *;
-     ```
-   - Al usar `FOR UPDATE SKIP LOCKED`, múltiples workers pueden operar en paralelo sin colisionar ni duplicar tareas.
-4. **Seguimiento del Progreso:**
-   - El worker actualiza el campo `progress` (ej. 25%, 50%, 75%) conforme FFmpeg avanza en la codificación de fotogramas.
-   - Cuando el usuario vuelve a abrir la aplicación en el móvil o en la computadora, el cliente consulta el estado del `job_id` y muestra una barra de progreso exacta o el botón de descarga del video finalizado.
-5. **Recuperación ante Caídas:**
-   - Si un worker se apaga o falla a mitad del procesamiento, un monitor de tareas huérfanas (*watchdog*) identifica los trabajos que han permanecido en estado `PROCESSING` sin actualizar su timestamp por más de 10 minutos y los devuelve al estado `QUEUED` para su reintento automático (máximo 3 reintentos).
+React/Vite puede seguir siendo la base de interfaz mientras las pruebas confirmen compatibilidad. Capacitor puede servir como contenedor Android. La aplicación de escritorio requiere una decisión separada (por ejemplo, Tauri o cliente web empaquetado), basada en pruebas y mantenimiento.
+
+Responsabilidades:
+- interfaz y edición;
+- caché local;
+- captura de cambios;
+- cola offline local;
+- carga y descarga de medios;
+- supervisión y aprobación de trabajos;
+- notificaciones cuando el sistema operativo y el despliegue lo permitan.
+
+No debe contener claves administrativas ni ejecutar renders prolongados como única vía de procesamiento.
+
+### 4.2 Backend y API
+
+Responsabilidades:
+- validar sesiones y permisos;
+- validar propiedad de proyectos;
+- aceptar cambios;
+- crear trabajos;
+- emitir URLs firmadas de corta duración;
+- consultar estado de trabajos;
+- aplicar límites y cuotas;
+- auditar acciones relevantes.
+
+No exponer claves `service_role`, credenciales de base de datos ni secretos de workers en el frontend.
+
+### 4.3 Autenticación
+
+Un proveedor como Supabase Auth puede reducir trabajo inicial. Alternativamente, un backend propio puede gestionar identidad y sesiones. Comparar recuperación de cuenta, seguridad, límites gratuitos, dependencia del proveedor y facilidad de mantenimiento.
+
+Mínimos:
+- registro e inicio de sesión por correo;
+- recuperación de acceso;
+- sesiones revocables;
+- separación de datos por usuario;
+- protección frente a enumeración de cuentas y abuso;
+- política clara de eliminación/exportación.
+
+### 4.4 PostgreSQL
+
+Entidades conceptuales:
+- `profiles`
+- `projects`
+- `project_versions`
+- `assets`
+- `jobs`
+- `job_events`
+- `sync_operations`
+- `usage_quotas`
+
+Cada tabla con `user_id`/propietario cuando corresponda. Las políticas RLS deben probarse con usuarios distintos y consultas negativas; no basta con que el SQL contenga una declaración RLS.
+
+### 4.5 Almacenamiento de objetos
+
+Los archivos grandes no deben almacenarse como blobs dentro de filas PostgreSQL. Usar almacenamiento de objetos privado, metadatos en base de datos y URLs firmadas con caducidad.
+
+Requisitos:
+- límites de tamaño y tipo MIME;
+- checksum;
+- cargas multipart/resumibles cuando estén disponibles;
+- política de retención;
+- limpieza de cargas incompletas;
+- control de descargas y transferencia.
+
+### 4.6 Cola y workers
+
+El backend registra un trabajo duradero y lo coloca en una cola. Un worker independiente lo reclama mediante lease/lock, registra heartbeat, procesa, sube el resultado y actualiza el estado.
+
+Estados propuestos:
+`queued → validating → running → uploading → succeeded`
+y estados terminales alternativos: `failed`, `cancelled`, `expired`.
+
+Usar idempotency key para evitar trabajos duplicados. Definir reintentos limitados y distinguir errores transitorios de errores permanentes.
+
+## 5. Comparación de opciones
+
+| Opción | Ventajas | Límites / riesgos | Papel posible |
+|---|---|---|---|
+| Supabase | Auth, PostgreSQL, Storage, RLS integrados | Cuotas, límites de almacenamiento/egress, funciones no equivalentes a workers de render prolongado | Backend inicial candidato |
+| Backend propio | Control y portabilidad | Mayor desarrollo, operación y seguridad | Alternativa si crece la complejidad |
+| Worker en contenedor bajo demanda | Adecuado para FFmpeg y tareas largas | Arranque, cuota de CPU/RAM, almacenamiento temporal y coste | Render remoto |
+| Funciones serverless | Buenas para API y tareas cortas | Límites de duración/CPU y memoria | Validaciones y coordinación |
+| Cola gestionada | Durabilidad y reintentos | Coste o límites del proveedor | Orquestación de jobs |
+
+## 6. Diseño de seguridad
+
+- RLS para cada tabla accesible desde cliente.
+- Storage privado por defecto.
+- URLs firmadas de alcance y duración limitados.
+- Validación server-side de cada job y archivo.
+- Límites por usuario, tamaño, concurrencia y duración.
+- Secretos solo en variables del servidor/secret manager.
+- Logs sin tokens, contraseñas ni URLs sensibles.
+- Backups separados del entorno primario.
+- Pruebas de acceso cruzado entre cuentas.
+- Política de eliminación y retención.
+
+## 7. Arquitectura por etapas
+
+**Etapa A — sin coste:** mantener local-first; definir contratos de datos, esquema y pruebas; crear prototipo local de API si hace falta.
+
+**Etapa B — cloud básico:** autenticación y base de datos en un plan gratuito, solo después de verificar cuotas y condiciones vigentes. No activar cargas grandes automáticamente.
+
+**Etapa C — sync:** replicación controlada de metadatos y proyectos pequeños; medios mediante almacenamiento privado.
+
+**Etapa D — jobs:** cola persistente y worker bajo demanda. No confundir una Edge Function con un renderizador de varios minutos sin verificar límites.
+
+**Etapa E — render:** habilitar solo cuando exista presupuesto autorizado o un worker gratuito con límites adecuados y pruebas de calidad.
+
+## 8. Coste objetivo US$0/mes
+
+Es posible mantener la fase de investigación, desarrollo local y pruebas manuales en cero dólares mensuales. También puede ser posible una demostración limitada utilizando tiers gratuitos, pero no se debe prometer disponibilidad, almacenamiento o render ilimitado.
+
+Costes que deben vigilarse:
+- base de datos y almacenamiento;
+- transferencia/egress;
+- cómputo de workers;
+- tiempo de render;
+- logs y backups;
+- dominios y distribución;
+- notificaciones.
+
+**Regla de presupuesto:** no activar un servicio si no se conocen su cuota, límite de suspensión, política de inactividad, coste por exceso y procedimiento para desactivar facturación.
+
+## 9. Decisión provisional
+
+Arquitectura candidata: cliente React existente + Capacitor Android + PostgreSQL/Auth/Storage gestionados si sus cuotas gratuitas actuales son suficientes + cola duradera + worker de contenedor bajo demanda.
+
+No se recomienda desplegar aún. Antes se debe validar precio y límites vigentes, definir un presupuesto duro, comprobar RLS y realizar una prueba pequeña con datos ficticios.
+
+## 10. Criterios de aceptación
+
+- Diagrama de componentes y flujo de datos.
+- Contratos API y estados de job definidos.
+- Modelo de seguridad y aislamiento.
+- Costes y límites documentados con fecha y fuente.
+- Sin dependencia del teléfono para trabajos remotos.
+- Sin credenciales secretas en el cliente.

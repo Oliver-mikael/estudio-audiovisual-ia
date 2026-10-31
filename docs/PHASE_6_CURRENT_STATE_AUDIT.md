@@ -1,94 +1,89 @@
-# ENTREGABLE 1 — AUDITORÍA DEL ESTADO ACTUAL DEL PROYECTO
-## Estudio Audiovisual Inteligente
+# Fase 6 — Auditoría del estado actual
+**Proyecto:** Estudio Audiovisual Inteligente
+**Fecha de elaboración:** 30 de octubre de 2026 (base documental disponible)
+**Estado:** Documento de análisis; no implica inspección nueva del repositorio.
 
-**Fecha:** Octubre de 2026
-**Documento:** `docs/PHASE_6_CURRENT_STATE_AUDIT.md`
-**Fase:** Fase 6 — Auditoría Técnica y Diagnóstico de Estado
-**Propósito:** Proporcionar una fotografía técnica confiable del proyecto, distinguiendo taxativamente entre capacidades demostradas y código simulado o diseñado sin desplegar.
+## 1. Propósito y alcance
 
----
+Establecer una línea base para planificar la transformación Cloud-First y el rediseño UI/UX sin modificar código, datos locales, configuración de firma ni APK instalado.
 
-## 1. RESUMEN EJECUTIVO Y METODOLOGÍA DE AUDITORÍA
+Esta auditoría utiliza los informes y resultados del proyecto compartidos hasta la fecha. Las afirmaciones técnicas que proceden de informes de Jules se identifican como **reportadas**, no como verificaciones independientes realizadas durante esta entrega.
 
-La auditoría se ejecutó directamente sobre el árbol de archivos, dependencias (`package.json`), scripts de compilación, suite de pruebas unitarias (`src/__tests__/`), configuración nativa (`capacitor.config.json`, `android/`), y esquemas SQL en el repositorio.
+## 2. Resumen ejecutivo
 
-### Criterios de Clasificación:
-1. **Funcional y Verificado:** Implementado en código fuente, verificado mediante tests automáticos o compilación ejecutada exitosamente.
-2. **Parcialmente Implementado:** El código base existe pero carece de integración completa con la interfaz o backend.
-3. **Simulado o Local:** Funciona en el navegador mediante stubs, temporizadores o memoria local (`localStorage`/`setTimeout`), sin persistencia distribuida.
-4. **Diseñado, pero no Desplegado:** Especificaciones de arquitectura, modelos SQL o scripts documentados, pero sin servidor ni entorno activo.
-5. **Pendiente:** Planificado en roadmap pero sin implementación activa en código.
-6. **No Verificado:** Código escrito que no cuenta con suite de pruebas ni verificación en entorno productivo.
+El proyecto dispone de una aplicación frontend basada en React 18, TypeScript, Vite y Tailwind CSS, con persistencia local mediante IndexedDB y un motor audiovisual Canvas 2D. También existe una configuración Android basada en Capacitor.
 
----
+La auditoría Cloud-First previamente compartida concluyó que varias capacidades cloud estaban diseñadas, pero simuladas en el cliente: sesión en `localStorage`, réplica remota simulada y cola de trabajos local basada en `localStorage`/`setTimeout`. Por tanto, no debe describirse el sistema actual como una plataforma cloud operativa ni como un renderizador remoto.
 
-## 2. ARQUITECTURA GENERAL DEL FRONTEND Y ESTRUCTURA DE CÓDIGO
+La base local y el APK instalado deben considerarse activos que proteger. La Fase 6 documental no debe alterar ninguno de ellos.
 
-### Estructura de Directorios y Responsabilidades:
-- `src/main.tsx`: Punto de entrada de React 18 montando `<App />` sobre el contenedor DOM `root`.
-- `src/App.tsx`: Shell principal de la aplicación. Gestiona el estado reactivo del proyecto activo (`project`), selector de pestañas modulares, barra superior con botón de renderizado local y enlace directo de descarga del APK (`public/app-debug.apk`).
-- `src/types/index.ts`: Definición rigurosa de modelos TypeScript (`Project`, `Scene`, `IdeaItem`, `EvidenceItem`, `MediaAsset`, `CloudJob`, `RenderConfig`).
-- `src/modules/`:
-  - `IdeaLab.tsx`: Laboratorio de ideas (preguntas disparadoras, ángulos narrativos y heurísticas de crítica).
-  - `ResearchModule.tsx`: Registro y verificación de fuentes, afirmaciones, evidencias y clasificación epistemológica (hecho/hipótesis).
-  - `ScriptWorkshop.tsx`: Taller de guion con cálculo automático de ritmo (~2.5 palabras/segundo) y desglose de locución.
-  - `StoryboardModule.tsx`: Dirección visual, movimientos de cámara (Zoom In/Out, Pan Left/Right) e intención de escena.
-  - `MediaLibraryModule.tsx`: Gestión de recursos multimedia y atribución de licencias.
-- `src/components/VideoPlayer.tsx`: Monitor audiovisual interactivo montado sobre elemento `<canvas>`.
-- `src/engine/`:
-  - `renderEngine.ts`: Motor de composición Canvas 2D en cliente (fotogramas, textos cinéticos, barras de progreso y subtítulos).
-  - `exporter.ts`: Exportador de video en cliente mediante `captureStream()`, `MediaRecorder` y Web Audio API.
-- `src/services/`:
-  - `storage/db.ts`: Capa de persistencia local IndexedDB (`idb`).
-  - `cloud/api.ts`: Cliente de API cloud (actualmente adaptador mock con sesión en `localStorage`).
-  - `sync/syncEngine.ts`: Motor de sincronización offline con cola de mutaciones en `localStorage`.
-  - `jobs/jobQueue.ts`: Gestor de tareas pesadas simuladas con `setTimeout`.
+## 3. Línea base conocida
 
----
+| Área | Estado según la información disponible | Implicación |
+|---|---|---|
+| Frontend | React 18, TypeScript, Vite, Tailwind | Conservar y evaluar antes de sustituir |
+| Persistencia | IndexedDB local reportada como operativa | Proteger y respaldar antes de migrar |
+| Biblioteca multimedia | Blobs locales en IndexedDB reportados | Diseñar subida reanudable y recuperación |
+| Investigación y guion | Módulos funcionales reportados | Preservar estructura y datos |
+| Storyboard | Editor de escenas y movimientos reportados | No rehacer sin pruebas de valor |
+| Render | Canvas 2D, Web Audio API y MediaRecorder | Mantener como ruta local de respaldo |
+| Exportación | WebM 720p/30fps reportado; MP4 depende del navegador | No prometer formato universal |
+| Auth | Sesión simulada en `localStorage` según auditoría cloud | No es autenticación real |
+| Sync | Cola local y réplica simulada según auditoría cloud | No existe sync multidispositivo confirmado |
+| Jobs | `localStorage` y `setTimeout` según auditoría cloud | No son workers persistentes |
+| Android | Capacitor configurado; APK debug reportado | Firma y compatibilidad de actualización por verificar |
+| Pruebas | 8/8 tests, TypeScript y build reportados en informes | Repetir en cada futura fase de implementación |
 
-## 3. MATRIZ DE ESTADO DE COMPONENTES DEL SISTEMA
+## 4. Componentes y rutas mencionados
 
-| Componente / Módulo | Archivo(s) de Referencia | Clasificación | Evidencia Técnica en el Código |
-| :--- | :--- | :---: | :--- |
-| **Persistencia Local** | `src/services/storage/db.ts` | **Funcional y Verificado** | Base IndexedDB `EstudioAudiovisualDB` versión 1 con dos object stores: `projects` y `assets`. Probado en tests unitarios (`storage.test.ts`). |
-| **Biblioteca Multimedia Local** | `src/modules/MediaLibraryModule.tsx`, `db.ts` | **Funcional y Verificado** | Carga de archivos vía `FileReader`, conversión a DataURL/Blob y guardado en IndexedDB. |
-| **Motor Audiovisual Canvas 2D** | `src/engine/renderEngine.ts` | **Funcional y Verificado** | Composición a 1280x720p @ 30 FPS. Dibuja fondos cinéticos, gradientes oscuros, textos centrados animados y barras de subtítulo. |
-| **Exportación de Video WebM** | `src/engine/exporter.ts` | **Funcional y Verificado** | Captura de stream de canvas mediante `captureStream(30)` y pistas de audio vía Web Audio API. Graba chunks en WebM (VP8/Opus). |
-| **Autenticación Cloud** | `src/services/cloud/api.ts` | **Simulado o Local** | Guarda un token falso en `localStorage['estudio_cloud_session']` con usuario mock (`Mock Demo User`). No hay llamadas HTTP reales. |
-| **Seguridad y RLS** | `supabase/schema.sql` | **Diseñado, pero no Desplegado** | Tablas `projects`, `scenes`, `source_references`, `cloud_jobs` con políticas `auth.uid() = user_id`. No hay instancia Supabase conectada. |
-| **Sincronización Offline-First** | `src/services/sync/syncEngine.ts` | **Parcialmente Implementado** | La cola de mutaciones `estudio_sync_queue` guarda deltas en `localStorage`, pero el endpoint de subida invoca el mock local de `api.ts`. |
-| **Cola de Trabajos Asíncronos** | `src/services/jobs/jobQueue.ts` | **Simulado o Local** | Encola trabajos en `localStorage['estudio_remote_jobs']` y simula progreso (0%-25%-75%-100%) mediante `setTimeout`. Si la app se cierra, se interrumpe. |
-| **Worker Remoto FFmpeg** | `docs/CLOUD_RENDERING.md` | **Diseñado, pero no Desplegado** | Dockerfile y flujo de renderizado en Node.js/FFmpeg documentados, pero sin servidor físico en la nube ni worker desplegado. |
-| **Envoltorio Android (APK)** | `capacitor.config.json`, `app-debug.apk` | **Funcional y Verificado** | APK compilado exitosamente con Gradle 8.14 (4.1 MB). Sirve el bundle de Vite en `assets/public/`. Verificado estructuralmente. |
-| **Suite de Pruebas Unitarias** | `src/__tests__/` (`core`, `exporter`, `storage`) | **Funcional y Verificado** | 8 pruebas unitarias ejecutadas mediante Vitest (`vitest run`), pasando al 100% en < 2 segundos. |
+La auditoría anterior identificó, entre otros:
 
----
+- `src/services/cloud/api.ts`: sesión simulada.
+- `src/services/sync/syncEngine.ts`: cola de mutaciones local.
+- `src/services/jobs/jobQueue.ts`: trabajos simulados en almacenamiento local y temporizadores.
+- `supabase/schema.sql`: esquema y políticas RLS diseñadas, sin prueba de backend desplegado.
+- `capacitor.config.json`: configuración Capacitor apuntando a `dist`.
+- `src/data/demoProject.ts`: proyecto de demostración reportado.
+- `docs/`: documentación funcional y auditorías.
 
-## 4. DISTINCIÓN EXPRESA ENTRE LO DEMOSTRADO Y LO DOCUMENTADO
+Estos nombres deben verificarse contra la rama y commit actuales antes de cualquier intervención. No se presupone que los archivos sigan idénticos.
 
-Para evitar falsas expectativas técnicas:
+## 5. Riesgos y brechas prioritarias
 
-1. **Lo Demostrado Empíricamente:**
-   - La aplicación React carga, reproduce y previsualiza a 30 FPS en tiempo real un guion documental estructurado de 2 capítulos (CERN, ENQUIRE, propuesta WWW de 1989).
-   - El exportador genera un archivo `.webm` descargable de 720p con audio sintetizado local y subtítulos.
-   - El almacenamiento local recupera el proyecto tras recargar la página.
-   - El APK Android existe en disco (`app-debug.apk`), pesa 4.19 MB y contiene el build de producción en `assets/public/`.
-2. **Lo que Solo Aparece en Documentación o Simulación:**
-   - No existe un servidor en la nube activo procesando peticiones.
-   - Si el usuario cierra el navegador o la aplicación Android mientras se procesa un trabajo simulado (`jobQueue.ts`), la tarea no continúa en ningún worker externo.
-   - No hay sincronización multidispositivo real: los cambios hechos en el celular no viajan a la computadora porque ambos guardan únicamente en sus respectivos almacenes IndexedDB locales.
+1. **Falsa expectativa de cloud:** interfaz o etiquetas pueden sugerir tareas remotas que realmente se ejecutan localmente.
+2. **Pérdida de datos:** IndexedDB contiene proyectos y medios; migrar sin exportación y reconciliación sería peligroso.
+3. **Firma Android:** no se conoce aquí la clave con la que se firmó el APK instalado. Una clave distinta puede impedir la actualización sobre la instalación existente.
+4. **Trabajos largos:** `setTimeout` en el cliente no sobrevive de forma fiable al cierre de la app.
+5. **Audio:** el uso de Web Speech API no garantiza que la voz sintetizada quede incorporada en la pista exportada.
+6. **Pruebas de dispositivo:** compatibilidad teórica Android no equivale a pruebas en el TECNO real.
+7. **Coste cloud:** workers, almacenamiento, transferencia y render pueden superar el objetivo gratuito.
 
----
+## 6. Qué debe conservarse
 
-## 5. DIAGNÓSTICO DE LO QUE DEBE CONSERVARSE Y LO QUE DEBE EVOLUCIONAR
+- Aplicación y flujo local actual.
+- IndexedDB y sus datos.
+- Motor Canvas 2D y exportación local mientras no exista alternativa comprobada.
+- Estructura de proyectos, investigación, guion y storyboard.
+- Configuración Capacitor existente.
+- APK actualmente instalado y su identidad de paquete.
+- Historial Git, ramas y puntos de recuperación.
 
-### Lo que Debe Conservarse Intacto:
-- **El motor Canvas 2D local (`renderEngine.ts`):** Proporciona previsualización instantánea a coste cero sin latencia de red.
-- **La persistencia local IndexedDB (`db.ts`):** Es la garantía de resiliencia y funcionamiento offline cuando el usuario no tiene conexión.
-- **La estructura del proyecto documental:** Los modelos de datos y guiones documentales existentes (Capítulos 1 y 2) deben mantenerse 100% íntegros.
+## 7. Verificaciones obligatorias antes de implementar
 
-### Lo que Necesita Evolucionar:
-- **Sustituir el mock de autenticación:** Reemplazar el token falso en `localStorage` por autenticación real mediante Supabase Auth o equivalente.
-- **Sincronización remota:** La cola de mutaciones local debe conectarse a una base de datos PostgreSQL remota con resolución de conflictos.
-- **Trabajos en segundo plano:** Las tareas de renderizado pesado y consultas de IA deben ser procesadas por workers independientes en la nube para no depender de la pantalla activa del celular.
-- **Rediseño visual UI/UX:** Sustituir la interfaz experimental de botones grandes y espaciados excesivos por un entorno de trabajo compacto y optimizado para pantallas táctiles y escritorios.
+- Registrar commit, rama y estado limpio del repositorio.
+- Confirmar archivos reales y dependencias.
+- Ejecutar build y tests sin cambiar código.
+- Determinar dónde están almacenados los datos del usuario y cómo exportarlos.
+- Identificar `applicationId`, `versionCode`, `versionName` y método de firma.
+- Confirmar si existe keystore de publicación, quién lo controla y si está respaldado de forma segura. Nunca subir secretos al repositorio.
+- Probar el APK actual y registrar versión instalada.
+- Separar evidencia de escritorio, emulador y dispositivo Android físico.
+
+## 8. Criterios de aceptación de esta auditoría
+
+- Cada capacidad se etiqueta como verificada, reportada, simulada, diseñada o pendiente.
+- No se afirma que existe backend cloud operativo sin evidencia.
+- Se identifica el mecanismo de protección de datos y APK.
+- No se modifica código, base local, firma, APK ni configuración.
+
+**Conclusión:** la estrategia correcta es evolucionar por capas. Primero preservar y comprender la aplicación existente; después diseñar autenticación, almacenamiento, sincronización y workers reales. El estado cloud actual debe tratarse como prototipo/simulación hasta que una integración real se demuestre.

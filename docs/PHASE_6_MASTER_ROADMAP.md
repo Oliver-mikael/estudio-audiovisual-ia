@@ -1,88 +1,207 @@
-# ENTREGABLE 8 — HOJA DE RUTA, RIESGOS, COSTES Y DECISIÓN ARQUITECTÓNICA
-## Estudio Audiovisual Inteligente
+# Fase 6 — Hoja de ruta maestra y decisión arquitectónica
 
-**Fecha:** Octubre de 2026
-**Documento:** `docs/PHASE_6_MASTER_ROADMAP.md`
-**Fase:** Fase 6 — Síntesis Maestra, Análisis de Riesgos y Presupuesto
-**Propósito:** Integrar las conclusiones de los siete entregables anteriores en una hoja de ruta ejecutable, cuantificada y priorizada para la aprobación del usuario.
+## 1. Resumen ejecutivo
 
----
+La recomendación es transformar el proyecto por etapas y mantener una ruta local funcional. El objetivo de US$0/mes es razonable para investigación, documentación, prototipos locales y pruebas limitadas. No debe interpretarse como garantía de un servicio cloud de producción con almacenamiento y render ilimitados.
 
-## 1. ARQUITECTURA FINAL RECOMENDADA
+La aplicación actualmente conocida tiene persistencia local y motor Canvas 2D. Los componentes cloud descritos en la auditoría previa son simulados o no desplegados. La primera tarea de implementación no es “activar todo cloud”: es asegurar datos, firma Android, contratos y pruebas.
 
-Se recomienda una **Arquitectura Híbrida Multiplataforma Cloud-First** sustentada en:
-1. **Frontend Unificado (React 18 + TypeScript + Vite + Tailwind CSS):**
-   - Sirve como PWA en escritorio/web y como aplicación Android nativa mediante Capacitor JS.
-2. **Plataforma Central Gestionada (Supabase):**
-   - Autenticación con email/password y recuperación de contraseñas.
-   - Base de datos relacional PostgreSQL con políticas RLS de aislamiento estricto por usuario.
-   - Buckets de almacenamiento de objetos privados compatibles con S3.
-3. **Estrategia de Actualizaciones Silenciosas (Capgo / PWA):**
-   - Actualización directa de bundles web y lógica TypeScript sin recompilar ni reinstalar el APK de Android de 4.1 MB.
-4. **Cómputo Audiovisual Desacoplado:**
-   - Previsualización en tiempo real en el cliente mediante Canvas 2D local a 0 ms de latencia.
-   - Procesamiento de video final y tareas pesadas en workers independientes con Docker y FFmpeg en Render/Fly.io.
+## 2. Decisión arquitectónica provisional
 
----
+**Cliente:** React/Vite existente, con Capacitor para Android mientras siga siendo compatible.
+**Persistencia local:** IndexedDB se conserva como caché y modo offline.
+**Backend:** evaluar Supabase como candidato inicial para Auth/PostgreSQL/Storage, sujeto a verificación de cuotas y límites gratuitos actuales.
+**API:** capa server-side para permisos, creación de jobs y URLs firmadas.
+**Jobs:** cola persistente y worker separado; no `setTimeout` en el cliente.
+**Medios:** object storage privado con cargas controladas.
+**Render:** conservar Canvas local; evaluar FFmpeg/worker remoto con prueba pequeña.
+**UI:** sistema de diseño centralizado, piloto de Inicio, luego expansión aprobada.
+**Updates:** separar recursos web de componentes nativos; no cambiar APK hasta verificar firma.
 
-## 2. COMPARACIÓN DE ESCENARIOS PRESUPUESTARIOS
+## 3. Matriz de alternativas
 
-Se evaluaron tres escenarios de costes reales para garantizar la sostenibilidad económica:
+| Decisión | Opción preferida provisional | Alternativa | Motivo |
+|---|---|---|---|
+| UI | Mantener React/Vite | Reescritura | Menor riesgo y reutilización |
+| Android | Capacitor existente | Tauri/React Native | Evitar migración sin beneficio medido |
+| Auth/DB | Supabase candidato | Backend propio | Reduce trabajo inicial |
+| Archivos | Storage privado | Servidor propio | Separación de binarios y metadatos |
+| Jobs | Cola + worker independiente | Funciones serverless cortas | Render requiere proceso separado |
+| Sync | Outbox + revisiones | Sync genérico “last write wins” | Mejor control de conflictos |
+| Render | Canvas local + worker experimental | Reemplazo inmediato | Mantiene respaldo funcional |
+| Updates | Recursos web versionados, si permitido | APK por cada cambio | Menor fricción sin prometer cambios nativos remotos |
 
-| Concepto de Coste | Escenario 1: Nivel Gratuito ($0 / mes) | Escenario 2: Económico Personal (~$5 - $15 / mes) | Escenario 3: Producción Escalable (~$25 - $50 / mes) |
-| :--- | :--- | :--- | :--- |
-| **Backend (Base de Datos & Auth)** | **$0** (Supabase Free: 500 MB DB, 50k MAU) | **$0** (Se mantiene en cuota gratuita) | **$25/mes** (Supabase Pro: 8 GB DB, backups diarios) |
-| **Almacenamiento de Assets y Videos** | **$0** (Cloudflare R2: 10 GB gratis, Egress $0) | **$1 - $3/mes** (R2: $0.015/GB para ~100 GB) | **$5/mes** (R2: ~300 GB de almacenamiento) |
-| **Alojamiento Web y PWA** | **$0** (Cloudflare Pages / Vercel Hobby) | **$0** (Suficiente para uso individual) | **$20/mes** (Vercel Pro si se requiere equipo) |
-| **Worker Cloud de Renderizado** | **$0** (Render.com Free: 750 horas CPU/mes o Modal $30 crédito gratis) | **$7/mes** (VPS Render/Hetzner 2 vCPU, 4 GB RAM) | **$15 - $20/mes** (Worker dedicado con GPU ligera o cómputo elástico) |
-| **Actualizaciones OTA (Capgo)** | **$0** (Capgo Free: hasta 500 actualizaciones activas) | **$0** (O servidor Capgo self-hosted en Supabase) | **$12/mes** (Capgo Pro) |
-| **COSTE TOTAL MENSUAL ESTIMADO** | **$0.00 / mes** | **~$8.00 / mes** | **~$52.00 / mes** |
+## 4. Presupuesto y escenarios
 
-**Conclusión Financiera:** El proyecto puede comenzar, validarse y utilizarse plenamente en el **Escenario Gratuito ($0 / mes)** sin costes ocultos ni requerir tarjeta de crédito bancaria obligatoria para las funciones esenciales.
+### Escenario A — US$0/mes (objetivo inicial)
 
----
+Incluye:
+- desarrollo e investigación local;
+- documentación;
+- pruebas con datos ficticios;
+- IndexedDB local;
+- prototipos de API/worker;
+- pruebas de UI y build;
+- uso limitado de tiers gratuitos solo después de verificar condiciones.
 
-## 3. MATRIZ DE RIESGOS Y MEDIDAS DE MITIGACIÓN
+No incluye garantía de:
+- almacenamiento remoto permanente;
+- backups gestionados;
+- transferencia ilimitada;
+- workers de render;
+- alta disponibilidad;
+- dominio propio;
+- notificaciones push a escala.
 
-| Riesgo Identificado | Nivel de Severidad | Probabilidad | Medida de Mitigación Obligatoria |
-| :--- | :---: | :---: | :--- |
-| **Sobrescritura accidental de proyectos locales al sincronizar** | **Crítica** | Media | Migración incremental asistida: exportación previa de backup JSON y fusión por deltas sin borrado ciego. |
-| **Fallo en arranque tras actualización OTA en Android** | **Alta** | Baja | Health-check automático de 5 segundos. Si la pantalla no inicializa el DOM, revierte inmediatamente al bundle base del APK. |
-| **Pérdida de firma digital del APK al compilar en el futuro** | **Alta** | Baja | Documentar y versionar el `keystore` y credenciales de firma de forma protegida fuera del repositorio público. |
-| **Suspensión de proyectos en Supabase Free por inactividad** | **Media** | Media | Supabase pausa proyectos tras 7 días sin peticiones. Se implementará un cron sutil de ping mensual o exportación local periódica. |
-| **Agotamiento de cuota de almacenamiento por videos pesados** | **Media** | Media | Política de retención: los videos exportados en la nube expiran a los 30 días si el usuario no los marca como favoritos o los descarga a su disco. |
+### Escenario B — económico
 
----
+Activar únicamente servicios que resuelvan una necesidad demostrada: backend gestionado, almacenamiento y worker bajo demanda. El coste real depende de uso, región, transferencia, CPU/RAM, retención y cuotas. No se asigna una cifra inventada; obtener cotizaciones/calculadoras oficiales antes de habilitar facturación.
 
-## 4. FASES DE IMPLEMENTACIÓN SECUENCIAL PROPUESTAS
+### Escenario C — escalable
 
-Para garantizar que el proyecto permanezca siempre funcional y con su historial íntegro:
+Separar base de datos, object storage, cola y workers con observabilidad, backups y límites. Presupuestar por usuario activo, GB almacenados, GB transferidos y minutos de render. Requiere autorización explícita y previsión de gasto.
 
-- **Etapa 6.1 — Rediseño Visual Compacto y Navegación Adaptativa:**
-  - Implementar el nuevo sistema visual (modos claro/oscuro/auto) y la navegación especializada móvil vs. escritorio en React/Tailwind.
-- **Etapa 6.2 — Capa de Autenticación Real con Supabase Auth:**
-  - Añadir pantalla de login/registro no invasiva, manteniendo la posibilidad de trabajar como invitado local.
-- **Etapa 6.3 — Sincronización Remota y Migración de IndexedDB:**
-  - Conectar el motor de sincronización a PostgreSQL con RLS y migrar proyectos locales de forma segura.
-- **Etapa 6.4 — Actualizaciones Silenciosas OTA (Capgo / PWA):**
-  - Habilitar la recepción de actualizaciones web sin modificar el APK instalado.
-- **Etapa 6.5 — Worker Cloud de Renderizado Asíncrono (FFmpeg):**
-  - Desplegar el microservicio de transcodificación para generar videos 1080p MP4 de alta calidad.
+## 5. Política de coste
 
----
+Antes de desplegar cualquier servicio:
+1. verificar plan y precio oficial vigente;
+2. identificar qué pasa al agotar cuota;
+3. comprobar si existe suspensión automática o cobro por exceso;
+4. fijar presupuesto máximo;
+5. establecer alertas y límites;
+6. probar apagado/eliminación;
+7. solicitar aprobación del propietario.
 
-## 5. CRITERIOS DE ACEPTACIÓN PARA LA IMPLEMENTACIÓN
+No introducir tarjeta de pago ni habilitar facturación por defecto.
 
-Cada etapa se considerará completada únicamente cuando cumpla los siguientes criterios:
-1. **Cero Pérdida de Datos:** Ningún proyecto preexistente en IndexedDB puede ser eliminado o corrompido durante las pruebas.
-2. **Cero Regresiones en Pruebas:** La suite de pruebas unitarias (`npm test`) debe pasar al 100% en todo momento.
-3. **No Dependencias de Pago Forzosas:** La aplicación debe ser completamente operable bajo el escenario presupuestario de $0/mes.
-4. **Verificación Visual:** Cada cambio de interfaz debe ser auditado mediante capturas de pantalla y videos en resoluciones móviles (360x780) y de escritorio (1280x720).
+## 6. Orden de implementación recomendado
 
----
+### Fase 6A — Protección y línea base
+- congelar referencia Git;
+- exportar datos locales;
+- respaldar APK actual;
+- verificar firma;
+- pruebas base de build y funcionalidad.
 
-## 6. DECISIÓN FINAL Y ACCIONES RECOMENDADAS
+**Puerta de aprobación:** datos y APK protegidos.
 
-- **Qué Conviene Implementar Primero:** La **Etapa 6.1 (Rediseño visual compacto y navegación responsiva)**, ya que mejora de inmediato la experiencia del usuario tanto en el celular como en la computadora sin alterar la arquitectura de datos ni requerir servicios externos.
-- **Qué Debe Conservarse:** El motor Canvas 2D local, el exportador WebM para uso rápido y la persistencia IndexedDB como capa de respaldo offline.
-- **Qué Requiere Autorización Explícita:** La creación de cuentas en proveedores externos (Supabase, Cloudflare, Render) y el despliegue de workers remotos.
+### Fase 6B — UI/UX piloto
+- inventario de componentes;
+- tokens y temas;
+- Inicio móvil/escritorio;
+- pruebas responsive y accesibilidad.
+
+**Puerta:** aprobación visual antes de extender el rediseño.
+
+### Fase 6C — Autenticación real
+- proveedor elegido;
+- login/registro/recuperación;
+- RLS y pruebas de aislamiento;
+- sesiones y cierre seguro.
+
+**Puerta:** pruebas de seguridad superadas.
+
+### Fase 6D — Persistencia y almacenamiento cloud
+- modelo de datos;
+- storage privado;
+- upload/download;
+- migración piloto con copias;
+- restauración.
+
+**Puerta:** recuperación verificada antes de migrar proyectos reales.
+
+### Fase 6E — Sincronización
+- outbox;
+- revisiones;
+- conflictos;
+- modo offline;
+- pruebas en dos dispositivos.
+
+**Puerta:** ningún cambio se pierde en pruebas de desconexión/conflicto.
+
+### Fase 6F — Cola y workers
+- jobs durables;
+- worker independiente;
+- estados y logs;
+- límites y reintentos;
+- prueba de continuidad al cerrar app.
+
+**Puerta:** job termina y se recupera desde otro dispositivo.
+
+### Fase 6G — Actualizaciones
+- confirmar firma;
+- probar recursos web versionados;
+- rollback;
+- probar actualización in-place en dispositivo secundario.
+
+**Puerta:** no actualizar APK principal hasta prueba satisfactoria.
+
+### Fase 6H — Motor audiovisual
+- comparar calidad y coste;
+- validar audio;
+- prototipo remoto;
+- decisión de integración.
+
+**Puerta:** demostrar ventaja técnica y económica.
+
+### Fase 6I — Pruebas integrales
+- seguridad;
+- pérdida de red;
+- restauración;
+- Android físico;
+- escritorio;
+- exportación audiovisual;
+- actualización y rollback.
+
+## 7. Matriz de riesgos
+
+| Riesgo | Severidad | Mitigación |
+|---|---|---|
+| Pérdida de IndexedDB | Crítica | Exportación, backup y restauración antes de migrar |
+| Firma APK incompatible | Crítica | Identificar certificado y probar actualización secundaria |
+| Falsa sincronización | Alta | Confirmación server-side y estados explícitos |
+| Worker no persistente | Alta | Cola duradera y proceso independiente |
+| Acceso cruzado a proyectos | Crítica | RLS, pruebas negativas y permisos mínimos |
+| Coste inesperado | Alta | Cuotas, alertas, presupuesto y desactivación |
+| Vendor lock-in | Media | Exportación y formatos abiertos |
+| Render móvil inestable | Alta | Worker remoto; mantener fallback local |
+| Update remoto inseguro | Alta | HTTPS, hashes, rollback y revisión de políticas |
+| Audio ausente/desincronizado | Alta | Prueba de reproducción del archivo final |
+
+## 8. Métricas de éxito
+
+- 0 pérdida de proyectos durante migración de prueba.
+- 100% de operaciones de sync confirmadas o presentadas como pendientes/error.
+- 0 acceso cruzado en pruebas de seguridad.
+- Un job de prueba termina con app cerrada.
+- Proyecto visible desde dos dispositivos.
+- APK instalado permanece intacto durante investigación.
+- Actualización secundaria probada con firma compatible y rollback.
+- Archivo audiovisual final contiene pistas de audio/video verificadas.
+- Coste mensual real no supera el presupuesto autorizado.
+
+## 9. Decisiones pendientes del propietario
+
+1. Autorizar proveedor cloud y, si aplica, creación de cuenta.
+2. Autorizar cualquier gasto y fijar tope.
+3. Elegir si la app de escritorio será web instalable, Tauri u otra opción.
+4. Aprobar el diseño visual piloto.
+5. Decidir política de retención y backup.
+6. Aprobar cualquier cambio de distribución Android.
+7. Aprobar uso de servicios externos de IA/render.
+
+## 10. Qué no implementar todavía
+
+- No reemplazar Canvas 2D.
+- No migrar ni borrar IndexedDB.
+- No activar workers 24/7.
+- No incorporar todas las herramientas audiovisuales.
+- No implementar updater remoto antes de verificar firma y políticas.
+- No desplegar con datos reales antes de probar RLS y recuperación.
+- No convertir una simulación en una etiqueta de “cloud activo”.
+
+## 11. Decisión final
+
+La ruta más prudente es **preservar el producto local, aprobar un rediseño UI/UX piloto, después construir autenticación y persistencia cloud, y solo entonces sincronización y workers remotos**. Las actualizaciones web y el procesamiento audiovisual deben tratarse como líneas técnicas independientes.
+
+**Estado:** investigación y arquitectura propuestas; implementación pendiente de aprobación explícita.

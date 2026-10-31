@@ -1,64 +1,105 @@
-# ENTREGABLE 6 — EXPERIENCIA MULTIDISPOSITIVO (MÓVIL VS. ESCRITORIO)
-## Estudio Audiovisual Inteligente
+# Fase 6 — Experiencia multidispositivo
 
-**Fecha:** Octubre de 2026
-**Documento:** `docs/PHASE_6_MULTIDEVICE_EXPERIENCE.md`
-**Fase:** Fase 6 — Especificación de Flujos de Interacción por Dispositivo
-**Propósito:** Definir la experiencia adaptativa especializada para Android móvil y computadora de escritorio, compartiendo idéntico estado de datos sin duplicar esfuerzos.
+## 1. Objetivo
 
----
+Definir una experiencia coherente en Android y computadora, compartiendo proyectos y estados a través de una cuenta, sin convertir al teléfono en el equipo que mantiene procesos pesados.
 
-## 1. PRINCIPIO DE ESPECIALIZACIÓN POR DISPOSITIVO
+## 2. Principios
 
-Un teléfono inteligente y una computadora de escritorio no deben intentar mostrar la misma distribución de pantalla:
-- **El celular** es una herramienta de captura rápida de ideas, revisión de guiones, grabación de notas de voz y supervisión del progreso de renderizados mientras el usuario se desplaza.
-- **La computadora** es el taller principal de composición, donde el usuario dispone de múltiples paneles abiertos, monitor de video de gran tamaño, edición de precisión de la línea de tiempo y atajos de teclado.
+- Misma identidad y proyectos; interacción adaptada al dispositivo.
+- El teléfono es una interfaz de control, revisión y trabajo ligero.
+- La computadora ofrece un espacio de edición y organización más amplio.
+- El backend cloud conserva el estado compartido.
+- El modo offline mantiene acceso a datos descargados y cambios pendientes.
+- Ningún dispositivo debe asumir que otro terminó una tarea hasta recibir estado del servidor.
 
-Ambos dispositivos acceden a la **misma cuenta de usuario** y a los **mismos proyectos**, pero la interfaz se reconfigura para potenciar las virtudes físicas de cada plataforma.
+## 3. Android
 
----
+Prioridades:
+- navegación táctil compacta;
+- abrir/crear/continuar proyecto;
+- revisar fuentes, guion y storyboard;
+- añadir notas y cambios ligeros;
+- subir medios de manera controlada;
+- supervisar jobs remotos;
+- pausar/cancelar cuando el worker lo permita;
+- ver resultados y notificaciones.
 
-## 2. EXPERIENCIA ANDROID (TELÉFONOS MÓVILES)
+Evitar:
+- render largo como única ruta;
+- descarga automática de toda la biblioteca;
+- operaciones que bloqueen la interfaz;
+- pérdida de edición al pasar a segundo plano.
 
-### Características de la Experiencia Móvil:
-- **Barra de Navegación Inferior Fija (Bottom Navigation Bar):** Ubicada en la zona ergonómica del pulgar, con 4 accesos rápidos:
-  1. `Proyectos`: Lista rápida de proyectos recientes con buscador y estado de guardado.
-  2. `Guion`: Editor de texto táctil con tarjetas de escena colapsables.
-  3. `Monitor`: Reproductor de video en formato panorámico con controles táctiles grandes (Play/Pausa, scrubber de tiempo).
-  4. `Trabajos`: Monitor en vivo de tareas pesadas en la nube.
-- **Vistas en Pantalla Completa:** Se elimina la división vertical de columnas de la versión web. En el móvil, cada módulo ocupa el 100% del ancho para no apretar el texto.
-- **Grabadora de Locución Directa:**
-  - Botón flotante para registrar audios de prueba utilizando el micrófono integrado del celular mediante `navigator.mediaDevices.getUserMedia()`, guardándolos directamente como assets de audio en la escena actual.
-- **Supervisión de Trabajos Cloud:**
-  - Si el usuario solicita exportar un video, el teléfono delega la tarea al worker cloud. La app muestra una notificación o tarjeta flotante: *"Renderizado en curso en la nube: 60%. Puedes cerrar la aplicación cuando quieras"*.
-  - Al completarse el trabajo, la app almacena el enlace de descarga o permite reproducir el video terminado en streaming directo.
+## 4. Computadora
 
----
+Prioridades:
+- paneles de investigación;
+- edición de guion y escenas;
+- timeline/storyboard;
+- gestión de biblioteca;
+- previsualización;
+- comparación de versiones;
+- supervisión de tareas;
+- revisión y descarga de resultados.
 
-## 3. EXPERIENCIA EN COMPUTADORA (ESCRITORIO / PANTALLAS GRANDES)
+La interfaz puede usar más columnas y paneles, pero debe conservar los mismos conceptos y nombres que el móvil.
 
-### Características de la Experiencia de Escritorio:
-- **Entorno de Trabajo Multicolumna (Layout Tipo Suite Profesional):**
-  - **Columna Izquierda (20% del ancho):** Navegador de escenas y proyectos. Lista vertical de escenas con indicación de duración (`01 | 16s`, `02 | 18s`), drag-and-drop para reordenar secuencias y acceso a la biblioteca de medios.
-  - **Columna Central (45% del ancho):** Monitor Audiovisual Canvas 2D en resolución nativa 16:9 con transporte completo (Play/Pausa, Loop, Mute), scrubber de línea de tiempo con marcadores de escena y pista de subtítulos en vivo.
-  - **Columna Derecha (35% del ancho):** Taller de Guion contextual y Crítica de IA. Editor de texto enriquecido, contador de palabras por segundo, análisis de ritmo y panel de evidencias/fuentes históricas vinculadas a la escena seleccionada.
-- **Atajos de Teclado Profesionales (NLE Shortcuts):**
-  - `Espacio`: Alternar reproducción y pausa del Canvas 2D.
-  - `J` / `K` / `L`: Rebobinar a 2x, Pausar, y Reproducir a 2x (estándar en edición audiovisual).
-  - `←` / `→`: Retroceder o avanzar 1 segundo exacto en la línea de tiempo.
-  - `Ctrl + S` / `Cmd + S`: Forzar sincronización inmediata de cambios a la nube.
-  - `Ctrl + B`: Abrir u ocultar la barra lateral de escenas para maximizar el monitor.
+## 5. Contrato compartido
 
----
+Cada cliente debe mostrar:
+- usuario y sesión;
+- proyecto y revisión;
+- estado de sync;
+- versión de datos;
+- estado de jobs;
+- resultados disponibles;
+- errores recuperables.
 
-## 4. MATRIZ COMPARATIVA DE CAPACIDADES POR DISPOSITIVO
+Los estados autoritativos de jobs provienen del servidor. El estado local de edición debe mostrarse separado del estado remoto.
 
-| Función / Capacidad | Celular Android | Computadora de Escritorio | Justificación Técnica |
-| :--- | :---: | :---: | :--- |
-| **Crear y editar guiones** | ✅ Ligera (Ajustes de texto) | ✅ Completa (Escritura intensiva) | La pantalla grande y teclado facilitan la redacción extensa. |
-| **Revisar fuentes y evidencias** | ✅ Consulta rápida | ✅ Tablero comparativo | Comparar afirmaciones con citas bibliográficas requiere espacio horizontal. |
-| **Previsualización Canvas 2D local** | ✅ Sí (360p / 720p) | ✅ Sí (720p / 1080p a 60 FPS) | Optimizado en móvil para ahorrar batería; máxima fluidez en PC. |
-| **Grabación de locución con micro** | ✅ Óptimo (Micrófono nativo) | ✅ Soportado (Micrófono USB) | El teléfono es excelente para notas de voz instantáneas. |
-| **Ejecución de Render Pesado** | ❌ Delegado a Cloud | ⚠️ Opcional local / ✅ Cloud | El celular no debe sufrir sobrecalentamiento ni descargas de batería. |
-| **Gestión de Archivos / Assets** | Subida selectiva de fotos | Drag-and-drop masivo de archivos | Los flujos de trabajo de producción pesada se centralizan en PC. |
-| **Sincronización en Tiempo Real** | ✅ WebSocket / Delta Sync | ✅ WebSocket / Delta Sync | Ambos dispositivos reflejan el cambio en < 500 ms si están conectados. |
+## 6. Flujos principales
+
+### Continuar un proyecto en otro dispositivo
+1. Guardar cambios localmente.
+2. Sincronizar y recibir confirmación.
+3. Abrir sesión en el segundo dispositivo.
+4. Descargar metadatos y medios necesarios.
+5. Mostrar revisión sincronizada.
+
+### Solicitar un render desde móvil
+1. Validar que el proyecto esté sincronizado.
+2. Crear job con parámetros y versión del proyecto.
+3. Backend registra job.
+4. Worker lo procesa independientemente.
+5. App consulta/recibe estado.
+6. Resultado se muestra cuando está listo.
+
+### Trabajo sin conexión
+1. Usuario edita proyecto disponible localmente.
+2. Cambios quedan pendientes.
+3. App muestra estado offline.
+4. Al reconectar, sincroniza y resuelve conflictos.
+5. No enviar render si la revisión requerida aún no está sincronizada.
+
+## 7. Notificaciones
+
+Notificaciones push o del sistema son opcionales y dependen de plataforma, permisos, infraestructura y cuotas. La app también debe ofrecer un historial de trabajos para que el usuario no dependa de una notificación perdida.
+
+## 8. Pruebas de aceptación
+
+- Crear proyecto en un dispositivo y abrirlo en otro.
+- Editar offline y sincronizar después.
+- Simular conflicto de dos dispositivos.
+- Cerrar la app móvil mientras un worker ficticio/probado continúa.
+- Consultar progreso al volver a abrir.
+- Verificar que el proyecto y los medios no se descargan todos innecesariamente.
+- Probar pantallas pequeñas y grandes.
+
+## 9. Coste US$0/mes
+
+Diseño, pruebas locales y sincronización simulada no requieren infraestructura recurrente. La experiencia multidispositivo real sí necesita backend, almacenamiento y transferencia. El objetivo de cero dólares solo puede mantenerse con límites estrictos, datos de prueba pequeños y tiers gratuitos vigentes.
+
+## 10. Criterio de aceptación
+
+La misma cuenta puede consultar un proyecto sincronizado desde dos dispositivos; las ediciones y estados se distinguen correctamente; los trabajos remotos continúan sin depender de la sesión del cliente.
