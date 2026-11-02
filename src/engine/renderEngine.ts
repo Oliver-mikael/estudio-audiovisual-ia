@@ -53,9 +53,21 @@ export class CanvasRenderEngine {
       this.canvas.height = height;
     }
 
+    // Check if timeline model is present and has video tracks
+    const v1Track = project.timeline?.tracks.find((t) => t.id === 'track-v1');
+    const isV1Visible = v1Track ? v1Track.isVisible : true;
+
     const scenes = project.script.scenes;
     if (!scenes || scenes.length === 0) {
       this.drawEmptyState(width, height);
+      return;
+    }
+
+    // If V1 track is explicitly hidden, draw blackout
+    if (!isV1Visible) {
+      this.ctx.fillStyle = '#05070e';
+      this.ctx.fillRect(0, 0, width, height);
+      this.drawWatermark(width, height, '(Pista V1 Oculta)', timeSeconds);
       return;
     }
 
@@ -93,8 +105,12 @@ export class CanvasRenderEngine {
     // 2. Draw Camera Motion / Overlays
     this.drawSceneVisuals(width, height, currentScene, sceneProgress);
 
-    // 3. Draw Kinetic Typography / Animated Subtitles
-    this.drawSubtitlesAndText(width, height, currentScene, sceneLocalTime);
+    // 3. Draw Kinetic Typography / Animated Subtitles (only if T1 track is visible)
+    const t1Track = project.timeline?.tracks.find((t) => t.id === 'track-t1');
+    const isT1Visible = t1Track ? t1Track.isVisible : true;
+    if (isT1Visible) {
+      this.drawSubtitlesAndText(width, height, currentScene, sceneLocalTime);
+    }
 
     // 4. Draw Studio Watermark & Scene Info
     this.drawWatermark(width, height, currentScene.title, timeSeconds);

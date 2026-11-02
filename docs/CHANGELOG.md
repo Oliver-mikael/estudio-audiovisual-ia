@@ -4,6 +4,94 @@ Todos los cambios notables realizados en el proyecto quedan registrados en este 
 
 ---
 
+## [Fase 7D - Motor de Audio Híbrido, Grabación de Voz y Mezcla Multipista] - 2026-10-31
+
+### Agregado
+- **Motor Web Audio API Multicanal (`src/services/audio/AudioEngine.ts`):**
+  - Singleton de gestión de contexto de audio Web Audio API, submixes independientes para Diálogo/Locución (A1), Música de fondo (A2) y Efectos especiales (A3), master gain, y provisión de stream multidestino `createMediaStreamDestination()` para renderizado y exportación.
+  - Programador de reproducción precisa de buffers sincronizado con el código de tiempo y playhead SMPTE a 30 FPS.
+- **Grabador de Locución Directa en Vivo (`src/services/audio/AudioRecorder.ts`):**
+  - Captura en tiempo real del micrófono local mediante `navigator.mediaDevices.getUserMedia` y `MediaRecorder`.
+  - Conversión automática a `MediaAsset` y asignación instantánea en la pista A1 del proyecto.
+- **Consola de Mezcla y Auto-Ducking (`src/services/audio/AudioMixer.ts`):**
+  - Faders de ganancia individual para cada canal (A1, A2, A3 y Master).
+  - Estados de Mute y Solo para control analítico de escucha.
+  - Algoritmo de atenuación automática (auto-ducking) que atenúa la música secundaria cuando el locutor habla en A1.
+- **Persistencia de Recursos de Audio (`src/services/audio/AudioPersistence.ts`):**
+  - Almacenamiento duradero de grabaciones y clips de audio en IndexedDB con soporte para Blobs y conversiones ArrayBuffer.
+- **Integración con el Exportador de Video (`src/engine/exporter.ts`):**
+  - Reemplazo del sintetizador básico SpeechSynthesis por el stream multicanal real de `AudioEngine` acoplado al `MediaRecorder` de video.
+- **Suite de Pruebas Unitarias de Fase 7D (`src/__tests__/audioEngine.test.ts`):**
+  - 5 pruebas exhaustivas elevando el total del repositorio a 52 pruebas pasando al 100% en Vitest.
+- **Documentación de la Fase 7D:**
+  - `docs/PHASE_7D_AUDIO_ARCHITECTURE.md`
+  - `docs/PHASE_7D_AUDIO_ENGINE_SPEC.md`
+  - `docs/PHASE_7D_VOICE_RECORDING_SPEC.md`
+  - `docs/PHASE_7D_MULTITRACK_MIXER_GUIDE.md`
+  - `docs/PHASE_7D_NARRATION_SYNC_MANUAL.md`
+  - `docs/PHASE_7D_EXPORTER_INTEGRATION_GUIDE.md`
+  - `docs/PHASE_7D_ANDROID_AUDIO_GUIDE.md`
+  - `docs/PHASE_7D_TEST_REPORT.md`
+  - `docs/PHASE_7D_FINAL_ACCEPTANCE.md`
+
+---
+
+## [Fase 7C - Edición Interactiva Real y Timeline Multipista] - 2026-10-31
+
+### Agregado
+- **Motor de Edición de Clips y Timeline (`src/services/timeline/timelineEngine.ts`):**
+  - Métodos puros deterministas: `moveClip`, `trimClipIn`, `trimClipOut`, `splitClipAtPlayhead`, `duplicateClip`, `deleteClip`, `reorderClips` y conmutadores de bloqueo, visibilidad y silencio.
+  - Sincronización bidireccional continua entre `TimelineTrack[]` y `Scene[]` en el modelo del proyecto.
+- **Gestor de Historial Deshacer/Rehacer (`UndoRedoManager`):**
+  - Pila inmutable con límite configurable (30 estados) y limpieza de rehacer en nuevas acciones.
+- **Controles Interactivos en `ProductionStudio.tsx`:**
+  - Botón de división rápida en cabezal (split con icono de tijeras).
+  - Botones de duplicación, eliminación y recorte de entrada (+1s) y salida (+1s/-1s).
+  - Cabezal de tiempo interactivo (scrubber) con telemetría de posición en milisegundos.
+  - Cabeceras de pista con conmutadores de bloqueo, visibilidad y silencio de audio.
+  - Botones Deshacer y Rehacer integrados en la barra de herramientas del timeline.
+- **Actualización del Motor Visual Canvas 2D (`src/engine/renderEngine.ts`):**
+  - Detección y respeto del estado de visibilidad de las pistas V1 (Video) y T1 (Subtítulos).
+- **Suite de Pruebas Unitarias de Fase 7C (`src/__tests__/timelineEngine.test.ts`):**
+  - 10 pruebas unitarias completas elevando el total a 47 pruebas pasando al 100% en Vitest.
+- **Documentación de la Fase 7C:**
+  - `docs/PHASE_7C_TIMELINE_IMPLEMENTATION.md`
+  - `docs/PHASE_7C_CLIP_EDITING.md`
+  - `docs/PHASE_7C_TRACK_SYSTEM.md`
+  - `docs/PHASE_7C_UNDO_REDO.md`
+  - `docs/PHASE_7C_PERSISTENCE_TESTS.md`
+  - `docs/PHASE_7C_ANDROID_DESKTOP_TESTS.md`
+  - `docs/PHASE_7C_TEST_REPORT.md`
+  - `docs/PHASE_7C_FINAL_ACCEPTANCE.md`
+
+---
+
+## [Fase 7B - Diseño y Planificación Integral del Estudio Audiovisual Profesional] - 2026-10-31
+
+### Agregado
+- **Barra de Estado Global en Tiempo Real (`src/components/GlobalStatusBar.tsx`):**
+  - Exhibe telemetría activa del proyecto: título, indicador reactivo de guardado IndexedDB, código de tiempo SMPTE (HH:MM:SS:FF) a 30 FPS, persistencia duradera de almacenamiento (`navigator.storage.persist()`), contador de escenas y estado del motor de IA.
+- **Estudio de Producción y Montaje Unificado (`src/modules/ProductionStudio.tsx`):**
+  - Panel interactivo que combina el monitor Canvas 2D, el timeline multipista (pistas V1 Video, A1 Audio, T1 Subtítulos) con control de zoom de escala, y 10 categorías de herramientas especializadas (Medios, Audio, Texto, Subtítulos, Transiciones, Efectos, Filtros, Animaciones, Color, Capas).
+- **Selector de Perfiles de Exportación Multiformato (`src/components/ExportProfilesModal.tsx`):**
+  - Configuración previa al renderizado con soporte para Full HD 1080p (16:9), HD 720p (16:9), Vertical 1080p (9:16 para TikTok, Reels, Shorts) y Cuadrado 720p (1:1), con cálculo automático de peso estimado en megabytes.
+- **Modelos de Dominio Extensibles (`src/types/index.ts`):**
+  - Incorporación de `TimelineTrack`, `TimelineClip`, `TimelineMarker`, `SubtitleCue`, `ExportProfile` y propiedades de transformación, velocidad y color.
+- **Batería de Pruebas Unitarias de Fase 7B (`src/__tests__/productionStudio.test.ts`):**
+  - 4 pruebas unitarias que elevan el total a 37 pruebas superadas al 100% en Vitest.
+- **Documentación de la Fase 7B:**
+  - `docs/PHASE_7B_FUNCTIONAL_INVENTORY.md`
+  - `docs/PHASE_7B_FEATURE_GAP_ANALYSIS.md`
+  - `docs/PHASE_7B_FORMAT_COMPATIBILITY.md`
+  - `docs/PHASE_7B_PRODUCTION_ARCHITECTURE.md`
+  - `docs/PHASE_7B_DESIGN_SYSTEM.md`
+  - `docs/PHASE_7B_IMPLEMENTATION_REPORT.md`
+  - `docs/PHASE_7B_TEST_REPORT.md`
+  - `docs/PHASE_7B_MASTER_ROADMAP.md`
+  - `docs/PHASE_7B_FINAL_ACCEPTANCE.md`
+
+---
+
 ## [Fase 7A - Auditoría UX, Benchmarking y Arquitectura del Estudio Híbrido] - 2026-10-31
 
 ### Agregado

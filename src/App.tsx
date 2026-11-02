@@ -11,18 +11,40 @@ import { ScriptWorkshop } from './modules/ScriptWorkshop';
 import { StoryboardModule } from './modules/StoryboardModule';
 import { MediaLibraryModule } from './modules/MediaLibraryModule';
 import { HomeDashboard } from './modules/HomeDashboard';
+import { ProductionStudio } from './modules/ProductionStudio';
+import { GlobalStatusBar } from './components/GlobalStatusBar';
+import { ExportProfilesModal } from './components/ExportProfilesModal';
 import { downloadProjectEAI } from './services/storage/projectBackup';
 import { AIAssistantDrawer } from './components/AIAssistantDrawer';
-import { Home, Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw, Smartphone, DownloadCloud, Sparkles } from 'lucide-react';
+import {
+  Home,
+  Lightbulb,
+  Search,
+  FileText,
+  Film,
+  FolderOpen,
+  Download,
+  Cpu,
+  RefreshCw,
+  Smartphone,
+  DownloadCloud,
+  Sparkles,
+  Clapperboard,
+  Sliders,
+} from 'lucide-react';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<Project>(DEMO_PROJECT);
-  const [activeTab, setActiveTab] = useState<'home' | 'ideas' | 'research' | 'script' | 'storyboard' | 'media'>('home');
+  const [activeTab, setActiveTab] = useState<
+    'home' | 'ideas' | 'research' | 'script' | 'storyboard' | 'production' | 'media'
+  >('production');
   const [isAIDrawerOpen, setIsAIDrawerOpen] = useState(false);
   const [activeAssistantSceneId, setActiveAssistantSceneId] = useState<string | undefined>(undefined);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Export state
   const [isExporting, setIsExporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportMessage, setExportMessage] = useState('');
   const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null);
@@ -40,7 +62,10 @@ export const App: React.FC = () => {
 
   const handleUpdateProject = (updated: Project) => {
     setProject(updated);
-    saveProjectToStorage(updated);
+    setIsSaving(true);
+    saveProjectToStorage(updated).finally(() => {
+      setTimeout(() => setIsSaving(false), 800);
+    });
   };
 
   const handleExportVideo = async () => {
@@ -111,7 +136,7 @@ export const App: React.FC = () => {
           </a>
 
           <button
-            onClick={handleExportVideo}
+            onClick={() => setIsExportModalOpen(true)}
             disabled={isExporting}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs rounded-lg shadow-lg shadow-indigo-600/20 transition-all ${
               isExporting ? 'opacity-50 cursor-not-allowed' : ''
@@ -123,193 +148,216 @@ export const App: React.FC = () => {
         </div>
       </header>
 
+      {/* Global Real-time Production Status Bar */}
+      <GlobalStatusBar project={project} isSaving={isSaving} />
+
+      {/* Workspace Navigation Bar (10 Specialised Workspaces) */}
+      <div className="bg-slate-900/90 border-b border-slate-800 px-6 py-2 sticky top-[57px] z-40 backdrop-blur">
+        <nav className="flex items-center gap-1.5 overflow-x-auto max-w-[1700px] mx-auto w-full">
+          <button
+            onClick={() => setActiveTab('home')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'home'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Home className="w-4 h-4" />
+            <span>Inicio</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('production')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+              activeTab === 'production'
+                ? 'bg-indigo-600 text-white shadow ring-1 ring-indigo-400/30'
+                : 'text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/40'
+            }`}
+          >
+            <Clapperboard className="w-4 h-4" />
+            <span>Producción & Montaje</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('ideas')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'ideas'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Lightbulb className="w-4 h-4" />
+            <span>Laboratorio de Ideas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('research')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'research'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Search className="w-4 h-4" />
+            <span>Investigación</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('script')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'script'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Taller de Guion</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('storyboard')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'storyboard'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <Film className="w-4 h-4" />
+            <span>Storyboard</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('media')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'media'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span>Biblioteca</span>
+          </button>
+        </nav>
+      </div>
+
       {/* Main Workspace Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-[1700px] mx-auto w-full">
-        {/* Left Column: Canvas Preview Studio (Always Accessible) */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="sticky top-20 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-300 font-mono uppercase tracking-wider">
-                Monitor de Producción en Tiempo Real
-              </h2>
-            </div>
+      <div className="flex-1 p-5 md:p-6 max-w-[1700px] mx-auto w-full">
+        {/* Render Progress or Success Notice if Exporting */}
+        {(isExporting || exportedVideoUrl) && (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5 space-y-3 shadow-lg">
+            {isExporting && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
+                  <span>{exportMessage}</span>
+                  <span>{exportProgress}%</span>
+                </div>
+                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                  <div
+                    className="bg-indigo-500 h-full transition-all duration-200"
+                    style={{ width: `${exportProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
-            <VideoPlayer project={project} />
+            {exportedVideoUrl && !isExporting && (
+              <div className="flex items-center justify-between bg-emerald-950/60 border border-emerald-800/80 p-3 rounded-lg">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-semibold text-emerald-300 block">
+                    ¡Video Renderizado con Éxito!
+                  </span>
+                  <span className="text-[11px] text-emerald-400/80 font-mono">
+                    Formato WebM 720p 30 FPS listo para descarga
+                  </span>
+                </div>
 
-            {/* Export Progress / Download Card */}
-            {(isExporting || exportedVideoUrl) && (
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-                {isExporting && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
-                      <span>{exportMessage}</span>
-                      <span>{exportProgress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                      <div
-                        className="bg-indigo-500 h-full transition-all duration-200"
-                        style={{ width: `${exportProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {exportedVideoUrl && !isExporting && (
-                  <div className="flex items-center justify-between bg-emerald-950/60 border border-emerald-800/80 p-3 rounded-lg">
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-semibold text-emerald-300 block">
-                        ¡Video Renderizado con Éxito!
-                      </span>
-                      <span className="text-[11px] text-emerald-400/80 font-mono">
-                        Formato listo para descarga (WebM / MP4)
-                      </span>
-                    </div>
-
-                    <a
-                      href={exportedVideoUrl}
-                      download={`${project.title.toLowerCase().replace(/\s+/g, '-')}-720p.webm`}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded transition-colors shadow flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Descargar</span>
-                    </a>
-                  </div>
-                )}
+                <a
+                  href={exportedVideoUrl}
+                  download={`${project.title.toLowerCase().replace(/\s+/g, '-')}-720p.webm`}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition-colors shadow flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Descargar Archivo</span>
+                </a>
               </div>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Right Column: Tabbed Intelligent Studio Modules */}
-        <div className="lg:col-span-7 flex flex-col space-y-4">
-          {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1.5 rounded-xl overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('home')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'home'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Inicio</span>
-            </button>
+        {/* Tab Views */}
+        <div>
+          {activeTab === 'home' && (
+            <HomeDashboard
+              currentProject={project}
+              onSelectProject={handleUpdateProject}
+              onNewProject={() => {
+                const newProj: Project = {
+                  ...DEMO_PROJECT,
+                  id: `proj-${Date.now()}`,
+                  title: 'Nuevo Proyecto Audiovisual',
+                  description: 'Inicia tu investigación y desglose narrativo.',
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                };
+                handleUpdateProject(newProj);
+                setActiveTab('production');
+              }}
+              onOpenProjectEditor={() => setActiveTab('production')}
+            />
+          )}
 
-            <button
-              onClick={() => setActiveTab('ideas')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'ideas'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Lightbulb className="w-4 h-4" />
-              <span>Laboratorio de Ideas</span>
-            </button>
+          {activeTab === 'production' && (
+            <ProductionStudio
+              project={project}
+              onUpdateProject={handleUpdateProject}
+              onRequestExportModal={() => setIsExportModalOpen(true)}
+            />
+          )}
 
-            <button
-              onClick={() => setActiveTab('research')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'research'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Search className="w-4 h-4" />
-              <span>Investigación</span>
-            </button>
+          {activeTab === 'ideas' && (
+            <IdeaLab
+              project={project}
+              onUpdateProject={handleUpdateProject}
+              onNavigateToScript={() => setActiveTab('production')}
+            />
+          )}
 
-            <button
-              onClick={() => setActiveTab('script')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'script'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Taller de Guion</span>
-            </button>
+          {activeTab === 'research' && (
+            <ResearchModule project={project} onUpdateProject={handleUpdateProject} />
+          )}
 
-            <button
-              onClick={() => setActiveTab('storyboard')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'storyboard'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Film className="w-4 h-4" />
-              <span>Storyboard</span>
-            </button>
+          {activeTab === 'script' && (
+            <ScriptWorkshop
+              project={project}
+              onUpdateProject={handleUpdateProject}
+              onRequestAIAssist={(sceneId) => {
+                setActiveAssistantSceneId(sceneId);
+                setIsAIDrawerOpen(true);
+              }}
+            />
+          )}
 
-            <button
-              onClick={() => setActiveTab('media')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'media'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span>Biblioteca</span>
-            </button>
-          </nav>
+          {activeTab === 'storyboard' && (
+            <StoryboardModule project={project} onUpdateProject={handleUpdateProject} />
+          )}
 
-          {/* Active Tab Panel */}
-          <div className="flex-1">
-            {activeTab === 'home' && (
-              <HomeDashboard
-                currentProject={project}
-                onSelectProject={handleUpdateProject}
-                onNewProject={() => {
-                  const newProj: Project = {
-                    ...DEMO_PROJECT,
-                    id: `proj-${Date.now()}`,
-                    title: 'Nuevo Proyecto Audiovisual',
-                    description: 'Inicia tu investigación y desglose narrativo.',
-                    createdAt: Date.now(),
-                    updatedAt: Date.now()
-                  };
-                  handleUpdateProject(newProj);
-                  setActiveTab('script');
-                }}
-                onOpenProjectEditor={() => setActiveTab('script')}
-              />
-            )}
-            {activeTab === 'ideas' && (
-              <IdeaLab
-                project={project}
-                onUpdateProject={handleUpdateProject}
-                onNavigateToScript={() => setActiveTab('script')}
-              />
-            )}
-            {activeTab === 'research' && (
-              <ResearchModule project={project} onUpdateProject={handleUpdateProject} />
-            )}
-            {activeTab === 'script' && (
-              <ScriptWorkshop
-                project={project}
-                onUpdateProject={handleUpdateProject}
-                onRequestAIAssist={(sceneId) => {
-                  setActiveAssistantSceneId(sceneId);
-                  setIsAIDrawerOpen(true);
-                }}
-              />
-            )}
-            {activeTab === 'storyboard' && (
-              <StoryboardModule
-                project={project}
-                onUpdateProject={handleUpdateProject}
-              />
-            )}
-            {activeTab === 'media' && (
-              <MediaLibraryModule project={project} onUpdateProject={handleUpdateProject} />
-            )}
-          </div>
+          {activeTab === 'media' && (
+            <MediaLibraryModule project={project} onUpdateProject={handleUpdateProject} />
+          )}
         </div>
       </div>
+
+      {/* Export Profiles Modal (Phase 7B) */}
+      <ExportProfilesModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        project={project}
+        isExporting={isExporting}
+        onStartExport={async (profile) => {
+          setIsExportModalOpen(false);
+          await handleExportVideo();
+        }}
+      />
 
       {/* Global AI Assistant Drawer */}
       <AIAssistantDrawer

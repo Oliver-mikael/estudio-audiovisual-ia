@@ -1,7 +1,8 @@
-// Client-side Video Exporter using Canvas Capture & Web Audio Synthetic TTS/Audio mix
-
+// Client-side Video Exporter using Canvas Capture & Web Audio Multitrack Engine (Phase 7D)
 import { Project } from '../types';
 import { CanvasRenderEngine } from './renderEngine';
+import { audioEngine } from '../services/audio/AudioEngine';
+import { TimelineEngine } from '../services/timeline/timelineEngine';
 
 export interface ExportProgressCallback {
   (progress: number, statusMessage: string): void;
@@ -12,13 +13,14 @@ export class VideoExporter {
     project: Project,
     onProgress: ExportProgressCallback
   ): Promise<Blob> {
-    onProgress(0, 'Iniciando motor de renderizado local...');
+    onProgress(0, 'Iniciando motor de renderizado y mezcla de audio...');
 
-    const { width, height } = project.settings.resolution;
-    const fps = project.settings.fps || 30;
+    const initializedProject = TimelineEngine.ensureTimeline(project);
+    const { width, height } = initializedProject.settings.resolution;
+    const fps = initializedProject.settings.fps || 30;
 
     // Calculate total project duration
-    const totalDuration = project.script.scenes.reduce(
+    const totalDuration = initializedProject.script.scenes.reduce(
       (sum, scene) => sum + scene.durationSeconds,
       0
     );
@@ -34,36 +36,23 @@ export class VideoExporter {
 
     const renderEngine = new CanvasRenderEngine(canvas);
 
-    onProgress(10, 'Precargando recursos multimedia...');
-    await renderEngine.preloadImages(project.script.scenes);
+    onProgress(10, 'Precargando recursos visuales...');
+    await renderEngine.preloadImages(initializedProject.script.scenes);
 
-    // 2. Web Audio API Setup for synthesized audio track
-    const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const destNode = audioCtx.createMediaStreamDestination();
+    // 2. Initialize Web Audio Engine for Multitrack Destination Mixing
+    onProgress(20, 'Configurando motor de audio multicanal...');
+    await audioEngine.initContext();
+    const audioStream = audioEngine.getDestinationStream();
 
-    // Create subtle ambient background tone generator into Web Audio stream destination
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(220, audioCtx.currentTime); // Soft A3 tone
-    gain.gain.setValueAtTime(0.02, audioCtx.currentTime); // Gentle ambient level
-    osc.connect(gain);
-    gain.connect(destNode);
-    osc.start();
-
-    // Prepare speech synthesis or audio tones for demo narration synchronization
-    const synthesisUtterances: { sceneStart: number; text: string }[] = [];
-    let accumTime = 0;
-    project.script.scenes.forEach((sc) => {
-      synthesisUtterances.push({ sceneStart: accumTime, text: sc.narrationText });
-      accumTime += sc.durationSeconds;
-    });
+    if (!audioStream) {
+      throw new Error('No se pudo inicializar el flujo de destino de audio Web Audio API');
+    }
 
     // 3. MediaRecorder setup with WebM/MP4 support detection
     const canvasStream = canvas.captureStream(fps);
     const combinedStream = new MediaStream([
       ...canvasStream.getVideoTracks(),
-      ...destNode.stream.getAudioTracks()
+      ...audioStream.getAudioTracks(),
     ]);
 
     let mimeType = 'video/webm;codecs=vp9,opus';
@@ -80,7 +69,7 @@ export class VideoExporter {
     const recordedChunks: Blob[] = [];
     const mediaRecorder = new MediaRecorder(combinedStream, {
       mimeType,
-      videoBitsPerSecond: 2500000 // 2.5 Mbps for 720p crisp video
+      videoBitsPerSecond: 2500000, // 2.5 Mbps for 720p crisp video
     });
 
     mediaRecorder.ondataavailable = (e) => {
@@ -92,10 +81,9 @@ export class VideoExporter {
     return new Promise((resolve, reject) => {
       mediaRecorder.onstop = () => {
         try {
-          osc.stop();
+          audioEngine.stop();
         } catch (_) {}
         const finalBlob = new Blob(recordedChunks, { type: mimeType });
-        audioCtx.close();
         onProgress(100, 'Exportación finalizada exitosamente.');
         resolve(finalBlob);
       };
@@ -107,18 +95,8 @@ export class VideoExporter {
       // Start Recording
       mediaRecorder.start(100);
 
-      // Trigger Web Speech API Narration if supported in browser
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        synthesisUtterances.forEach(({ sceneStart, text }) => {
-          setTimeout(() => {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES';
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
-          }, sceneStart * 1000);
-        });
-      }
+      // Trigger Web Audio playback synchronized with export
+      audioEngine.play(initializedProject, 0);
 
       // Frame rendering loop (30 FPS simulation)
       const totalFrames = Math.ceil(totalDuration * fps);
@@ -127,10 +105,10 @@ export class VideoExporter {
 
       const renderInterval = setInterval(() => {
         const currentTime = currentFrame / fps;
-        renderEngine.renderFrame(project, currentTime);
+        renderEngine.renderFrame(initializedProject, currentTime);
 
         currentFrame++;
-        const progressPercent = Math.min(95, Math.floor((currentFrame / totalFrames) * 85) + 10);
+        const progressPercent = Math.min(95, Math.floor((currentFrame / totalFrames) * 75) + 20);
         onProgress(
           progressPercent,
           `Renderizando cuadro ${currentFrame} de ${totalFrames} (${currentTime.toFixed(1)}s / ${totalDuration}s)...`
@@ -138,9 +116,7 @@ export class VideoExporter {
 
         if (currentFrame >= totalFrames) {
           clearInterval(renderInterval);
-          if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-          }
+          audioEngine.stop();
           // Small buffer delay before stopping recorder
           setTimeout(() => {
             mediaRecorder.stop();
