@@ -7,7 +7,6 @@ import {
   HardDrive,
   ShieldCheck,
   CheckCircle2,
-  Cpu,
   Wifi,
   WifiOff,
   Clock,

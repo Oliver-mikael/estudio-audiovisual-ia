@@ -1,7 +1,7 @@
 // Timeline & Clip Manipulation Engine (Phase 7C - Interactive Editing Core)
 // Provides pure functions for clip editing, track synchronization, and an immutable Undo/Redo history stack.
 
-import { Project, Scene, TimelineTrack, TimelineClip, TimelineMarker } from '../../types';
+import { Project, Scene, TimelineTrack, TimelineClip } from '../../types';
 
 export class TimelineEngine {
   /**

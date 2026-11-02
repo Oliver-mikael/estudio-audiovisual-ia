@@ -1,12 +1,11 @@
 // ProductionStudio Component (Phase 7C - Interactive Multi-track Timeline Editor)
 // Real interactive editing: Move, Trim In/Out, Split at Playhead, Duplicate, Delete, Undo/Redo & Track Controls
-import React, { useState, useEffect, useRef } from 'react';
-import { Project, Scene, TimelineTrack, TimelineClip } from '../types';
+import React, { useState, useRef } from 'react';
+import { Project, TimelineClip } from '../types';
 import { TimelineEngine, UndoRedoManager } from '../services/timeline/timelineEngine';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { audioRecorder } from '../services/audio/AudioRecorder';
 import { audioMixer } from '../services/audio/AudioMixer';
-import { VoiceRecordingSession } from '../types/audio';
 import {
   Film,
   Music,
@@ -19,11 +18,8 @@ import {
   Layers,
   Download,
   Play,
-  Pause,
-  RotateCcw,
   Volume2,
   VolumeX,
-  Plus,
   Trash2,
   Scissors,
   Copy,
@@ -33,12 +29,7 @@ import {
   Unlock,
   Undo2,
   Redo2,
-  ChevronRight,
-  Maximize2,
-  Clock,
-  FastForward,
   Mic,
-  Square,
 } from 'lucide-react';
 
 interface ProductionStudioProps {

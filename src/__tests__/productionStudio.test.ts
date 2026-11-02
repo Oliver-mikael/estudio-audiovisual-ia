@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Project, TimelineTrack, TimelineClip, ExportProfile } from '../types';
+import { Project, TimelineTrack, TimelineClip } from '../types';
 import { EXPORT_PROFILES } from '../components/ExportProfilesModal';
 
 describe('Auditoría y Pruebas Unitarias Fase 7B — Estudio de Producción & Modelos de Datos', () => {

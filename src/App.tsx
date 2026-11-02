@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Project } from './types';
 import { DEMO_PROJECT } from './data/demoProject';
 import { saveProjectToStorage, getProjectFromStorage } from './services/storage/db';
-import { VideoPlayer } from './components/VideoPlayer';
 import { VideoExporter } from './engine/exporter';
 import { IdeaLab } from './modules/IdeaLab';
 import { ResearchModule } from './modules/ResearchModule';
@@ -30,7 +29,6 @@ import {
   DownloadCloud,
   Sparkles,
   Clapperboard,
-  Sliders,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -353,7 +351,7 @@ export const App: React.FC = () => {
         onClose={() => setIsExportModalOpen(false)}
         project={project}
         isExporting={isExporting}
-        onStartExport={async (profile) => {
+        onStartExport={async (_profile) => {
           setIsExportModalOpen(false);
           await handleExportVideo();
         }}

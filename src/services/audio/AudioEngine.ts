@@ -1,6 +1,6 @@
 // Core Web Audio Engine for Multitrack Mixing & Video Audio Synchronization (Phase 7D)
 import { Project, TimelineClip } from '../../types';
-import { AudioTrackConfig, AudioPlaybackState } from '../../types/audio';
+import { AudioTrackConfig } from '../../types/audio';
 
 export class AudioEngine {
   private static instance: AudioEngine | null = null;
@@ -11,9 +11,9 @@ export class AudioEngine {
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private activeSourceNodes: AudioBufferSourceNode[] = [];
 
-  private isPlaying: boolean = false;
-  private currentPlayheadMs: number = 0;
-  private playbackStartedAt: number = 0;
+  public isPlaying: boolean = false;
+  public currentPlayheadMs: number = 0;
+  public playbackStartedAt: number = 0;
 
   private constructor() {}
 

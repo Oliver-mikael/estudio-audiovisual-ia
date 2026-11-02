@@ -48,7 +48,7 @@ class MockAudioContext {
       getAudioTracks: () => [{} as any],
     },
   }));
-  decodeAudioData = vi.fn(async (buffer: ArrayBuffer) => ({
+  decodeAudioData = vi.fn(async (_buffer: ArrayBuffer) => ({
     duration: 5.0,
     numberOfChannels: 2,
     sampleRate: 44100,
@@ -63,6 +63,30 @@ beforeEach(() => {
   (global as any).window = global;
   (global as any).AudioContext = MockAudioContext;
   (global as any).webkitAudioContext = MockAudioContext;
+  (global as any).indexedDB = {
+    open: vi.fn(() => ({
+      result: {
+        transaction: vi.fn(() => ({
+          objectStore: vi.fn(() => ({
+            put: vi.fn((_val) => {
+              const req: any = {};
+              setTimeout(() => req.onsuccess && req.onsuccess(), 0);
+              return req;
+            }),
+            get: vi.fn((_id) => {
+              const req: any = {};
+              setTimeout(() => req.onsuccess && req.onsuccess(), 0);
+              return req;
+            }),
+          })),
+        })),
+        objectStoreNames: { contains: () => true },
+      },
+      set onsuccess(cb: any) {
+        setTimeout(cb, 0);
+      },
+    })),
+  };
 });
 
 describe('Phase 7D: Audio Engine & Multitrack Mixing', () => {
@@ -117,15 +141,21 @@ describe('Phase 7D: Audio Engine & Multitrack Mixing', () => {
       name: 'Voz en off',
       type: 'audio',
       url: 'blob:audio/test',
+      mimeType: 'audio/webm',
       sizeBytes: 1024,
       createdAt: Date.now(),
+      license: 'Propietario',
       provenance: 'Voice Recording',
     };
+
+    await AudioPersistence.saveAudioAsset(mockAsset);
 
     const invalidAsset: any = {
       id: 'asset_video_1',
       name: 'Video',
       type: 'video',
+      mimeType: 'video/mp4',
+      license: 'Propietario',
     };
 
     await expect(AudioPersistence.saveAudioAsset(invalidAsset)).rejects.toThrow();
@@ -148,28 +178,30 @@ describe('Phase 7D: Audio Engine & Multitrack Mixing', () => {
       description: '',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      ideaLab: { topic: '', researchQuestions: [], angles: [], targetAudience: '' },
-      research: { sources: [], claims: [] },
+      angles: [],
+      sources: [],
       script: {
         title: 'Script',
+        summary: 'Resumen',
+        targetAudience: 'General',
+        tone: 'Divulgativo',
         scenes: [
           {
             id: 'sc_1',
-            sceneNumber: 1,
-            visualDescription: 'Visual 1',
+            title: 'Escena 1',
+            visualIntent: 'Visual 1',
             narrationText: 'Texto narrado 1',
             durationSeconds: 3,
-            suggestedAssets: [],
+            cameraMotion: 'Static',
+            transition: 'Fade',
           },
         ],
       },
-      storyboard: { frames: [] },
       mediaAssets: [],
       settings: {
         resolution: { width: 1280, height: 720 },
         fps: 30,
-        format: 'mp4',
-        quality: 'high',
+        aspectRatio: '16:9',
       },
       timeline: {
         tracks: [
@@ -185,9 +217,11 @@ describe('Phase 7D: Audio Engine & Multitrack Mixing', () => {
               {
                 id: 'clip_a1',
                 trackId: 'track-a1',
+                type: 'audio',
                 name: 'Audio 1',
                 startMs: 0,
                 durationMs: 3000,
+                offsetMs: 0,
                 volume: 1.0,
               },
             ],

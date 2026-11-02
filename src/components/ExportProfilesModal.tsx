@@ -1,7 +1,7 @@
 // ExportProfilesModal Component (Phase 7B - Advanced Export Settings)
 import React, { useState } from 'react';
 import { Project, ExportProfile } from '../types';
-import { Download, X, Film, Check, Sparkles, HardDrive, ShieldCheck } from 'lucide-react';
+import { Download, X, Check } from 'lucide-react';
 
 interface ExportProfilesModalProps {
   isOpen: boolean;
