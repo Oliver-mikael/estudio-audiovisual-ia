@@ -143,6 +143,50 @@ export interface TimelineClip {
   textPayload?: string;
   isMuted?: boolean;
   isLocked?: boolean;
+  // Phase 7F - Transition and Keyframe Animations
+  transition?: ClipTransition;
+  animations?: ClipAnimation[];
+}
+
+// Phase 7F - Transitions & Keyframe Animations System Types
+export type TransitionType =
+  | 'cut'
+  | 'fade'
+  | 'crossfade'
+  | 'slide-left'
+  | 'slide-right'
+  | 'slide-up'
+  | 'slide-down'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'wipe-left'
+  | 'wipe-right'
+  | 'fade-to-black'
+  | 'fade-from-black';
+
+export type EasingCurve = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+
+export interface ClipTransition {
+  id: string;
+  type: TransitionType;
+  durationMs: number;
+  easing?: EasingCurve;
+  fromClipId?: string;
+  toClipId?: string;
+}
+
+export type KeyframeProperty = 'positionX' | 'positionY' | 'scale' | 'rotation' | 'opacity';
+
+export interface AnimationKeyframe {
+  id: string;
+  timeOffsetMs: number;
+  value: number;
+  easing?: EasingCurve;
+}
+
+export interface ClipAnimation {
+  property: KeyframeProperty;
+  keyframes: AnimationKeyframe[];
 }
 
 export interface TimelineTrack {
@@ -154,6 +198,7 @@ export interface TimelineTrack {
   isLocked: boolean;
   isVisible: boolean;
   clips: TimelineClip[];
+  transitions?: ClipTransition[];
 }
 
 export interface TimelineMarker {

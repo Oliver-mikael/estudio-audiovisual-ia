@@ -4,6 +4,36 @@ Todos los cambios notables realizados en el proyecto quedan registrados en este 
 
 ---
 
+## [Fase 7F - Sistema Profesional de Transiciones y Animaciones entre Clips] - 2026-10-31
+
+### Agregado
+- **Motor de Transiciones Cinemáticas (`src/services/animation/transitionEngine.ts`):**
+  - Implementación de 12 tipos de transición para Canvas 2D: corte directo (`cut`), fundido/disolvencia cruzada (`fade`, `crossfade`), deslizamientos direccionales (`slide-left`, `slide-right`, `slide-up`, `slide-down`), zooms concéntricos (`zoom-in`, `zoom-out`), barridos lineales (`wipe-left`, `wipe-right`) y fundidos a/desde negro (`fade-to-black`, `fade-from-black`).
+  - Curvas de aceleración matemáticas: `linear`, `ease-in`, `ease-out` y `ease-in-out`.
+- **Motor de Animaciones Espaciales por Keyframes (`src/services/animation/keyframeEngine.ts`):**
+  - Interpolación continua de posición horizontal (`positionX`), vertical (`positionY`), escala (`scale`), rotación (`rotation`) y opacidad (`opacity`).
+  - Aplicación de transformaciones afines en el contexto Canvas 2D sin recálculos pesados.
+- **Integración en Renderizado y Exportación:**
+  - Actualización de `CanvasRenderEngine` en `src/engine/renderEngine.ts` para aplicar keyframes dinámicos sobre clips de video en V1 en tiempo real.
+  - Sincronización transparente con `VideoExporter` en `src/engine/exporter.ts` a 30 FPS.
+- **Controles en Estudio de Producción (`src/modules/ProductionStudio.tsx`):**
+  - Pestaña de transiciones con asignación al clip activo.
+  - Pestaña de animaciones con presets de Zoom Suave, Desvanecimiento y Paneo.
+- **Suite de Pruebas Unitarias de Fase 7F (`src/__tests__/transitionAndAnimation.test.ts`):**
+  - 5 pruebas nuevas elevando el total del repositorio a 71 pruebas aprobadas al 100% en Vitest (13 suites).
+- **Documentación Técnica de la Fase 7F en `docs/`:**
+  - `docs/PHASE_7F_TRANSITION_ARCHITECTURE.md`
+  - `docs/PHASE_7F_TRANSITION_ENGINE.md`
+  - `docs/PHASE_7F_KEYFRAME_ANIMATION.md`
+  - `docs/PHASE_7F_TIMELINE_INTEGRATION.md`
+  - `docs/PHASE_7F_RENDER_EXPORT_INTEGRATION.md`
+  - `docs/PHASE_7F_PERFORMANCE.md`
+  - `docs/PHASE_7F_COMPATIBILITY.md`
+  - `docs/PHASE_7F_TEST_REPORT.md`
+  - `docs/PHASE_7F_FINAL_ACCEPTANCE.md`
+
+---
+
 ## [Fase 7E - Biblioteca Multimedia Profesional y Gestión de Recursos] - 2026-10-31
 
 ### Agregado

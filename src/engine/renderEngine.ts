@@ -1,6 +1,8 @@
 // Canvas 2D Render Engine for Estudio Audiovisual Inteligente
 
-import { Scene, Project } from '../types';
+import { Scene, Project, TimelineClip } from '../types';
+import { KeyframeEngine } from '../services/animation/keyframeEngine';
+import { TransitionEngine } from '../services/animation/transitionEngine';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -11,6 +13,8 @@ export class CanvasRenderEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private imageCache: Map<string, HTMLImageElement> = new Map();
+  private scratchCanvasA: HTMLCanvasElement | null = null;
+  private scratchCanvasB: HTMLCanvasElement | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -19,6 +23,24 @@ export class CanvasRenderEngine {
       throw new Error('Could not get 2D context from canvas');
     }
     this.ctx = context;
+  }
+
+  private getScratchCanvases(width: number, height: number): [HTMLCanvasElement, HTMLCanvasElement] {
+    if (!this.scratchCanvasA) {
+      this.scratchCanvasA = document.createElement('canvas');
+    }
+    if (!this.scratchCanvasB) {
+      this.scratchCanvasB = document.createElement('canvas');
+    }
+    if (this.scratchCanvasA.width !== width || this.scratchCanvasA.height !== height) {
+      this.scratchCanvasA.width = width;
+      this.scratchCanvasA.height = height;
+    }
+    if (this.scratchCanvasB.width !== width || this.scratchCanvasB.height !== height) {
+      this.scratchCanvasB.width = width;
+      this.scratchCanvasB.height = height;
+    }
+    return [this.scratchCanvasA, this.scratchCanvasB];
   }
 
   public async preloadImages(scenes: Scene[]): Promise<void> {
@@ -71,14 +93,19 @@ export class CanvasRenderEngine {
       return;
     }
 
-    // Calculate total project duration & current scene
+    // Calculate total project duration & current scene index
     let accumulatedTime = 0;
     let currentScene: Scene | null = null;
+    let previousScene: Scene | null = null;
+    let currentSceneIndex = 0;
     let sceneStartTime = 0;
 
-    for (const scene of scenes) {
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
       if (timeSeconds >= accumulatedTime && timeSeconds <= accumulatedTime + scene.durationSeconds) {
         currentScene = scene;
+        currentSceneIndex = i;
+        previousScene = i > 0 ? scenes[i - 1] : null;
         sceneStartTime = accumulatedTime;
         break;
       }
@@ -87,7 +114,9 @@ export class CanvasRenderEngine {
 
     // If time is past the end, pin to last scene
     if (!currentScene && scenes.length > 0) {
-      currentScene = scenes[scenes.length - 1];
+      currentSceneIndex = scenes.length - 1;
+      currentScene = scenes[currentSceneIndex];
+      previousScene = currentSceneIndex > 0 ? scenes[currentSceneIndex - 1] : null;
       sceneStartTime = accumulatedTime - currentScene.durationSeconds;
     }
 
@@ -99,8 +128,63 @@ export class CanvasRenderEngine {
     const sceneLocalTime = Math.max(0, timeSeconds - sceneStartTime);
     const sceneProgress = Math.min(1, sceneLocalTime / currentScene.durationSeconds);
 
-    // 1. Draw Background & Image
-    this.drawBackground(width, height, currentScene, sceneProgress);
+    // Check if timeline V1 has an active clip at this time
+    const timeMs = timeSeconds * 1000;
+    const v1ClipIndex = v1Track?.clips.findIndex(
+      (c) => timeMs >= c.startMs && timeMs < c.startMs + c.durationMs
+    ) ?? -1;
+    const v1Clip = v1ClipIndex >= 0 ? v1Track!.clips[v1ClipIndex] : undefined;
+    const prevV1Clip = v1ClipIndex > 0 ? v1Track!.clips[v1ClipIndex - 1] : undefined;
+
+    const clipOffsetMs = v1Clip ? timeMs - v1Clip.startMs + v1Clip.offsetMs : sceneLocalTime * 1000;
+
+    // Check if there is an active transition (either on clip or scene)
+    const clipTransition = v1Clip?.transition;
+    const transDurationMs = clipTransition?.durationMs || 1000;
+    const transDurationSec = transDurationMs / 1000;
+    const isTransitionActive = clipTransition && v1Clip && clipOffsetMs < transDurationMs;
+
+    if (isTransitionActive && (previousScene || prevV1Clip)) {
+      // Offscreen multi-buffer rendering for seamless transition blend
+      const [canvasFrom, canvasTo] = this.getScratchCanvases(width, height);
+      const ctxFrom = canvasFrom.getContext('2d');
+      const ctxTo = canvasTo.getContext('2d');
+
+      if (ctxFrom && ctxTo) {
+        // Draw Outgoing (From) Frame onto canvasFrom
+        const origCtx = this.ctx;
+        this.ctx = ctxFrom;
+        this.ctx.clearRect(0, 0, width, height);
+        const fromScene = previousScene || currentScene;
+        this.drawBackground(width, height, fromScene, 1.0, prevV1Clip, prevV1Clip ? prevV1Clip.durationMs : fromScene.durationSeconds * 1000);
+
+        // Draw Incoming (To) Frame onto canvasTo
+        this.ctx = ctxTo;
+        this.ctx.clearRect(0, 0, width, height);
+        this.drawBackground(width, height, currentScene, sceneProgress, v1Clip, clipOffsetMs);
+
+        // Restore primary context and render transition
+        this.ctx = origCtx;
+        this.ctx.clearRect(0, 0, width, height);
+
+        const rawProgress = Math.max(0, Math.min(1, clipOffsetMs / transDurationMs));
+        TransitionEngine.renderTransition(
+          this.ctx,
+          width,
+          height,
+          canvasFrom,
+          canvasTo,
+          clipTransition.type,
+          rawProgress,
+          clipTransition.easing || 'ease-in-out'
+        );
+      } else {
+        this.drawBackground(width, height, currentScene, sceneProgress, v1Clip, clipOffsetMs);
+      }
+    } else {
+      // 1. Draw Background & Image (with keyframe transform if available)
+      this.drawBackground(width, height, currentScene, sceneProgress, v1Clip, clipOffsetMs);
+    }
 
     // 2. Draw Camera Motion / Overlays
     this.drawSceneVisuals(width, height, currentScene, sceneProgress);
@@ -125,29 +209,50 @@ export class CanvasRenderEngine {
     this.ctx.fillText('Sin escenas para reproducir', width / 2, height / 2);
   }
 
-  private drawBackground(width: number, height: number, scene: Scene, progress: number): void {
+  private drawBackground(width: number, height: number, scene: Scene, progress: number, activeClip?: TimelineClip, clipTimeMs?: number): void {
     const img = scene.imageUrl ? this.imageCache.get(scene.imageUrl) : null;
 
     if (img) {
       this.ctx.save();
 
-      // Calculate camera motion transform
+      // Calculate camera motion transform (or interpolated keyframes if clip has animations)
       let scale = 1.0;
       let dx = 0;
       let dy = 0;
+      let rotation = 0;
+      let opacity = 1.0;
 
-      if (scene.cameraMotion === 'Zoom In') {
-        scale = 1.0 + progress * 0.15;
-      } else if (scene.cameraMotion === 'Zoom Out') {
-        scale = 1.15 - progress * 0.15;
-      } else if (scene.cameraMotion === 'Pan Left') {
-        dx = -progress * 40;
-      } else if (scene.cameraMotion === 'Pan Right') {
-        dx = progress * 40;
+      if (activeClip?.animations && activeClip.animations.length > 0 && clipTimeMs !== undefined) {
+        const keyframeTransform = KeyframeEngine.interpolateClipTransform(
+          activeClip.animations,
+          clipTimeMs,
+          activeClip.transform,
+          activeClip.opacity
+        );
+        dx = keyframeTransform.positionX;
+        dy = keyframeTransform.positionY;
+        scale = keyframeTransform.scale;
+        rotation = keyframeTransform.rotation;
+        opacity = keyframeTransform.opacity;
+      } else {
+        // Fallback procedural camera motion
+        if (scene.cameraMotion === 'Zoom In') {
+          scale = 1.0 + progress * 0.15;
+        } else if (scene.cameraMotion === 'Zoom Out') {
+          scale = 1.15 - progress * 0.15;
+        } else if (scene.cameraMotion === 'Pan Left') {
+          dx = -progress * 40;
+        } else if (scene.cameraMotion === 'Pan Right') {
+          dx = progress * 40;
+        }
       }
 
       this.ctx.translate(width / 2 + dx, height / 2 + dy);
+      if (rotation !== 0) {
+        this.ctx.rotate((rotation * Math.PI) / 180);
+      }
       this.ctx.scale(scale, scale);
+      this.ctx.globalAlpha = opacity;
 
       // Draw image scaled to cover
       const imgRatio = img.width / img.height;

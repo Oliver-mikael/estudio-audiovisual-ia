@@ -683,16 +683,60 @@ export const ProductionStudio: React.FC<ProductionStudioProps> = ({
 
             {activeCategory === 'transiciones' && (
               <div className="space-y-3">
-                <h3 className="font-semibold text-slate-200 border-b border-slate-800 pb-2">
-                  Transición de Entrada del Clip
-                </h3>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h3 className="font-semibold text-slate-200">
+                    Transición de Entrada ({activeClip?.name || 'Clip'})
+                  </h3>
+                  <span className="text-[10px] font-mono text-indigo-400">
+                    {activeClip?.transition?.type || 'Ninguna'}
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {(['Cut', 'Fade', 'Slide', 'Zoom'] as const).map((trans) => (
+                  {[
+                    { id: 'cut', label: 'Corte Directo' },
+                    { id: 'crossfade', label: 'Disolvencia Cruzada' },
+                    { id: 'slide-left', label: 'Deslizar Izquierda' },
+                    { id: 'slide-right', label: 'Deslizar Derecha' },
+                    { id: 'zoom-in', label: 'Zoom In' },
+                    { id: 'zoom-out', label: 'Zoom Out' },
+                    { id: 'wipe-left', label: 'Barrido Izquierda' },
+                    { id: 'fade-to-black', label: 'Fundido a Negro' },
+                  ].map((t) => (
                     <button
-                      key={trans}
-                      className="p-2.5 rounded-lg border font-medium text-xs bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900 transition-colors"
+                      key={t.id}
+                      onClick={() => {
+                        if (!activeClip || !selectedTrackId) return;
+                        const updatedTracks = tracks.map((tr) => {
+                          if (tr.id !== selectedTrackId) return tr;
+                          return {
+                            ...tr,
+                            clips: tr.clips.map((c) =>
+                              c.id === activeClip.id
+                                ? {
+                                    ...c,
+                                    transition: {
+                                      id: `trans-${Date.now()}`,
+                                      type: t.id as any,
+                                      durationMs: 1000,
+                                      easing: 'ease-in-out',
+                                    },
+                                  }
+                                : c
+                            ),
+                          };
+                        });
+                        applyChangeWithHistory({
+                          ...initializedProject,
+                          timeline: { ...initializedProject.timeline!, tracks: updatedTracks },
+                        });
+                      }}
+                      className={`p-2 rounded-lg border text-xs font-medium transition-colors ${
+                        activeClip?.transition?.type === t.id
+                          ? 'bg-indigo-600 border-indigo-400 text-white'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900'
+                      }`}
                     >
-                      {trans}
+                      {t.label}
                     </button>
                   ))}
                 </div>
@@ -701,18 +745,85 @@ export const ProductionStudio: React.FC<ProductionStudioProps> = ({
 
             {activeCategory === 'animaciones' && (
               <div className="space-y-3">
-                <h3 className="font-semibold text-slate-200 border-b border-slate-800 pb-2">
-                  Movimiento de Cámara Virtual (Ken Burns)
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['Static', 'Zoom In', 'Zoom Out', 'Pan Left', 'Pan Right', 'Kinetic Text'] as const).map((mot) => (
-                    <button
-                      key={mot}
-                      className="p-2 rounded-lg border font-medium text-xs bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900 transition-colors"
-                    >
-                      {mot}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h3 className="font-semibold text-slate-200">
+                    Animación por Keyframes ({activeClip?.name || 'Clip'})
+                  </h3>
+                  <span className="text-[10px] font-mono text-indigo-400">
+                    {activeClip?.animations?.length || 0} curvas activas
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[11px] text-slate-400">
+                    Aplica curvas cinemáticas automatizadas de escala, paneo o fundido:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      {
+                        label: 'Zoom Suave (1.0 -> 1.25)',
+                        prop: 'scale',
+                        k1: 1.0,
+                        k2: 1.25,
+                      },
+                      {
+                        label: 'Desvanecer (1.0 -> 0.0)',
+                        prop: 'opacity',
+                        k1: 1.0,
+                        k2: 0.0,
+                      },
+                      {
+                        label: 'Paneo Derecha (0 -> 60px)',
+                        prop: 'positionX',
+                        k1: 0,
+                        k2: 60,
+                      },
+                      {
+                        label: 'Paneo Arriba (0 -> -40px)',
+                        prop: 'positionY',
+                        k1: 0,
+                        k2: -40,
+                      },
+                    ].map((preset, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          if (!activeClip || !selectedTrackId) return;
+                          const dur = activeClip.durationMs || 5000;
+                          const newAnim = {
+                            property: preset.prop as any,
+                            keyframes: [
+                              { id: `k1-${Date.now()}`, timeOffsetMs: 0, value: preset.k1, easing: 'ease-in-out' as const },
+                              { id: `k2-${Date.now()}`, timeOffsetMs: dur, value: preset.k2, easing: 'ease-in-out' as const },
+                            ],
+                          };
+                          const updatedTracks = tracks.map((tr) => {
+                            if (tr.id !== selectedTrackId) return tr;
+                            return {
+                              ...tr,
+                              clips: tr.clips.map((c) =>
+                                c.id === activeClip.id
+                                  ? {
+                                      ...c,
+                                      animations: [
+                                        ...(c.animations || []).filter((a) => a.property !== preset.prop),
+                                        newAnim,
+                                      ],
+                                    }
+                                  : c
+                              ),
+                            };
+                          });
+                          applyChangeWithHistory({
+                            ...initializedProject,
+                            timeline: { ...initializedProject.timeline!, tracks: updatedTracks },
+                          });
+                        }}
+                        className="p-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 hover:border-indigo-500 text-[11px] text-left transition-colors"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
