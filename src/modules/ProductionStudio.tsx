@@ -459,33 +459,58 @@ export const ProductionStudio: React.FC<ProductionStudioProps> = ({
             {activeCategory === 'medios' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <h3 className="font-semibold text-slate-200">Asignación de Medios al Clip Activo</h3>
-                  <span className="font-mono text-slate-400">{activeClip?.name || 'Selecciona un clip'}</span>
+                  <h3 className="font-semibold text-slate-200">Biblioteca Multimedia en Estudio</h3>
+                  <span className="font-mono text-slate-400">{activeClip?.name || 'Recursos disponibles'}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {project.mediaAssets.map((asset) => (
+                <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+                  {(project.mediaAssets || []).map((asset) => (
                     <div
                       key={asset.id}
-                      onClick={() => {
-                        if (!activeClip?.sceneId) return;
-                        const updatedScenes = project.script.scenes.map((s) =>
-                          s.id === activeClip.sceneId ? { ...s, imageUrl: asset.url } : s
-                        );
-                        onUpdateProject({
-                          ...project,
-                          script: { ...project.script, scenes: updatedScenes },
-                        });
-                      }}
-                      className="p-2 bg-slate-950 border border-slate-800 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors"
+                      className="p-2 bg-slate-950 border border-slate-800 rounded-lg flex flex-col justify-between hover:border-indigo-500 transition-colors"
                     >
-                      <div className="aspect-video bg-slate-900 rounded overflow-hidden mb-1 flex items-center justify-center">
-                        {asset.type === 'image' ? (
+                      <div
+                        onClick={() => {
+                          if (activeClip?.sceneId) {
+                            const updatedScenes = project.script.scenes.map((s) =>
+                              s.id === activeClip.sceneId ? { ...s, imageUrl: asset.url } : s
+                            );
+                            onUpdateProject({
+                              ...project,
+                              script: { ...project.script, scenes: updatedScenes },
+                            });
+                          }
+                        }}
+                        className="aspect-video bg-slate-900 rounded overflow-hidden mb-1.5 flex items-center justify-center cursor-pointer"
+                        title="Asignar al clip actual"
+                      >
+                        {asset.thumbnailUrl ? (
+                          <img src={asset.thumbnailUrl} alt={asset.name} className="w-full h-full object-cover" />
+                        ) : asset.type === 'image' ? (
                           <img src={asset.url} alt={asset.name} className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-[10px] font-mono text-slate-500">{asset.name}</span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-300 truncate">{asset.name}</p>
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[11px] text-slate-300 truncate flex-1" title={asset.name}>
+                          {asset.name}
+                        </p>
+                        <button
+                          onClick={() => {
+                            const updated = TimelineEngine.insertMediaAssetAsClip(
+                              initializedProject,
+                              asset,
+                              undefined,
+                              playheadMs
+                            );
+                            applyChangeWithHistory(updated);
+                          }}
+                          className="px-1.5 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[9px] font-semibold"
+                          title="Insertar en Timeline"
+                        >
+                          + Timeline
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

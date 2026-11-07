@@ -4,6 +4,41 @@ Todos los cambios notables realizados en el proyecto quedan registrados en este 
 
 ---
 
+## [Fase 7E - Biblioteca Multimedia Profesional y Gestión de Recursos] - 2026-10-31
+
+### Agregado
+- **Extracción Automática de Metadatos (`src/services/media/metadataExtractor.ts`):**
+  - Detección de dimensiones físicas (`width`, `height`), cálculo de relación de aspecto (`aspectRatio`), renderizado de miniaturas Canvas ligeras y decodificación de duración mediante Web Audio API.
+  - Hashing criptográfico SHA-256 (`crypto.subtle.digest`) para identificación unívoca y desduplicación de recursos.
+- **Servicio de Importación y Validación (`src/services/media/mediaImporter.ts`):**
+  - Lista blanca estricta de formatos audiovisuales admitidos (MP4, WebM, WebP, JPG, PNG, MP3, WAV, AAC, etc.).
+  - Importación por lotes con seguimiento granular de progreso y descarte inteligente de duplicados.
+- **Gestión de Carpetas y Estado de Medios (`src/services/media/mediaStore.ts`):**
+  - Soporte de carpetas virtuales (`MediaFolder`) para clasificar activos sin duplicar bytes.
+  - Eliminación segura (`canDeleteAsset` y `safeDeleteAsset`): bloquea el borrado si un recurso está enlazado a uno o más clips en la timeline.
+- **Gestor de Medios Huérfanos (`src/services/media/missingMediaManager.ts`):**
+  - Auditoría de la timeline para localizar clips sin archivo fuente (`MissingMediaRef`).
+  - Reconexión asistida (`reconnectMissingMedia`) conservando puntos de corte (in/out), duraciones, volumen y posición.
+- **Integración con la Línea de Tiempo (`src/services/timeline/timelineEngine.ts`):**
+  - Inserción asistida directa desde la biblioteca (`insertMediaAssetAsClip`) hacia pistas V1/V2 o A1/A2 con duraciones calibradas.
+- **Rediseño Profesional de Interfaz (`src/modules/MediaLibraryModule.tsx`):**
+  - Vistas conmutables en Cuadrícula y Lista, barra de búsqueda en vivo, filtrado por tipo y por carpetas, y modal de previsualización técnica.
+- **Suite de Pruebas Unitarias de Fase 7E (`src/__tests__/mediaLibrary.test.ts`):**
+  - 12 pruebas unitarias automatizadas que elevan el total del repositorio a 64 pruebas con 100% de éxito.
+- **Documentación de la Fase 7E:**
+  - `docs/PHASE_7E_MEDIA_LIBRARY_SPEC.md`
+  - `docs/PHASE_7E_METADATA_EXTRACTION.md`
+  - `docs/PHASE_7E_DUPLICATE_DETECTION.md`
+  - `docs/PHASE_7E_FOLDER_SYSTEM.md`
+  - `docs/PHASE_7E_SAFE_DELETE_AND_RELINK.md`
+  - `docs/PHASE_7E_TIMELINE_INTEGRATION.md`
+  - `docs/PHASE_7E_FORMAT_COMPATIBILITY.md`
+  - `docs/PHASE_7E_TEST_REPORT.md`
+  - `docs/PHASE_7E_ANDROID_STORAGE_AUDIT.md`
+  - `docs/PHASE_7E_FINAL_ACCEPTANCE.md`
+
+---
+
 ## [Fase 7D - Motor de Audio Híbrido, Grabación de Voz y Mezcla Multipista] - 2026-10-31
 
 ### Agregado

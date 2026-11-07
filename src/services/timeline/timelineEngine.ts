@@ -1,9 +1,54 @@
 // Timeline & Clip Manipulation Engine (Phase 7C - Interactive Editing Core)
 // Provides pure functions for clip editing, track synchronization, and an immutable Undo/Redo history stack.
 
-import { Project, Scene, TimelineTrack, TimelineClip } from '../../types';
+import { Project, Scene, TimelineTrack, TimelineClip, MediaAsset } from '../../types';
 
 export class TimelineEngine {
+  /**
+   * Inserts an imported MediaAsset directly as a clip into the timeline.
+   */
+  public static insertMediaAssetAsClip(
+    project: Project,
+    asset: MediaAsset,
+    targetTrackId?: string,
+    playheadMs: number = 0
+  ): Project {
+    const updated = this.ensureTimeline(project);
+    const chosenTrackId =
+      targetTrackId || (asset.type === 'audio' ? 'track-a1' : 'track-v1');
+
+    const durationMs = asset.durationSeconds
+      ? Math.round(asset.durationSeconds * 1000)
+      : asset.type === 'image'
+      ? 5000
+      : 3000;
+
+    const newClip: TimelineClip = {
+      id: `clip-${asset.id}-${Date.now()}`,
+      name: asset.name,
+      trackId: chosenTrackId,
+      assetId: asset.id,
+      type: asset.type === 'audio' ? 'audio' : asset.type === 'video' ? 'video' : 'image',
+      startMs: Math.max(0, playheadMs),
+      durationMs,
+      offsetMs: 0,
+      opacity: 1.0,
+      volume: 1.0,
+      speed: 1.0,
+    };
+
+    const tracks = updated.timeline!.tracks.map((t) => {
+      if (t.id !== chosenTrackId) return t;
+      const clips = [...t.clips, newClip];
+      clips.sort((a, b) => a.startMs - b.startMs);
+      return { ...t, clips };
+    });
+
+    return this.syncScenesFromTimeline({
+      ...updated,
+      timeline: { ...updated.timeline!, tracks },
+    });
+  }
   /**
    * Ensure a project has a populated timeline model initialized from its scenes if missing.
    * Maintains 100% backward compatibility with prior projects.

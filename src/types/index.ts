@@ -36,6 +36,22 @@ export interface Scene {
   notes?: string;
 }
 
+export interface MediaFolder {
+  id: string;
+  name: string;
+  parentId?: string;
+  createdAt: number;
+}
+
+export interface MissingMediaRef {
+  assetId: string;
+  expectedName: string;
+  expectedType: 'image' | 'audio' | 'video';
+  affectedClipsCount: number;
+  expectedSizeBytes?: number;
+  expectedDurationSeconds?: number;
+}
+
 export interface MediaAsset {
   id: string;
   name: string;
@@ -47,6 +63,16 @@ export interface MediaAsset {
   license: string;
   provenance: string;
   createdAt: number;
+  // Phase 7E - Technical metadata and organization
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  aspectRatio?: string;
+  thumbnailUrl?: string;
+  sha256?: string;
+  folderId?: string;
+  tags?: string[];
+  isMissing?: boolean;
 }
 
 export interface ScriptModel {
@@ -81,6 +107,8 @@ export interface Project {
     activeTrackId?: string;
     markers?: TimelineMarker[];
   };
+  // Phase 7E - Media library folders
+  folders?: MediaFolder[];
 }
 
 export type TrackType = 'video' | 'audio' | 'text' | 'subtitles';
