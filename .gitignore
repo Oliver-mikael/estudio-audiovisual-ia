@@ -30,6 +30,3 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
-dist
-node_modules/
-dist/

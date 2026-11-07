@@ -111,7 +111,8 @@ export class MissingMediaManager {
       updatedMediaAssets.push(updatedAsset);
     }
 
-    // 3. Update timeline clip urls if affected
+    // 3. Update timeline clips while strictly preserving:
+    // startMs, durationMs, offsetMs, trackId, volume, speed, filterPreset, and color adjustments
     const updatedTracks = (project.timeline?.tracks || []).map((track) => ({
       ...track,
       clips: track.clips.map((clip) => {

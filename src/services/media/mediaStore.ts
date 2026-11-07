@@ -7,47 +7,61 @@ export type MediaSortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc
 
 export class MediaStore {
   /**
-   * Checks if an asset is currently in use by any clip in the project timeline or scenes.
+   * Checks if an asset is currently in use by any clip in the given project (or all projects).
    */
-  public static getAssetUsageCount(project: Project, assetId: string): number {
-    let count = 0;
-    // Check timeline tracks
-    const tracks = project.timeline?.tracks || [];
-    tracks.forEach((track) => {
-      track.clips.forEach((clip) => {
-        if (clip.assetId === assetId) {
-          count++;
-        }
-      });
-    });
+  public static getAssetUsageCount(
+    targetProjectOrProjects: Project | Project[],
+    assetId: string
+  ): number {
+    const projects = Array.isArray(targetProjectOrProjects)
+      ? targetProjectOrProjects
+      : [targetProjectOrProjects];
 
-    // Check script scenes
-    const scenes = project.script?.scenes || [];
-    const asset = project.mediaAssets.find((a) => a.id === assetId);
-    if (asset) {
-      scenes.forEach((sc) => {
-        if (sc.imageUrl && sc.imageUrl === asset.url) count++;
-        if (sc.audioUrl && sc.audioUrl === asset.url) count++;
+    let totalCount = 0;
+
+    for (const proj of projects) {
+      // Check timeline tracks
+      const tracks = proj.timeline?.tracks || [];
+      tracks.forEach((track) => {
+        track.clips.forEach((clip) => {
+          if (clip.assetId === assetId) {
+            totalCount++;
+          }
+        });
       });
+
+      // Check script scenes
+      const scenes = proj.script?.scenes || [];
+      const asset = (proj.mediaAssets || []).find((a) => a.id === assetId);
+      if (asset) {
+        scenes.forEach((sc) => {
+          if (sc.imageUrl && (sc.imageUrl === asset.url || sc.imageUrl === asset.id)) totalCount++;
+          if (sc.audioUrl && (sc.audioUrl === asset.url || sc.audioUrl === asset.id)) totalCount++;
+        });
+      }
     }
 
-    return count;
+    return totalCount;
   }
 
   /**
-   * Safely deletes an asset from project. Returns false if asset is locked by timeline clips.
+   * Safely deletes an asset from project.
+   * If allProjects is provided, verifies that NO project in the workspace is using this asset.
+   * Returns false if asset is locked by timeline clips or scenes.
    */
   public static deleteAssetSafely(
     project: Project,
     assetId: string,
-    force: boolean = false
+    force: boolean = false,
+    allProjects?: Project[]
   ): { success: boolean; usageCount: number; updatedProject?: Project } {
-    const usageCount = this.getAssetUsageCount(project, assetId);
+    const scope = allProjects && allProjects.length > 0 ? allProjects : project;
+    const usageCount = this.getAssetUsageCount(scope, assetId);
     if (usageCount > 0 && !force) {
       return { success: false, usageCount };
     }
 
-    const updatedAssets = project.mediaAssets.filter((a) => a.id !== assetId);
+    const updatedAssets = (project.mediaAssets || []).filter((a) => a.id !== assetId);
     const updatedProject: Project = {
       ...project,
       mediaAssets: updatedAssets,

@@ -17,7 +17,7 @@ El proyecto implementa pruebas continuas en tres niveles:
 | 2026-10-31 | TypeScript | Tipado estático | `npx tsc --noEmit` sin advertencias | 🟢 Pasó |
 | 2026-10-31 | Playwright | Visual / Responsividad | Auditoría Pixel 7 móvil y 1366x768 desktop | 🟢 Pasó |
 | 2026-10-31 | Vitest (7D) | Unitarias & Integración | 52 pruebas en 10 suites (AudioEngine, Mixer, Recorder, Faders) | 🟢 52/52 Pasó |
-| 2026-10-31 | Vitest (7E) | Unitarias & Integración | 64 pruebas en 11 suites (MediaLibrary, Deduplication, SafeDelete, Relink) | 🟢 64/64 Pasó |
+| 2026-10-31 | Vitest (7E) | Unitarias & Integración | 66 pruebas en 12 suites (MediaLibrary, Deduplication, SafeDelete, Relink, EAI Binary Lifecycle) | 🟢 66/66 Pasó |
 | 2026-10-31 | Playwright (7E) | Visual / UI | Auditoría Cuadrícula/Lista en escritorio y vista táctil Pixel 7 móvil | 🟢 Pasó |
 | 2026-10-31 | SHA-256 | Integridad Binario APK | Verificación de hash `cba367c...` en `app-debug.apk` y `public/` (4,324,598 bytes) | 🟢 Intacto |
 
