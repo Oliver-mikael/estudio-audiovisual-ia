@@ -9,4 +9,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    host: true,
+    port: 3000,
+    // La app se sirve también desde el hostname de vista previa del entorno.
+    allowedHosts: true,
+  },
 });
