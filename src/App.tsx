@@ -1,5 +1,5 @@
 // Shell de la aplicación: pantalla de inicio + editor con barra lateral.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Project } from './types';
 import { createEmptyProject } from './data/newProject';
 import {
@@ -128,6 +128,9 @@ export const App: React.FC = () => {
     void refreshProjects();
   }, [refreshProjects]);
 
+  const saveTimerRef = useRef<number | null>(null);
+  const pendingProjectRef = useRef<Project | null>(null);
+
   const persistProject = useCallback(async (updated: Project) => {
     setSaveStatus('saving');
     try {
@@ -142,13 +145,33 @@ export const App: React.FC = () => {
     }
   }, [refreshProjects]);
 
+  /** Autoguardado con 1 segundo de debounce para no escribir en cada tecla. */
   const handleUpdateProject = useCallback(
     (updated: Project) => {
       setProject(updated);
-      void persistProject(updated);
+      pendingProjectRef.current = updated;
+      setSaveStatus('saving');
+
+      if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = window.setTimeout(() => {
+        saveTimerRef.current = null;
+        const pending = pendingProjectRef.current;
+        pendingProjectRef.current = null;
+        if (pending) void persistProject(pending);
+      }, 1000);
     },
     [persistProject]
   );
+
+  const flushPendingSave = useCallback(async () => {
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const pending = pendingProjectRef.current;
+    pendingProjectRef.current = null;
+    if (pending) await persistProject(pending);
+  }, [persistProject]);
 
   const handleCreateProject = useCallback(async (title: string) => {
     const created = createEmptyProject(title);
@@ -161,6 +184,7 @@ export const App: React.FC = () => {
   }, [persistProject]);
 
   const handleOpenProject = useCallback(async (id: string) => {
+    await flushPendingSave();
     const stored = await getProjectFromStorage(id);
     if (!stored) {
       setSaveError('No se encontró el proyecto seleccionado en el almacenamiento local.');
@@ -171,7 +195,7 @@ export const App: React.FC = () => {
     setExportedVideo(null);
     setSaveStatus('saved');
     setSaveError(null);
-  }, []);
+  }, [flushPendingSave]);
 
   const handleRenameProject = useCallback(
     async (id: string, title: string) => {
@@ -199,11 +223,26 @@ export const App: React.FC = () => {
   );
 
   const handleBackHome = useCallback(() => {
+    void flushPendingSave();
     setProject(null);
     setExportedVideo(null);
     setSaveError(null);
     void refreshProjects();
-  }, [refreshProjects]);
+  }, [flushPendingSave, refreshProjects]);
+
+  // Al cerrar la pestaña se intenta guardar lo que quede pendiente.
+  useEffect(() => {
+    const handler = () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        const pending = pendingProjectRef.current;
+        if (pending) void saveProjectToStorage(pending);
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
 
   const openExportDialog = useCallback(async () => {
     if (!project) return;

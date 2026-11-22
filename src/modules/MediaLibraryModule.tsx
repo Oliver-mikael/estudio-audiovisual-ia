@@ -1,7 +1,7 @@
 // Media Library Module Component for Estudio Audiovisual Inteligente
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Project, MediaAsset } from '../types';
-import { saveMediaAssetBlob } from '../services/storage/db';
+import { deleteMediaAssetBlob, getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
 import { FolderOpen, Upload, Trash2, Image, Music, Film, Mic } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
@@ -14,6 +14,33 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
   const [assets, setAssets] = useState<MediaAsset[]>(project.mediaAssets || []);
   const [filter, setFilter] = useState<'all' | 'image' | 'audio' | 'video'>('all');
   const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
+
+  // Los object URLs no sobreviven a una recarga: se reconstruyen desde IndexedDB.
+  useEffect(() => {
+    let cancelled = false;
+    const createdUrls: string[] = [];
+
+    const restoreUrls = async () => {
+      const restored = await Promise.all(
+        (project.mediaAssets || []).map(async (asset) => {
+          if (asset.fileBlob || asset.url.startsWith('data:')) return asset;
+          const stored = await getMediaAssetBlob(asset.id).catch(() => null);
+          if (!stored?.fileBlob) return asset;
+          const url = URL.createObjectURL(stored.fileBlob);
+          createdUrls.push(url);
+          return { ...asset, url };
+        })
+      );
+      if (!cancelled) setAssets(restored);
+    };
+
+    void restoreUrls();
+
+    return () => {
+      cancelled = true;
+      createdUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [project.id]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -52,10 +79,20 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
     onUpdateProject({ ...project, mediaAssets: updated });
   };
 
-  const handleDeleteAsset = (id: string) => {
+  const handleDeleteAsset = async (id: string) => {
     const updated = assets.filter((a) => a.id !== id);
     setAssets(updated);
-    onUpdateProject({ ...project, mediaAssets: updated });
+    onUpdateProject({
+      ...project,
+      mediaAssets: updated,
+      ...(project.narrationAssetId === id ? { narrationAssetId: undefined } : {}),
+    });
+
+    try {
+      await deleteMediaAssetBlob(id);
+    } catch (error) {
+      console.error('No se pudo eliminar el archivo del almacenamiento local:', error);
+    }
   };
 
   const filteredAssets = assets.filter((a) => (filter === 'all' ? true : a.type === filter));
@@ -221,7 +258,7 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
           confirmLabel="Eliminar recurso"
           onCancel={() => setAssetToDelete(null)}
           onConfirm={() => {
-            handleDeleteAsset(assetToDelete.id);
+            void handleDeleteAsset(assetToDelete.id);
             setAssetToDelete(null);
           }}
         />

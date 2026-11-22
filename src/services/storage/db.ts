@@ -81,6 +81,17 @@ export async function saveMediaAssetBlob(asset: MediaAsset): Promise<void> {
   });
 }
 
+export async function deleteMediaAssetBlob(id: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_ASSETS, 'readwrite');
+    const store = tx.objectStore(STORE_ASSETS);
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 export async function getMediaAssetBlob(id: string): Promise<MediaAsset | null> {
   const db = await openDB();
   return new Promise((resolve, reject) => {

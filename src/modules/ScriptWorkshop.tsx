@@ -1,7 +1,8 @@
 // Script Workshop Component for Estudio Audiovisual Inteligente
 import React, { useState } from 'react';
 import { Project, Scene } from '../types';
-import { FileText, Plus, Trash2, Clock, MessageSquare, AlertCircle, Sparkles } from 'lucide-react';
+import { getMediaAssetBlob } from '../services/storage/db';
+import { FileText, Plus, Trash2, Clock, MessageSquare, AlertCircle, Sparkles, GripVertical, ImagePlus } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
 interface ScriptWorkshopProps {
@@ -15,10 +16,16 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     project.script.scenes.length > 0 ? project.script.scenes[0].id : ''
   );
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [assigningImage, setAssigningImage] = useState(false);
 
   const activeScene = scenes.find((s) => s.id === selectedSceneId);
 
   const totalDuration = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
+  const imageAssets = (project.mediaAssets || []).filter((asset) => asset.type === 'image');
+  const activeImageAssetId = imageAssets.find((asset) => asset.url === activeScene?.imageUrl)?.id ?? '';
 
   const handleUpdateActiveScene = (updatedFields: Partial<Scene>) => {
     if (!selectedSceneId) return;
@@ -57,6 +64,59 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
         scenes: updatedScenes,
       },
     });
+  };
+
+  /** Reordena las escenas al soltar la tarjeta arrastrada. */
+  const handleDropScene = (targetIndex: number) => {
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const reordered = [...scenes];
+    const [moved] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    setScenes(reordered);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    onUpdateProject({
+      ...project,
+      script: { ...project.script, scenes: reordered },
+    });
+  };
+
+  /** Asigna a la escena activa una imagen de la biblioteca (campo imageUrl del renderer). */
+  const handleAssignImage = async (assetId: string) => {
+    setImageError(null);
+    if (!assetId) {
+      handleUpdateActiveScene({ imageUrl: undefined });
+      return;
+    }
+
+    const asset = (project.mediaAssets || []).find((item) => item.id === assetId);
+    if (!asset) {
+      setImageError('No se encontró la imagen en la biblioteca del proyecto.');
+      return;
+    }
+
+    try {
+      setAssigningImage(true);
+      let blob = asset.fileBlob ?? null;
+      if (!blob) {
+        const stored = await getMediaAssetBlob(asset.id);
+        blob = stored?.fileBlob ?? null;
+      }
+      if (!blob) throw new Error('La imagen no está guardada en el almacenamiento local.');
+
+      const imageUrl = URL.createObjectURL(blob);
+      handleUpdateActiveScene({ imageUrl });
+    } catch (error) {
+      setImageError(error instanceof Error ? error.message : 'No se pudo asignar la imagen.');
+    } finally {
+      setAssigningImage(false);
+    }
   };
 
   const handleDeleteScene = (id: string) => {
@@ -164,14 +224,31 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
               return (
                 <div
                   key={sc.id}
+                  draggable
+                  onDragStart={() => setDraggedIndex(index)}
+                  onDragEnd={() => {
+                    setDraggedIndex(null);
+                    setDragOverIndex(null);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragOverIndex(index);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleDropScene(index);
+                  }}
                   onClick={() => setSelectedSceneId(sc.id)}
                   className={`p-3 rounded-lg border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
                     isSelected
                       ? 'bg-indigo-950/60 border-indigo-500 text-slate-100 shadow-md'
                       : 'bg-slate-950 border-slate-800/80 text-slate-400 hover:border-slate-700 hover:text-slate-300'
+                  } ${draggedIndex === index ? 'opacity-50' : ''} ${
+                    dragOverIndex === index && draggedIndex !== index ? 'border-indigo-400' : ''
                   }`}
                 >
-                  <div className="space-y-1 overflow-hidden">
+                  <GripVertical className="w-4 h-4 text-slate-600 shrink-0 mt-0.5 cursor-grab" aria-hidden />
+                  <div className="space-y-1 overflow-hidden flex-1">
                     <span className="text-xs font-mono text-indigo-400 font-semibold">
                       #0{index + 1} ({sc.durationSeconds}s)
                     </span>
@@ -313,6 +390,49 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                     </select>
                   </div>
                 </div>
+              </div>
+              {/* Imagen de escena tomada de la biblioteca */}
+              <div className="space-y-2 border-t border-slate-800 pt-4">
+                <label htmlFor="scene-image" className="etiqueta flex items-center gap-1.5">
+                  <ImagePlus className="w-4 h-4 text-indigo-400" />
+                  <span>Imagen de la escena</span>
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    id="scene-image"
+                    value={activeImageAssetId}
+                    disabled={assigningImage}
+                    onChange={(event) => {
+                      void handleAssignImage(event.target.value);
+                    }}
+                    className="campo"
+                  >
+                    <option value="">Sin imagen (fondo generado)</option>
+                    {imageAssets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {activeScene.imageUrl && (
+                    <button
+                      onClick={() => handleUpdateActiveScene({ imageUrl: undefined })}
+                      className="btn-secondary shrink-0"
+                    >
+                      Quitar imagen
+                    </button>
+                  )}
+                </div>
+
+                {imageAssets.length === 0 && (
+                  <p className="text-sm text-slate-500">
+                    No hay imágenes en la biblioteca. Súbelas desde la sección Biblioteca.
+                  </p>
+                )}
+                {assigningImage && <p className="text-sm text-slate-400">Cargando imagen...</p>}
+                {imageError && <p className="text-sm text-rose-300">{imageError}</p>}
               </div>
             </>
           ) : (
