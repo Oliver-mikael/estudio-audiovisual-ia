@@ -1,26 +1,80 @@
-// Pista de narración: decodifica el audio importado (MP3/WAV) con decodeAudioData
-// y lo entrega como AudioBuffer estéreo de 48 kHz recortado a la duración del proyecto.
+// Mezcla de audio del proyecto: narración + música de fondo (+ efectos por escena).
+//
+// Todo se decodifica con decodeAudioData a 48 kHz estéreo y se mezcla en un único
+// AudioBuffer determinista de la duración exacta del video. La música baja de
+// volumen (ducking) mientras hay voz activa en la narración: la envolvente se
+// calcula muestra a muestra a partir del RMS de la voz, con ataque y liberación
+// suaves para que no se oiga un escalón.
 
 import { MediaAsset, Project } from '../types';
+import { buildTimeline } from './renderEngine';
 
-export const NARRATION_SAMPLE_RATE = 48000;
-export const NARRATION_CHANNELS = 2;
+export const AUDIO_SAMPLE_RATE = 48000;
+export const AUDIO_CHANNELS = 2;
+/** Alias histórico: la exportación sigue hablando de canales de narración. */
+export const NARRATION_SAMPLE_RATE = AUDIO_SAMPLE_RATE;
+export const NARRATION_CHANNELS = AUDIO_CHANNELS;
 
-export interface PreparedNarration {
+/** Ganancia de la música mientras hay narración sonando. */
+export const MUSIC_DUCK_LEVEL = 0.3;
+export const DEFAULT_MUSIC_VOLUME = 0.6;
+export const DEFAULT_SFX_VOLUME = 0.8;
+/**
+ * RMS de la voz por encima del cual se considera que hay narración activa.
+ * Bajo a propósito: una locución con gain staging conservador ronda 0,01–0,03.
+ */
+export const DUCK_THRESHOLD_RMS = 0.005;
+export const DUCK_ATTACK_SECONDS = 0.12;
+export const DUCK_RELEASE_SECONDS = 0.4;
+const DUCK_WINDOW_SECONDS = 0.01;
+
+export interface PreparedAudio {
   buffer: AudioBuffer;
-  asset: MediaAsset;
+  narrationAsset: MediaAsset | null;
+  musicAsset: MediaAsset | null;
+  sfxAssets: MediaAsset[];
 }
 
 /**
  * Devuelve el recurso de audio asignado como narración.
- * Si el proyecto no tiene una asignación explícita, se usa el primer audio de la biblioteca.
+ * Si el proyecto no tiene una asignación explícita, se usa el primer audio de la
+ * biblioteca que no esté marcado como música de fondo.
  */
 export function findNarrationAsset(project: Project): MediaAsset | null {
   const assets = project.mediaAssets ?? [];
   if (project.narrationAssetId) {
     return assets.find((asset) => asset.id === project.narrationAssetId && asset.type === 'audio') ?? null;
   }
-  return assets.find((asset) => asset.type === 'audio') ?? null;
+  return (
+    assets.find(
+      (asset) => asset.type === 'audio' && asset.id !== project.musicAssetId
+    ) ?? null
+  );
+}
+
+/** Devuelve el audio marcado como música de fondo, si lo hay. */
+export function findMusicAsset(project: Project): MediaAsset | null {
+  const assets = project.mediaAssets ?? [];
+  if (!project.musicAssetId) return null;
+  return assets.find((asset) => asset.id === project.musicAssetId && asset.type === 'audio') ?? null;
+}
+
+/** Devuelve el efecto de sonido asignado a una escena, si lo hay. */
+export function findSfxAsset(project: Project, sceneId: string): MediaAsset | null {
+  const scene = project.script.scenes.find((item) => item.id === sceneId);
+  if (!scene?.sfxAssetId) return null;
+  return (
+    (project.mediaAssets ?? []).find(
+      (asset) => asset.id === scene.sfxAssetId && asset.type === 'audio'
+    ) ?? null
+  );
+}
+
+/** Volumen general de la música (0 a 1), guardado en los ajustes del proyecto. */
+export function musicVolumeFor(project: Project): number {
+  const volume = project.settings.musicVolume ?? DEFAULT_MUSIC_VOLUME;
+  if (!Number.isFinite(volume)) return DEFAULT_MUSIC_VOLUME;
+  return Math.max(0, Math.min(1, volume));
 }
 
 /** Estructura mínima de un AudioBuffer ya decodificado. */
@@ -32,9 +86,8 @@ export interface DecodedAudioLike {
 
 /**
  * Ajusta el audio decodificado al número exacto de cuadros del proyecto:
- * recorta si la narración es más larga y rellena con silencio si es más corta.
- * Devuelve siempre el número de canales de la narración exportada (estéreo),
- * duplicando el mono si hace falta.
+ * recorta si es más largo y rellena con silencio si es más corto.
+ * Devuelve siempre AUDIO_CHANNELS canales, duplicando el mono si hace falta.
  */
 export function fitNarrationChannels(
   decoded: DecodedAudioLike,
@@ -43,7 +96,7 @@ export function fitNarrationChannels(
   const frames = Math.max(1, Math.round(targetFrames));
   const sourceChannels = Math.max(1, decoded.numberOfChannels);
 
-  return Array.from({ length: NARRATION_CHANNELS }, (_, channel) => {
+  return Array.from({ length: AUDIO_CHANNELS }, (_, channel) => {
     const source = decoded.getChannelData(Math.min(channel, sourceChannels - 1));
     const fitted = new Float32Array(frames);
     fitted.set(source.subarray(0, Math.min(source.length, frames)));
@@ -51,46 +104,213 @@ export function fitNarrationChannels(
   });
 }
 
+/** Repite el audio en bucle hasta llenar exactamente `targetFrames`. */
+export function loopChannels(decoded: DecodedAudioLike, targetFrames: number): Float32Array[] {
+  const frames = Math.max(1, Math.round(targetFrames));
+  const sourceChannels = Math.max(1, decoded.numberOfChannels);
+
+  return Array.from({ length: AUDIO_CHANNELS }, (_, channel) => {
+    const source = decoded.getChannelData(Math.min(channel, sourceChannels - 1));
+    const looped = new Float32Array(frames);
+    if (source.length === 0) return looped;
+    for (let offset = 0; offset < frames; offset += source.length) {
+      looped.set(source.subarray(0, Math.min(source.length, frames - offset)), offset);
+    }
+    return looped;
+  });
+}
+
+/** Mezcla mono de los canales, para calcular la envolvente de la voz. */
+export function monoMix(channels: Float32Array[], frames: number): Float32Array {
+  const mono = new Float32Array(frames);
+  const channelCount = Math.max(1, channels.length);
+  channels.forEach((data) => {
+    const length = Math.min(frames, data.length);
+    for (let index = 0; index < length; index++) mono[index] += data[index] / channelCount;
+  });
+  return mono;
+}
+
+export interface DuckOptions {
+  duckLevel: number;
+  thresholdRms: number;
+  attackSeconds: number;
+  releaseSeconds: number;
+  sampleRate: number;
+  windowSeconds: number;
+}
+
+export const DEFAULT_DUCK_OPTIONS: DuckOptions = {
+  duckLevel: MUSIC_DUCK_LEVEL,
+  thresholdRms: DUCK_THRESHOLD_RMS,
+  attackSeconds: DUCK_ATTACK_SECONDS,
+  releaseSeconds: DUCK_RELEASE_SECONDS,
+  sampleRate: AUDIO_SAMPLE_RATE,
+  windowSeconds: DUCK_WINDOW_SECONDS,
+};
+
+/**
+ * Ganancia de la música muestra a muestra: 1 sin voz, `duckLevel` con voz.
+ * Sin narración devuelve todo unos (nunca hay ducking sin voz).
+ */
+export function duckGainEnvelope(
+  voice: Float32Array | null,
+  frames: number,
+  options: Partial<DuckOptions> = {}
+): Float32Array {
+  const settings: DuckOptions = { ...DEFAULT_DUCK_OPTIONS, ...options };
+  const total = Math.max(1, Math.round(frames));
+  const gains = new Float32Array(total);
+  if (!voice || voice.length === 0) {
+    gains.fill(1);
+    return gains;
+  }
+
+  const windowFrames = Math.max(1, Math.round(settings.sampleRate * settings.windowSeconds));
+  const windowCount = Math.ceil(total / windowFrames);
+  const attackAlpha = 1 - Math.exp(-settings.windowSeconds / Math.max(0.001, settings.attackSeconds));
+  const releaseAlpha = 1 - Math.exp(-settings.windowSeconds / Math.max(0.001, settings.releaseSeconds));
+
+  // 1. Ganancia objetivo por ventana (10 ms) con ataque rápido y liberación lenta.
+  const windowGains = new Float32Array(windowCount);
+  let current = 1;
+  for (let windowIndex = 0; windowIndex < windowCount; windowIndex++) {
+    const start = windowIndex * windowFrames;
+    const end = Math.min(total, start + windowFrames);
+
+    let sumSquares = 0;
+    for (let index = start; index < end; index++) sumSquares += voice[index] * voice[index];
+    const rms = end > start ? Math.sqrt(sumSquares / (end - start)) : 0;
+
+    const target = rms > settings.thresholdRms ? settings.duckLevel : 1;
+    const alpha = target < current ? attackAlpha : releaseAlpha;
+    current += (target - current) * alpha;
+    windowGains[windowIndex] = current;
+  }
+
+  // 2. Interpolación lineal dentro de cada ventana para no oír escalones.
+  for (let windowIndex = 0; windowIndex < windowCount; windowIndex++) {
+    const start = windowIndex * windowFrames;
+    const end = Math.min(total, start + windowFrames);
+    const from = windowIndex === 0 ? 1 : windowGains[windowIndex - 1];
+    const to = windowGains[windowIndex];
+    for (let index = start; index < end; index++) {
+      const t = (index - start) / Math.max(1, end - start);
+      gains[index] = from + (to - from) * t;
+    }
+  }
+
+  return gains;
+}
+
 async function readAssetBlob(asset: MediaAsset): Promise<Blob> {
   if (asset.fileBlob) return asset.fileBlob;
   const response = await fetch(asset.url);
   if (!response.ok) {
-    throw new Error(`No se pudo leer el archivo de narración "${asset.name}".`);
+    throw new Error(`No se pudo leer el archivo de audio "${asset.name}".`);
   }
   return response.blob();
 }
 
+async function decodeAsset(asset: MediaAsset): Promise<AudioBuffer> {
+  const encoded = await (await readAssetBlob(asset)).arrayBuffer();
+  // OfflineAudioContext no requiere gesto del usuario y decodifica a 48 kHz.
+  const offlineCtx = new OfflineAudioContext(AUDIO_CHANNELS, 1, AUDIO_SAMPLE_RATE);
+  try {
+    return await offlineCtx.decodeAudioData(encoded);
+  } catch {
+    throw new Error(`No se pudo decodificar "${asset.name}". Importa el audio en MP3 o WAV.`);
+  }
+}
+
+function clampSamples(channels: Float32Array[]): void {
+  channels.forEach((data) => {
+    for (let index = 0; index < data.length; index++) {
+      if (data[index] > 1) data[index] = 1;
+      else if (data[index] < -1) data[index] = -1;
+    }
+  });
+}
+
 /**
- * Decodifica la narración y la mezcla en un AudioBuffer determinista de duración
- * exactamente igual a la del proyecto (silencio al final si el audio es más corto,
- * recorte si es más largo).
+ * Construye la pista de audio final del video:
+ * narración (recortada o con silencio), música en bucle con ducking cuando hay
+ * voz y cada efecto de sonido al inicio de su escena. Devuelve null si el
+ * proyecto no tiene ningún audio asignado.
  */
-export async function prepareNarration(
+export async function prepareProjectAudio(
   project: Project,
   durationSeconds: number
-): Promise<PreparedNarration | null> {
-  const asset = findNarrationAsset(project);
-  if (!asset) return null;
+): Promise<PreparedAudio | null> {
+  const narrationAsset = findNarrationAsset(project);
+  const musicAsset = findMusicAsset(project);
+  const timeline = buildTimeline(project);
+  const sfxEntries = timeline
+    .map((entry) => ({ start: entry.start, asset: findSfxAsset(project, entry.scene.id) }))
+    .filter((entry): entry is { start: number; asset: MediaAsset } => Boolean(entry.asset));
 
-  const encoded = await (await readAssetBlob(asset)).arrayBuffer();
-  const frames = Math.max(1, Math.ceil(durationSeconds * NARRATION_SAMPLE_RATE));
+  if (!narrationAsset && !musicAsset && sfxEntries.length === 0) return null;
 
-  // OfflineAudioContext no requiere gesto del usuario y decodifica a 48 kHz.
-  const offlineCtx = new OfflineAudioContext(NARRATION_CHANNELS, 1, NARRATION_SAMPLE_RATE);
+  const frames = Math.max(1, Math.ceil(durationSeconds * AUDIO_SAMPLE_RATE));
+  const mix: Float32Array[] = [
+    new Float32Array(frames),
+    new Float32Array(frames),
+  ];
 
-  let decoded: AudioBuffer;
-  try {
-    decoded = await offlineCtx.decodeAudioData(encoded);
-  } catch {
-    throw new Error(
-      `No se pudo decodificar "${asset.name}". Importa la narración en MP3 o WAV.`
-    );
+  let narrationChannels: Float32Array[] | null = null;
+  if (narrationAsset) {
+    narrationChannels = fitNarrationChannels(await decodeAsset(narrationAsset), frames);
+    narrationChannels.forEach((data, channel) => {
+      const target = mix[channel];
+      for (let index = 0; index < frames; index++) target[index] += data[index];
+    });
   }
 
-  // Recorte o relleno de silencio hasta la duración exacta del proyecto.
-  const channels = fitNarrationChannels(decoded, frames);
-  const buffer = offlineCtx.createBuffer(NARRATION_CHANNELS, frames, NARRATION_SAMPLE_RATE);
-  channels.forEach((data, channel) => buffer.getChannelData(channel).set(data));
+  if (musicAsset) {
+    const volume = musicVolumeFor(project);
+    const musicChannels = loopChannels(await decodeAsset(musicAsset), frames);
+    const voice = narrationChannels ? monoMix(narrationChannels, frames) : null;
+    const duck = duckGainEnvelope(voice, frames);
+    musicChannels.forEach((data, channel) => {
+      const target = mix[channel];
+      for (let index = 0; index < frames; index++) {
+        target[index] += data[index] * volume * duck[index];
+      }
+    });
+  }
 
-  return { buffer, asset };
+  const decodedSfx = new Map<string, AudioBuffer>();
+  for (const entry of sfxEntries) {
+    let decoded = decodedSfx.get(entry.asset.id);
+    if (!decoded) {
+      decoded = await decodeAsset(entry.asset);
+      decodedSfx.set(entry.asset.id, decoded);
+    }
+
+    const startFrame = Math.max(0, Math.round(entry.start * AUDIO_SAMPLE_RATE));
+    const available = Math.max(0, frames - startFrame);
+    if (available === 0) continue;
+    const gain = DEFAULT_SFX_VOLUME;
+    for (let channel = 0; channel < AUDIO_CHANNELS; channel++) {
+      const source = decoded.getChannelData(Math.min(channel, decoded.numberOfChannels - 1));
+      const target = mix[channel];
+      const length = Math.min(available, source.length);
+      for (let index = 0; index < length; index++) {
+        target[startFrame + index] += source[index] * gain;
+      }
+    }
+  }
+
+  clampSamples(mix);
+
+  const offlineCtx = new OfflineAudioContext(AUDIO_CHANNELS, frames, AUDIO_SAMPLE_RATE);
+  const buffer = offlineCtx.createBuffer(AUDIO_CHANNELS, frames, AUDIO_SAMPLE_RATE);
+  mix.forEach((data, channel) => buffer.getChannelData(channel).set(data));
+
+  return {
+    buffer,
+    narrationAsset,
+    musicAsset,
+    sfxAssets: sfxEntries.map((entry) => entry.asset),
+  };
 }

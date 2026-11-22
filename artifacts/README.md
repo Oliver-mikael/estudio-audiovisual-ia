@@ -65,6 +65,16 @@ ejemplo descargados de internet. Las cifras (duración, resolución, fps, canale
 | `phase10-ui-export.webm` | Exportación de 5 s descargada pulsando «Exportar» y luego «Descargar .webm» en la UI. El navegador propuso `prueba-fase-10-exportacion-completa-720p.webm`. | Flujo completo de usuario: proyecto creado en la app, dos escenas, WAV importado en la Biblioteca y exportado. ffmpeg: VP9 1280×720@30 + Opus 48 kHz estéreo, RMS 0,0945, pico 0,5817, correlación 0,9992 con el WAV y desfase 0 (voz audible). |
 | `phase10-result-panel.png` | Captura del panel «Video exportado» (360×712). | La UI confirma el formato, el modo y la narración usada, y ofrece la descarga. |
 
+## Fase 13 — música de fondo con ducking
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `test-voice-gated-2s.wav` | Tono de 1 kHz a amplitud 0,3 durante 2 s (WAV PCM 48 kHz estéreo). | Hace de voz: hay narración de 0 a 2 s y silencio de 2 a 4 s, así se puede medir el ducking por tramos. |
+| `test-music-200hz.mp3` | Tono de 200 Hz a amplitud 0,5 durante 30 s (MP3 192 kbps). | Hace de música: se distingue de la voz por frecuencia y se repite en bucle si el video es más largo. |
+| `test-sfx-4000hz.mp3` | Tono de 4 kHz de 0,4 s (MP3 192 kbps). | Efecto de sonido de la fase 14. |
+| `phase13-export-modal.png` | Captura del modal de exportación (360×712). | Muestra la narración `voz-1000hz-2s.wav`, la música `musica-200hz.mp3`, 4 s · 120 cuadros · 30 fps y el nombre `prueba-fase-13-mezcla-720p.webm`. |
+| `phase13-music-ducking.webm` | Export real descargado pulsando el botón, 4,00 s, VP9 1280×720@30 + Opus 48 kHz estéreo. | La música baja durante la voz: medida con Goertzel sobre el PCM extraído con ffmpeg, la componente de 200 Hz vale 0,0182 en 0,8–1,8 s (voz) y 0,0593 en 3,0–3,9 s (silencio), es decir el 30,7 % (−10,3 dB). La voz de 1 kHz aparece a 0,0375 en la primera mitad y desaparece en la segunda. |
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |
@@ -77,6 +87,7 @@ Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` 
 
 1. `npm install` y `npm run dev`.
 2. Crear un proyecto, añadir escenas y, si hace falta audio, importar `narracion-prueba.wav` en la Biblioteca.
+   Para la fase 13 se importan `test-voice-gated-2s.wav` (narración) y `test-music-200hz.mp3` (música).
 3. «Exportar video» → «Exportar» → «Descargar .webm».
 4. Analizar con ffmpeg:
 
@@ -94,7 +105,7 @@ verificaciones.
   probaron.
 - El MP4 verificado es H.264 en Chromium. No se probaron otros códecs MP4 (HEVC, AV1) ni navegadores sin
   decodificador H.264.
-- El audio propio de un clip de video se ignora: la única pista de audio del archivo exportado es la
-  narración del proyecto.
+- El audio propio de un clip de video se ignora: la pista de audio del archivo exportado es la mezcla de
+  los archivos importados (narración, música de fondo y efectos de escena).
 - Las capturas se tomaron con un viewport estrecho (360×712), por eso el texto aparece partido; el contenido
   es el real de la app.

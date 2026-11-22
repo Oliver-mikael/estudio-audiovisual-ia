@@ -18,7 +18,7 @@ import {
   describeExportFormat,
   projectDurationSeconds,
 } from './engine/exporter';
-import { findNarrationAsset } from './engine/audioTrack';
+import { findMusicAsset, findNarrationAsset } from './engine/audioTrack';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import { IdeaLab } from './modules/IdeaLab';
 import { ResearchModule } from './modules/ResearchModule';
@@ -59,12 +59,16 @@ interface ExportedVideo {
   url: string;
   extension: 'webm' | 'mp4';
   narrationAssetName: string | null;
+  musicAssetName: string | null;
+  sfxAssetNames: string[];
   usedWebCodecs: boolean;
 }
 
 interface ExportDialogData {
   format: ExportFormatInfo;
   narrationName: string | null;
+  musicName: string | null;
+  sfxCount: number;
   durationSeconds: number;
   totalFrames: number;
 }
@@ -253,11 +257,18 @@ export const App: React.FC = () => {
     setIsPreparingExport(true);
     try {
       const narrationAsset = findNarrationAsset(project);
+      const musicAsset = findMusicAsset(project);
+      const sfxCount = project.script.scenes.filter((scene) => scene.sfxAssetId).length;
       const durationSeconds = projectDurationSeconds(project);
-      const format = await describeExportFormat(project, Boolean(narrationAsset));
+      const format = await describeExportFormat(
+        project,
+        Boolean(narrationAsset || musicAsset || sfxCount > 0)
+      );
       setExportDialog({
         format,
         narrationName: narrationAsset ? narrationAsset.name : null,
+        musicName: musicAsset ? musicAsset.name : null,
+        sfxCount,
         durationSeconds,
         totalFrames: Math.round(durationSeconds * format.fps),
       });
@@ -285,6 +296,8 @@ export const App: React.FC = () => {
         url: URL.createObjectURL(result.blob),
         extension: result.extension,
         narrationAssetName: result.narrationAssetName,
+        musicAssetName: result.musicAssetName,
+        sfxAssetNames: result.sfxAssetNames,
         usedWebCodecs: result.usedWebCodecs,
       });
     } catch (error) {
@@ -317,6 +330,7 @@ export const App: React.FC = () => {
   }
 
   const narrationAsset = findNarrationAsset(project);
+  const musicAsset = findMusicAsset(project);
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-slate-100">
@@ -403,6 +417,9 @@ export const App: React.FC = () => {
             <p className="px-2">
               Narración: {narrationAsset ? narrationAsset.name : 'sin asignar'}
             </p>
+            <p className="px-2">
+              Música: {musicAsset ? musicAsset.name : 'sin asignar'}
+            </p>
           </div>
         </aside>
 
@@ -463,6 +480,10 @@ export const App: React.FC = () => {
                   {exportedVideo.narrationAssetName
                     ? `narración: ${exportedVideo.narrationAssetName}`
                     : 'sin narración'}
+                  {exportedVideo.musicAssetName ? ` · música: ${exportedVideo.musicAssetName}` : ''}
+                  {exportedVideo.sfxAssetNames.length > 0
+                    ? ` · ${exportedVideo.sfxAssetNames.length} efecto(s)`
+                    : ''}
                 </p>
                 <div className="flex items-center gap-2">
                   <a
@@ -529,7 +550,19 @@ export const App: React.FC = () => {
             <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Narración</dt>
               <dd className="text-slate-100 text-right">
-                {exportDialog.narrationName ? exportDialog.narrationName : 'Sin narración (video mudo)'}
+                {exportDialog.narrationName ? exportDialog.narrationName : 'Sin narración'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Música de fondo</dt>
+              <dd className="text-slate-100 text-right">
+                {exportDialog.musicName ? exportDialog.musicName : 'Sin música'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Efectos por escena</dt>
+              <dd className="text-slate-100 text-right">
+                {exportDialog.sfxCount > 0 ? `${exportDialog.sfxCount} asignado(s)` : 'Ninguno'}
               </dd>
             </div>
             <div className="flex justify-between gap-4">

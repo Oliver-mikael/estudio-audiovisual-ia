@@ -9,7 +9,8 @@ import {
   isLimitedForMobile,
   isMobileLike,
 } from '../engine/capabilities';
-import { AlertTriangle, Settings, Sliders } from 'lucide-react';
+import { AlertTriangle, AudioLines, Settings, Sliders } from 'lucide-react';
+import { MUSIC_DUCK_LEVEL, musicVolumeFor } from '../engine/audioTrack';
 
 interface SettingsModuleProps {
   project: Project;
@@ -48,6 +49,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ project, onUpdat
 
   const selectFps = (fps: number) => {
     onUpdateProject({ ...project, settings: { ...project.settings, fps } });
+  };
+
+  const musicVolume = musicVolumeFor(project);
+  const setMusicVolume = (value: number) => {
+    onUpdateProject({
+      ...project,
+      settings: { ...project.settings, musicVolume: Math.max(0, Math.min(1, value)) },
+    });
   };
 
   return (
@@ -101,6 +110,37 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ project, onUpdat
           <p className="text-sm text-slate-500">
             Se usa en el canvas de previsualización y en el video exportado.
           </p>
+        </div>
+
+        <div className="space-y-2 border-t border-slate-800 pt-4">
+          <label htmlFor="music-volume" className="etiqueta flex items-center gap-1.5">
+            <AudioLines className="w-4 h-4 text-indigo-400" />
+            <span>Volumen general de la música</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              id="music-volume"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={Math.round(musicVolume * 100)}
+              onChange={(event) => setMusicVolume(Number(event.target.value) / 100)}
+              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+            />
+            <span className="font-mono text-sm text-slate-100 w-12 text-right">
+              {Math.round(musicVolume * 100)}%
+            </span>
+          </div>
+          <p className="text-sm text-slate-500">
+            Mientras hay narración sonando la música baja automáticamente al{' '}
+            {Math.round(MUSIC_DUCK_LEVEL * 100)}% de este volumen (ducking).
+          </p>
+          {!project.musicAssetId && (
+            <p className="text-sm text-slate-500">
+              No hay música asignada: marca un audio como «Usar como música» en la Biblioteca.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

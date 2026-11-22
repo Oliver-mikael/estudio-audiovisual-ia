@@ -1,8 +1,9 @@
 // Exportador determinista: cada cuadro se renderiza y codifica con WebCodecs
 // (VideoEncoder + AudioEncoder) y se empaqueta en WebM con webm-muxer.
-// No se genera ningún tono sintético: la única pista de audio es la narración importada.
+// No se genera ningún tono sintético: la pista de audio es la mezcla de los
+// archivos importados (narración, música de fondo y efectos de escena).
 // Si WebCodecs no está disponible, se usa MediaRecorder con captureStream(0) + requestFrame
-// como respaldo, manteniendo el audio de narración real.
+// como respaldo, manteniendo esa misma mezcla real.
 
 import { ArrayBufferTarget, Muxer } from 'webm-muxer';
 import { Project } from '../types';
@@ -10,8 +11,8 @@ import { CanvasRenderEngine } from './renderEngine';
 import {
   NARRATION_CHANNELS,
   NARRATION_SAMPLE_RATE,
-  PreparedNarration,
-  prepareNarration,
+  PreparedAudio,
+  prepareProjectAudio,
 } from './audioTrack';
 import { effectiveSettings, isLimitedForMobile } from './capabilities';
 import { resolveSceneMediaUrls } from './mediaResolver';
@@ -30,6 +31,10 @@ export interface VideoExportResult {
   /** true = exportación cuadro por cuadro con WebCodecs; false = respaldo MediaRecorder. */
   usedWebCodecs: boolean;
   narrationAssetName: string | null;
+  /** Nombre de la música de fondo mezclada, o null si no hay. */
+  musicAssetName: string | null;
+  /** Nombres de los efectos de sonido mezclados (uno por escena). */
+  sfxAssetNames: string[];
   /** Ajustes realmente usados (pueden estar limitados en móvil). */
   width: number;
   height: number;
@@ -131,7 +136,7 @@ export interface ExportFormatInfo {
  */
 export async function describeExportFormat(
   project: Project,
-  hasNarration: boolean
+  hasAudio: boolean
 ): Promise<ExportFormatInfo> {
   const settings = effectiveSettings(project);
   const fps = settings.fps || 30;
@@ -140,13 +145,13 @@ export async function describeExportFormat(
   const mobileLimited = isLimitedForMobile(project.settings);
 
   const plan = await planVideoCodec(width, height, fps);
-  const audioOk = hasNarration ? await supportsOpusAudio() : true;
+  const audioOk = hasAudio ? await supportsOpusAudio() : true;
 
   if (plan && audioOk) {
     return {
       container: 'WebM',
       videoCodec: plan.muxerCodec === 'V_VP9' ? 'VP9' : 'VP8',
-      audioCodec: hasNarration ? 'Opus' : 'sin audio',
+      audioCodec: hasAudio ? 'Opus' : 'sin audio',
       mode: 'cuadro por cuadro (WebCodecs)',
       usedWebCodecs: true,
       width,
@@ -159,7 +164,7 @@ export async function describeExportFormat(
   return {
     container: 'WebM',
     videoCodec: 'VP9/VP8',
-    audioCodec: hasNarration ? 'Opus' : 'sin audio',
+    audioCodec: hasAudio ? 'Opus' : 'sin audio',
     mode: 'tiempo real (MediaRecorder)',
     usedWebCodecs: false,
     width,
@@ -212,11 +217,11 @@ export class VideoExporter {
     await renderEngine.preloadImages(exportProject.script.scenes);
     await renderEngine.preloadVideos(exportProject.script.scenes);
 
-    onProgress(5, 'Decodificando pista de narración...');
-    const narration = await prepareNarration(exportProject, durationSeconds);
+    onProgress(5, 'Mezclando narración, música y efectos de sonido...');
+    const audio = await prepareProjectAudio(exportProject, durationSeconds);
 
     const codecPlan = await planVideoCodec(width, height, fps);
-    const canEncodeAudio = narration ? await supportsOpusAudio() : true;
+    const canEncodeAudio = audio ? await supportsOpusAudio() : true;
 
     const context: ExportContext = {
       project: exportProject,
@@ -229,18 +234,19 @@ export class VideoExporter {
     };
 
     if (codecPlan && canEncodeAudio) {
-      return VideoExporter.exportWithWebCodecs(context, codecPlan, narration);
+      return VideoExporter.exportWithWebCodecs(context, codecPlan, audio);
     }
 
     onProgress(8, 'WebCodecs no disponible: exportando con MediaRecorder...');
-    return VideoExporter.exportWithMediaRecorder(context, narration);
+    return VideoExporter.exportWithMediaRecorder(context, audio);
   }
 
   private static async exportWithWebCodecs(
     context: ExportContext,
     codecPlan: VideoCodecPlan,
-    narration: PreparedNarration | null
+    audio: PreparedAudio | null
   ): Promise<VideoExportResult> {
+    const { label: audioLabel, ...audioNames } = VideoExporter.describeMixedAudio(audio);
     const { project, canvas, renderEngine, durationSeconds, totalFrames, fps, onProgress } = context;
 
     const muxer = new Muxer({
@@ -251,7 +257,7 @@ export class VideoExporter {
         height: canvas.height,
         frameRate: fps,
       },
-      ...(narration
+      ...(audio
         ? {
             audio: {
               codec: 'A_OPUS',
@@ -263,10 +269,10 @@ export class VideoExporter {
       firstTimestampBehavior: 'offset',
     });
 
-    // 1. Narración real (sin tonos sintéticos), codificada en Opus.
-    if (narration) {
-      onProgress(10, `Codificando narración "${narration.asset.name}"...`);
-      await VideoExporter.encodeNarration(muxer, narration.buffer);
+    // 1. Mezcla real de audio (sin tonos sintéticos), codificada en Opus.
+    if (audio) {
+      onProgress(10, `Codificando audio: ${audioLabel}...`);
+      await VideoExporter.encodeAudioBuffer(muxer, audio.buffer);
     }
 
     // 2. Video cuadro por cuadro: el tiempo de cada cuadro es i / fps, no el reloj de pared.
@@ -330,14 +336,38 @@ export class VideoExporter {
       durationSeconds,
       totalFrames,
       usedWebCodecs: true,
-      narrationAssetName: narration ? narration.asset.name : null,
+      ...audioNames,
       width: canvas.width,
       height: canvas.height,
       fps,
     };
   }
 
-  private static async encodeNarration(
+  /** Nombres de los recursos que forman la pista de audio exportada. */
+  private static describeMixedAudio(audio: PreparedAudio | null): {
+    narrationAssetName: string | null;
+    musicAssetName: string | null;
+    sfxAssetNames: string[];
+    label: string;
+  } {
+    if (!audio) {
+      return { narrationAssetName: null, musicAssetName: null, sfxAssetNames: [], label: 'sin audio' };
+    }
+    const parts: string[] = [];
+    if (audio.narrationAsset) parts.push(`narración "${audio.narrationAsset.name}"`);
+    if (audio.musicAsset) parts.push(`música "${audio.musicAsset.name}"`);
+    if (audio.sfxAssets.length > 0) {
+      parts.push(`${audio.sfxAssets.length} efecto(s): ${audio.sfxAssets.map((a) => a.name).join(', ')}`);
+    }
+    return {
+      narrationAssetName: audio.narrationAsset ? audio.narrationAsset.name : null,
+      musicAssetName: audio.musicAsset ? audio.musicAsset.name : null,
+      sfxAssetNames: audio.sfxAssets.map((asset) => asset.name),
+      label: parts.length > 0 ? parts.join(' + ') : 'sin audio',
+    };
+  }
+
+  private static async encodeAudioBuffer(
     muxer: Muxer<ArrayBufferTarget>,
     buffer: AudioBuffer
   ): Promise<void> {
@@ -394,27 +424,29 @@ export class VideoExporter {
    */
   private static async exportWithMediaRecorder(
     context: ExportContext,
-    narration: PreparedNarration | null
+    audio: PreparedAudio | null
   ): Promise<VideoExportResult> {
     const { project, canvas, renderEngine, durationSeconds, totalFrames, fps, onProgress } = context;
+    const { label: audioLabel, ...audioNames } = VideoExporter.describeMixedAudio(audio);
+    void audioLabel;
 
     const audioCtx = new AudioContext();
     await audioCtx.resume().catch(() => undefined);
     const destination = audioCtx.createMediaStreamDestination();
-    let narrationSource: AudioBufferSourceNode | null = null;
-    if (narration) {
-      narrationSource = audioCtx.createBufferSource();
-      narrationSource.buffer = narration.buffer;
-      narrationSource.connect(destination);
+    let audioSource: AudioBufferSourceNode | null = null;
+    if (audio) {
+      audioSource = audioCtx.createBufferSource();
+      audioSource.buffer = audio.buffer;
+      audioSource.connect(destination);
     }
 
     const canvasStream = canvas.captureStream(0);
     const videoTrack = canvasStream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack;
     const tracks: MediaStreamTrack[] = [videoTrack];
-    if (narration) tracks.push(...destination.stream.getAudioTracks());
+    if (audio) tracks.push(...destination.stream.getAudioTracks());
 
     const stream = new MediaStream(tracks);
-    const mimeType = pickRecorderMimeType(Boolean(narration));
+    const mimeType = pickRecorderMimeType(Boolean(audio));
     const recorder = new MediaRecorder(
       stream,
       mimeType ? { mimeType, videoBitsPerSecond: VIDEO_BITRATE } : { videoBitsPerSecond: VIDEO_BITRATE }
@@ -431,7 +463,7 @@ export class VideoExporter {
     });
 
     recorder.start(100);
-    narrationSource?.start();
+    audioSource?.start();
 
     const startTime = performance.now();
     for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
@@ -452,7 +484,7 @@ export class VideoExporter {
 
     await sleep(Math.ceil(1000 / fps) + 300);
     recorder.stop();
-    narrationSource?.stop();
+    audioSource?.stop();
     await stopped;
     videoTrack.stop();
     await audioCtx.close();
@@ -465,7 +497,7 @@ export class VideoExporter {
       durationSeconds,
       totalFrames,
       usedWebCodecs: false,
-      narrationAssetName: narration ? narration.asset.name : null,
+      ...audioNames,
       width: canvas.width,
       height: canvas.height,
       fps,

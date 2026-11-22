@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Project, MediaAsset } from '../types';
 import { deleteMediaAssetBlob, getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
-import { FolderOpen, Upload, Trash2, Image, Music, Film, Mic } from 'lucide-react';
+import { FolderOpen, Upload, Trash2, Image, Music, Film, Mic, AudioLines } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
 interface MediaLibraryProps {
@@ -86,6 +86,7 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
       ...project,
       mediaAssets: updated,
       ...(project.narrationAssetId === id ? { narrationAssetId: undefined } : {}),
+      ...(project.musicAssetId === id ? { musicAssetId: undefined } : {}),
     });
 
     try {
@@ -100,7 +101,9 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
   // La narración es el audio asignado explícitamente o, si no hay asignación, el primer audio.
   const narrationAsset =
     assets.find((a) => a.id === project.narrationAssetId && a.type === 'audio') ??
-    assets.find((a) => a.type === 'audio');
+    assets.find((a) => a.type === 'audio' && a.id !== project.musicAssetId);
+
+  const musicAsset = assets.find((a) => a.id === project.musicAssetId && a.type === 'audio') ?? null;
 
   const formatSize = (bytes: number) => {
     const mb = bytes / (1024 * 1024);
@@ -119,10 +122,13 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
           </div>
           <p className="text-slate-400 text-sm mt-1">
             Importa imágenes, locuciones y clips de video. Los archivos se guardan localmente en IndexedDB y el
-            audio marcado como narración se mezcla en el video exportado.
+            audio marcado como narración o música de fondo se mezcla en el video exportado.
           </p>
           <p className="text-xs text-slate-500 mt-1 font-mono">
-            Narración actual: {narrationAsset ? narrationAsset.name : 'ninguna (importa un MP3 o WAV)'}
+            Narración: {narrationAsset ? narrationAsset.name : 'ninguna (importa un MP3 o WAV)'}
+          </p>
+          <p className="text-xs text-slate-500 font-mono">
+            Música de fondo: {musicAsset ? musicAsset.name : 'ninguna'}
           </p>
         </div>
 
@@ -219,18 +225,45 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
               </div>
 
               {asset.type === 'audio' && (
-                <button
-                  onClick={() => onUpdateProject({ ...project, narrationAssetId: asset.id })}
-                  className={`mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
-                    narrationAsset?.id === asset.id
-                      ? 'bg-emerald-600/20 text-emerald-300 border-emerald-700'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                  }`}
-                  title="Usar este audio como pista de narración del video exportado"
-                >
-                  <Mic className="w-3 h-3" />
-                  <span>{narrationAsset?.id === asset.id ? 'Narración activa' : 'Usar como narración'}</span>
-                </button>
+                <div className="mt-2 space-y-1.5">
+                  <button
+                    onClick={() =>
+                      onUpdateProject({
+                        ...project,
+                        narrationAssetId: asset.id,
+                        ...(project.musicAssetId === asset.id ? { musicAssetId: undefined } : {}),
+                      })
+                    }
+                    className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
+                      narrationAsset?.id === asset.id
+                        ? 'bg-emerald-600/20 text-emerald-300 border-emerald-700'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                    }`}
+                    title="Usar este audio como pista de narración del video exportado"
+                  >
+                    <Mic className="w-3 h-3" />
+                    <span>{narrationAsset?.id === asset.id ? 'Narración activa' : 'Usar como narración'}</span>
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      onUpdateProject({
+                        ...project,
+                        musicAssetId: project.musicAssetId === asset.id ? undefined : asset.id,
+                        ...(project.narrationAssetId === asset.id ? { narrationAssetId: undefined } : {}),
+                      })
+                    }
+                    className={`w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
+                      musicAsset?.id === asset.id
+                        ? 'bg-sky-600/20 text-sky-300 border-sky-700'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                    }`}
+                    title="Usar este audio como música de fondo; baja de volumen (ducking) mientras hay narración"
+                  >
+                    <AudioLines className="w-3 h-3" />
+                    <span>{musicAsset?.id === asset.id ? 'Música activa' : 'Usar como música'}</span>
+                  </button>
+                </div>
               )}
 
               <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between gap-2">

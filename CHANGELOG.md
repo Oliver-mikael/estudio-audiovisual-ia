@@ -3,6 +3,26 @@
 Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1.2.0 a 2.1.0) están en
 [docs/CHANGELOG.md](docs/CHANGELOG.md) y describen documentación de diseño, no funcionalidad verificada.
 
+## [Sin publicar] — 22 de noviembre de 2026 (fases 13–16)
+
+### Añadido
+
+- **Música de fondo con ducking** (fase 13): la Biblioteca permite marcar un audio como **música de fondo**,
+  separado de la narración (`musicAssetId`). El exportador mezcla narración + música: la música suena en
+  bucle, al volumen general del proyecto (`settings.musicVolume`, 60 % por defecto) y baja al **30 %**
+  mientras hay voz, con ataque de 0,12 s y liberación de 0,4 s. Se ajusta en Ajustes del proyecto y el modal
+  de exportación muestra la música y los efectos asignados.
+
+### Verificado con archivos reales
+
+- `artifacts/phase13-music-ducking.webm`: export real por la UI (4 s, VP9 1280×720@30 + Opus). Narración de
+  1 kHz de 0 a 2 s y música de 200 Hz. Analizado con ffmpeg: la música a 200 Hz vale **0,0593 sin voz** y
+  **0,0182 con voz** (30,7 %, −10,3 dB), y vuelve a subir tras la narración.
+
+### Limitaciones que siguen
+
+- La música es una sola pista global, sin puntos de entrada/salida ni fundidos propios.
+
 ## [Sin publicar] — 22 de noviembre de 2026 (fases 9–12)
 
 ### Añadido

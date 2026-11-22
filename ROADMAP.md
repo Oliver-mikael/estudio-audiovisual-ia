@@ -34,8 +34,9 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 ## 3. Edición de audio
 
 - Narración por escena en lugar de una sola pista para todo el proyecto.
-- Música de fondo con mezcla y ducking.
+- [x] Música de fondo global con mezcla y ducking (fase 13).
 - Recorte y ajuste de inicio de la narración desde la UI.
+- Puntos de entrada/salida y fundido propio de la música.
 
 ## 4. Recursos
 

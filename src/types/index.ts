@@ -39,6 +39,9 @@ export interface Scene {
   videoUrl?: string;
   videoAssetId?: string;
   audioUrl?: string;
+  /** Efecto de sonido (audio corto de la biblioteca) que suena al iniciar la escena. */
+  sfxAssetId?: string;
+  /** Subtítulos editables de la escena, en orden; cada uno ocupa una fracción igual de la escena. */
   subtitles?: string[];
   notes?: string;
 }
@@ -76,6 +79,8 @@ export interface Project {
   mediaAssets: MediaAsset[];
   /** Id del MediaAsset de audio usado como pista de narración al exportar. */
   narrationAssetId?: string;
+  /** Id del MediaAsset de audio usado como música de fondo (con ducking). */
+  musicAssetId?: string;
   settings: {
     fps: number;
     resolution: {
@@ -83,5 +88,7 @@ export interface Project {
       height: number;
     };
     aspectRatio: '16:9' | '9:16' | '1:1';
+    /** Volumen general de la música de fondo, de 0 a 1 (por defecto 0,6). */
+    musicVolume?: number;
   };
 }

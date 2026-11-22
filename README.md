@@ -40,7 +40,11 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
 - **Resolución y FPS configurables**: 480p, 720p o 1080p y 24, 30 o 60 fps. En Android/móvil la exportación
   se limita automáticamente a 720p y 30 fps.
 - **Biblioteca**: importa imágenes, audio y video; los blobs se guardan en IndexedDB y los object URLs se
-  reconstruyen al recargar. Puedes marcar un audio como **narración**.
+  reconstruyen al recargar. Puedes marcar un audio como **narración** o como **música de fondo** (son
+  pistas distintas).
+- **Música de fondo con ducking**: la música se mezcla en bucle con la narración y baja automáticamente al
+  30 % mientras hay voz, volviendo a su volumen en el silencio. El volumen general (0–100 %) se ajusta en
+  Ajustes.
 - **Autoguardado** con 1 segundo de debounce e indicador permanente en la cabecera
   (`Guardado ✓` / `Guardando...` / `Error al guardar`). Si IndexedDB falla por cuota, el mensaje aparece
   visible bajo la cabecera.
@@ -61,16 +65,17 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
 - **No hay app Android publicada.** Solo queda `capacitor.config.json`; no hay build ni paridad probada.
 - **Solo WebM.** No se exporta MP4/H.264. En Safari y Firefox (sin WebCodecs) se usa el respaldo
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
-- **Audio**: MP3 y WAV funcionan como narración (verificado con ffmpeg). Sigue habiendo una sola pista de
-  narración para todo el proyecto: no hay audio por escena ni música de fondo.
+- **Audio**: MP3 y WAV funcionan como narración y como música de fondo (verificado con ffmpeg). Sigue
+  habiendo una sola pista de narración para todo el proyecto; no hay narración por escena ni ajuste de
+  entrada/salida de la música.
 - **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Se probaron un WebM
   (VP8) y un MP4 H.264 dentro de escenas en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 no se
   probaron. El audio propio del clip se ignora.
 - **Sin deshacer** y sin versiones del proyecto.
 - **Probado solo en Chromium.** El resto de navegadores está sin verificar.
 - **Cobertura de pruebas parcial**: 17 pruebas de Vitest cubren persistencia en IndexedDB (con
-  `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido y recorte/relleno de narración.
-  No hay pruebas de la UI ni de una exportación completa.
+  `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido, recorte/relleno de narración y
+  la envolvente de ducking de la música. No hay pruebas de la UI ni de una exportación completa.
 
 ## Estructura
 
