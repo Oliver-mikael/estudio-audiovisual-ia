@@ -29,6 +29,8 @@ export interface Scene {
   visualIntent: string; // E.g. "Mostrar gráfico comparativo de datos"
   cameraMotion: 'Static' | 'Zoom In' | 'Zoom Out' | 'Pan Left' | 'Pan Right' | 'Kinetic Text';
   transition: 'Cut' | 'Fade' | 'Slide' | 'Zoom';
+  /** Duración de la transición de entrada, en segundos (por defecto 0,5 s). */
+  transitionDurationSeconds?: number;
   durationSeconds: number;
   imageUrl?: string;
   audioUrl?: string;

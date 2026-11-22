@@ -388,6 +388,36 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                       <option value="Slide">Deslizamiento</option>
                       <option value="Zoom">Zoom</option>
                     </select>
+
+                    <div className="mt-3">
+                      <label
+                        htmlFor="scene-transition-duration"
+                        className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1"
+                      >
+                        Duración de la transición (s)
+                      </label>
+                      <input
+                        id="scene-transition-duration"
+                        type="number"
+                        min="0.1"
+                        max="3"
+                        step="0.1"
+                        disabled={activeScene.transition === 'Cut'}
+                        value={activeScene.transitionDurationSeconds ?? 0.5}
+                        onChange={(e) => {
+                          const parsed = parseFloat(e.target.value);
+                          handleUpdateActiveScene({
+                            transitionDurationSeconds: Math.min(3, Math.max(0.1, Number.isFinite(parsed) ? parsed : 0.5)),
+                          });
+                        }}
+                        className="w-24 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm font-mono text-indigo-300 text-center disabled:opacity-50"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        {activeScene.transition === 'Cut'
+                          ? 'Corte no usa transición.'
+                          : 'Por defecto 0,5 s. Se aplica al entrar en esta escena.'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
