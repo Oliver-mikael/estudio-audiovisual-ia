@@ -17,16 +17,19 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - Verificar Safari y Firefox; allí WebCodecs no existe y la exportación cae al respaldo en tiempo real.
 - Añadir exportación MP4/H.264 (hoy la única salida es WebM).
 - Arreglar la duración del WebM del respaldo `MediaRecorder` (hoy no declara duración).
-- Probar clips MP4 dentro de escenas (solo se verificó WebM) y clips con audio propio.
+- Probar clips con audio propio (hoy el clip se reproduce mudo) y códecs MP4 distintos de H.264.
 - Interfaz para la relación de aspecto 9:16 y 1:1 (hoy solo 16:9 en la UI).
 - Probar el límite móvil en un dispositivo real, no solo simulando el user agent.
 
-## 2b. Hecho en las fases 5–8
+## 2b. Hecho en las fases 5–11
 
 - [x] Transiciones Fundido / Deslizamiento / Zoom con duración configurable por escena.
 - [x] Resolución 480p/720p/1080p y fps 24/30/60, con límite automático 720p/30 en móvil.
 - [x] Clips de video de la biblioteca como fondo de escena, con bucle y recorte.
 - [x] Narración WAV verificada con ffmpeg además de MP3.
+- [x] Clip MP4 H.264 dentro de una escena, con bucle y recorte (`phase9`).
+- [x] Exportación completa desde el botón de la UI, con nombre y extensión reales y voz audible (`phase10`).
+- [x] 17 pruebas de comportamiento: persistencia en IndexedDB, nombre de archivo, límite móvil, opacidad del Fundido y recorte/relleno de narración.
 
 ## 3. Edición de audio
 
@@ -60,6 +63,6 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 8. Calidad
 
-- Pruebas de la UI y de la exportación (hoy solo hay 8 pruebas del modelo de datos).
+- Pruebas de la UI y de la exportación de punta a punta (hoy hay 17 pruebas de lógica pura y persistencia, sin navegador).
 - Accesibilidad del editor (foco, teclado, anuncios de estado).
 - Idiomas: hoy toda la interfaz está en español.

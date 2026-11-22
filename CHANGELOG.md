@@ -3,6 +3,45 @@
 Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1.2.0 a 2.1.0) están en
 [docs/CHANGELOG.md](docs/CHANGELOG.md) y describen documentación de diseño, no funcionalidad verificada.
 
+## [Sin publicar] — 22 de noviembre de 2026 (fases 9–12)
+
+### Añadido
+
+- **Clips MP4 en escenas**: verificado un MP4 H.264 (`avc1`) como fondo de escena, con bucle y recorte, en
+  Chromium. No hubo que cambiar código: el mismo `HTMLVideoElement` + `drawImage` sirve para ambos
+  contenedores; ahora está documentado.
+- **Exportación completa desde la UI**: el flujo proyecto → escenas → narración WAV → «Exportar video» →
+  descarga se probó de punta a punta, incluido el nombre real del archivo.
+- **Pruebas de comportamiento**: se sustituyeron las 8 pruebas de constantes por 17 pruebas (5 archivos)
+  sobre persistencia real en IndexedDB, nombre de archivo, límite móvil, opacidad del Fundido y
+  recorte/relleno de la narración. Se añadió `fake-indexeddb` como dependencia de desarrollo.
+- **Evidencias versionadas** en `artifacts/` con un README que describe cada archivo y qué verifica.
+
+### Cambiado
+
+- `renderEngine.ts`: la resolución de la línea de tiempo es ahora una función pura exportada
+  (`computeTransitionFrame`, `fadeOpacity`, `transitionSecondsFor`) que usan el render y las pruebas. Una
+  escena empieza en su instante exacto de inicio (intervalo semiabierto), así el primer cuadro de una
+  transición tiene opacidad 0.
+- `audioTrack.ts`: `prepareNarration` decodifica a 48 kHz y ajusta las muestras con `fitNarrationChannels`
+  (recorte o silencio) en lugar de renderizar con `OfflineAudioContext`.
+
+### Verificado con archivos reales
+
+- `artifacts/phase9-mp4-scene.webm`: escena de 3 s con un MP4 H.264 de 2 s; el píxel pasa de rojo a verde y
+  vuelve a rojo (bucle) en los tiempos esperados.
+- `artifacts/phase10-ui-export.webm`: descargado pulsando el botón, nombre
+  `prueba-fase-10-exportacion-completa-720p.webm`, 5,00 s, VP9 + Opus, correlación 0,9992 con el WAV.
+- `artifacts/phase11-export-after-refactor.webm`: misma exportación tras el cambio de narración; audio
+  idéntico (RMS 0,0945, correlación 0,9992, desfase 0).
+- `npx tsc --noEmit` sin errores, `npx vitest run` 17/17 y `npm run build` correcto.
+
+### Limitaciones que siguen
+
+- La salida sigue siendo WebM; el MP4 solo se probó como entrada de escena y solo con H.264 en Chromium.
+- El clip de escena se reproduce mudo.
+- Las pruebas no cubren la UI ni una exportación completa; eso se comprobó a mano en Chromium.
+
 ## [Sin publicar] — 22 de noviembre de 2026 (fases 5–8)
 
 ### Añadido
@@ -32,7 +71,7 @@ Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1
 ### Limitaciones que siguen
 
 - La salida sigue siendo WebM (sin MP4/H.264) y solo se probó en Chromium.
-- Dentro de una escena solo se verificó un clip WebM; MP4 no se probó.
+- Dentro de una escena solo se verificó un clip WebM; MP4 no se probó (se verificó en la fase 9).
 - El límite móvil se verificó simulando el user agent, no en un dispositivo Android real.
 
 ## [Sin publicar] — 22 de noviembre de 2026

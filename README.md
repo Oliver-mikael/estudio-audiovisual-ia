@@ -19,7 +19,7 @@ Otros comandos:
 
 ```bash
 npm run build     # tsc + vite build
-npm test          # Vitest (8 pruebas del modelo de datos)
+npm test          # Vitest (17 pruebas de lógica y persistencia)
 ```
 
 ## Qué funciona hoy
@@ -32,8 +32,9 @@ npm test          # Vitest (8 pruebas del modelo de datos)
   narración, movimiento de cámara, transición y **reordenar escenas arrastrando**.
 - **Imágenes por escena**: se elige una imagen subida a la Biblioteca (se guarda `imageAssetId`, y la URL se
   reconstruye desde el blob al recargar).
-- **Clips de video por escena**: un MP4/WebM de la Biblioteca se dibuja cuadro a cuadro con `drawImage` en el
-  timestamp exacto. Si el clip dura menos que la escena se repite en bucle; si dura más, se recorta.
+- **Clips de video por escena**: un MP4 (H.264) o WebM de la Biblioteca se dibuja cuadro a cuadro con
+  `drawImage` en el timestamp exacto. Si el clip dura menos que la escena se repite en bucle; si dura más,
+  se recorta. El clip se reproduce mudo.
 - **Transiciones reales**: Fundido (opacidad), Deslizamiento (empuje horizontal) y Zoom (escala 1.0 → 1.1)
   entre escenas, con duración configurable por escena (0,5 s por defecto). Corte es el cambio directo.
 - **Resolución y FPS configurables**: 480p, 720p o 1080p y 24, 30 o 60 fps. En Android/móvil la exportación
@@ -62,12 +63,14 @@ npm test          # Vitest (8 pruebas del modelo de datos)
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
 - **Audio**: MP3 y WAV funcionan como narración (verificado con ffmpeg). Sigue habiendo una sola pista de
   narración para todo el proyecto: no hay audio por escena ni música de fondo.
-- **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Solo se probó un WebM
-  (VP8) generado con ffmpeg; MP4 dentro de una escena no está verificado.
+- **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Se probaron un WebM
+  (VP8) y un MP4 H.264 dentro de escenas en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 no se
+  probaron. El audio propio del clip se ignora.
 - **Sin deshacer** y sin versiones del proyecto.
 - **Probado solo en Chromium.** El resto de navegadores está sin verificar.
-- **Cobertura de pruebas mínima**: Vitest cubre el modelo de datos y el cálculo de cuadros, no la UI ni la
-  exportación.
+- **Cobertura de pruebas parcial**: 17 pruebas de Vitest cubren persistencia en IndexedDB (con
+  `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido y recorte/relleno de narración.
+  No hay pruebas de la UI ni de una exportación completa.
 
 ## Estructura
 
@@ -79,7 +82,11 @@ src/
   modules/                # Guion, Storyboard, Biblioteca, Ideas, Investigación
   services/storage/db.ts  # IndexedDB: proyectos y blobs
   data/                   # proyecto demo y fábrica de proyectos vacíos
+artifacts/                # evidencias de verificación (videos, cuadros, WAV) y su README
 docs/                     # auditorías y documentación histórica
 ```
+
+Las evidencias de las pruebas (videos exportados por la app y su análisis con ffmpeg) están versionadas en
+[artifacts/](artifacts/README.md).
 
 Estado real del proyecto: [PROJECT_STATUS.md](PROJECT_STATUS.md). Pendientes: [ROADMAP.md](ROADMAP.md).
