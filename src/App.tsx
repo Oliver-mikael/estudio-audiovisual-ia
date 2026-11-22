@@ -576,6 +576,11 @@ export const App: React.FC = () => {
                   {project.settings.fps} fps.
                 </p>
                 <p>La vista previa dibuja cuadro a cuadro el mismo motor que usa la exportación.</p>
+                <p>
+                  El Monitor reproduce la misma mezcla de audio que la exportación (narración, música con
+                  ducking y efectos por escena). El botón de silencio corta el sonido de verdad y la
+                  reproducción se detiene al pausar y se recoloca al mover la barra de tiempo.
+                </p>
               </div>
             </div>
           )}
