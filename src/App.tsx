@@ -1,227 +1,519 @@
-// Main Application Shell for Estudio Audiovisual Inteligente
-import React, { useState, useEffect } from 'react';
+// Shell de la aplicación: pantalla de inicio + editor con barra lateral.
+import React, { useCallback, useEffect, useState } from 'react';
 import { Project } from './types';
-import { DEMO_PROJECT } from './data/demoProject';
-import { saveProjectToStorage, getProjectFromStorage } from './services/storage/db';
+import { createEmptyProject } from './data/newProject';
+import {
+  deleteProjectFromStorage,
+  getAllProjectsFromStorage,
+  getProjectFromStorage,
+  saveProjectToStorage,
+} from './services/storage/db';
 import { VideoPlayer } from './components/VideoPlayer';
-import { VideoExporter } from './engine/exporter';
+import { HomeScreen } from './components/HomeScreen';
+import { Modal } from './components/Modal';
+import {
+  ExportFormatInfo,
+  VideoExporter,
+  buildExportFileName,
+  describeExportFormat,
+  projectDurationSeconds,
+} from './engine/exporter';
+import { findNarrationAsset } from './engine/audioTrack';
 import { IdeaLab } from './modules/IdeaLab';
 import { ResearchModule } from './modules/ResearchModule';
 import { ScriptWorkshop } from './modules/ScriptWorkshop';
 import { StoryboardModule } from './modules/StoryboardModule';
 import { MediaLibraryModule } from './modules/MediaLibraryModule';
-import { Lightbulb, Search, FileText, Film, FolderOpen, Download, Cpu, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Download,
+  FileText,
+  Film,
+  FolderOpen,
+  Home,
+  Lightbulb,
+  Loader2,
+  MonitorPlay,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
+
+const SECTIONS = [
+  { id: 'guion', label: 'Guion', icon: FileText },
+  { id: 'storyboard', label: 'Storyboard', icon: Film },
+  { id: 'biblioteca', label: 'Biblioteca', icon: FolderOpen },
+  { id: 'ideas', label: 'Ideas', icon: Lightbulb },
+  { id: 'investigacion', label: 'Investigación', icon: Search },
+  { id: 'monitor', label: 'Monitor', icon: MonitorPlay },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]['id'];
+type SaveStatus = 'saved' | 'saving' | 'error';
+
+interface ExportedVideo {
+  url: string;
+  extension: 'webm' | 'mp4';
+  narrationAssetName: string | null;
+  usedWebCodecs: boolean;
+}
+
+interface ExportDialogData {
+  format: ExportFormatInfo;
+  narrationName: string | null;
+  durationSeconds: number;
+  totalFrames: number;
+}
+
+function describeSaveError(error: unknown): string {
+  if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22)) {
+    return 'No hay espacio suficiente en el navegador (cuota de almacenamiento superada). Elimina recursos o proyectos para liberar espacio.';
+  }
+  return 'No se pudo guardar el proyecto en el almacenamiento local del navegador.';
+}
+
+const SaveIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
+  if (status === 'saving') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm text-amber-300">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span>Guardando...</span>
+      </span>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-sm text-rose-300">
+        <AlertCircle className="w-4 h-4" />
+        <span>Error al guardar</span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm text-emerald-300">
+      <CheckCircle2 className="w-4 h-4" />
+      <span>Guardado ✓</span>
+    </span>
+  );
+};
 
 export const App: React.FC = () => {
-  const [project, setProject] = useState<Project>(DEMO_PROJECT);
-  const [activeTab, setActiveTab] = useState<'ideas' | 'research' | 'script' | 'storyboard' | 'media'>('script');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [activeSection, setActiveSection] = useState<SectionId>('guion');
 
-  // Export state
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Exportación
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportMessage, setExportMessage] = useState('');
-  const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null);
+  const [exportedVideo, setExportedVideo] = useState<ExportedVideo | null>(null);
+  const [exportDialog, setExportDialog] = useState<ExportDialogData | null>(null);
+  const [isPreparingExport, setIsPreparingExport] = useState(false);
 
-  useEffect(() => {
-    // Load from storage or set demo project
-    getProjectFromStorage(DEMO_PROJECT.id).then((stored) => {
-      if (stored) {
-        setProject(stored);
-      } else {
-        saveProjectToStorage(DEMO_PROJECT);
-      }
-    });
+  const refreshProjects = useCallback(async () => {
+    try {
+      const stored = await getAllProjectsFromStorage();
+      setProjects(stored.sort((a, b) => b.updatedAt - a.updatedAt));
+    } catch (error) {
+      console.error('No se pudo leer la lista de proyectos:', error);
+    }
   }, []);
 
-  const handleUpdateProject = (updated: Project) => {
-    setProject(updated);
-    saveProjectToStorage(updated);
-  };
+  useEffect(() => {
+    void refreshProjects();
+  }, [refreshProjects]);
 
-  const handleExportVideo = async () => {
+  const persistProject = useCallback(async (updated: Project) => {
+    setSaveStatus('saving');
+    try {
+      await saveProjectToStorage(updated);
+      setSaveStatus('saved');
+      setSaveError(null);
+      void refreshProjects();
+    } catch (error) {
+      console.error('Error al guardar el proyecto:', error);
+      setSaveStatus('error');
+      setSaveError(describeSaveError(error));
+    }
+  }, [refreshProjects]);
+
+  const handleUpdateProject = useCallback(
+    (updated: Project) => {
+      setProject(updated);
+      void persistProject(updated);
+    },
+    [persistProject]
+  );
+
+  const handleCreateProject = useCallback(async (title: string) => {
+    const created = createEmptyProject(title);
+    setProject(created);
+    setActiveSection('guion');
+    setExportedVideo(null);
+    setSaveStatus('saved');
+    setSaveError(null);
+    await persistProject(created);
+  }, [persistProject]);
+
+  const handleOpenProject = useCallback(async (id: string) => {
+    const stored = await getProjectFromStorage(id);
+    if (!stored) {
+      setSaveError('No se encontró el proyecto seleccionado en el almacenamiento local.');
+      return;
+    }
+    setProject(stored);
+    setActiveSection('guion');
+    setExportedVideo(null);
+    setSaveStatus('saved');
+    setSaveError(null);
+  }, []);
+
+  const handleRenameProject = useCallback(
+    async (id: string, title: string) => {
+      const stored = await getProjectFromStorage(id);
+      if (!stored) return;
+      const updated = { ...stored, title };
+      setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      await saveProjectToStorage(updated);
+      if (project?.id === id) setProject(updated);
+      void refreshProjects();
+    },
+    [project?.id, refreshProjects]
+  );
+
+  const handleDeleteProject = useCallback(
+    async (id: string) => {
+      await deleteProjectFromStorage(id);
+      if (project?.id === id) {
+        setProject(null);
+        setExportedVideo(null);
+      }
+      void refreshProjects();
+    },
+    [project?.id, refreshProjects]
+  );
+
+  const handleBackHome = useCallback(() => {
+    setProject(null);
+    setExportedVideo(null);
+    setSaveError(null);
+    void refreshProjects();
+  }, [refreshProjects]);
+
+  const openExportDialog = useCallback(async () => {
+    if (!project) return;
+    setIsPreparingExport(true);
+    try {
+      const narrationAsset = findNarrationAsset(project);
+      const durationSeconds = projectDurationSeconds(project);
+      const format = await describeExportFormat(project, Boolean(narrationAsset));
+      setExportDialog({
+        format,
+        narrationName: narrationAsset ? narrationAsset.name : null,
+        durationSeconds,
+        totalFrames: Math.round(durationSeconds * (project.settings.fps || 30)),
+      });
+    } finally {
+      setIsPreparingExport(false);
+    }
+  }, [project]);
+
+  const handleExportVideo = useCallback(async () => {
+    if (!project) return;
+    setExportDialog(null);
+
     try {
       setIsExporting(true);
-      setExportedVideoUrl(null);
-      const blob = await VideoExporter.exportProjectVideo(project, (progress, message) => {
+      setExportedVideo(null);
+      setExportProgress(0);
+      setExportMessage('Preparando exportación...');
+
+      const result = await VideoExporter.exportProjectVideo(project, (progress, message) => {
         setExportProgress(progress);
         setExportMessage(message);
       });
 
-      const url = URL.createObjectURL(blob);
-      setExportedVideoUrl(url);
-    } catch (err) {
-      console.error('Error during video export:', err);
-      alert('Error exportando el video. Revisa la consola.');
+      setExportedVideo({
+        url: URL.createObjectURL(result.blob),
+        extension: result.extension,
+        narrationAssetName: result.narrationAssetName,
+        usedWebCodecs: result.usedWebCodecs,
+      });
+    } catch (error) {
+      console.error('Error durante la exportación:', error);
+      const message = error instanceof Error ? error.message : 'Error desconocido.';
+      setSaveError(`No se pudo exportar el video: ${message}`);
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [project]);
+
+  if (!project) {
+    return (
+      <HomeScreen
+        projects={projects}
+        onCreateProject={(title) => {
+          void handleCreateProject(title);
+        }}
+        onOpenProject={(id) => {
+          void handleOpenProject(id);
+        }}
+        onRenameProject={(id, title) => {
+          void handleRenameProject(id, title);
+        }}
+        onDeleteProject={(id) => {
+          void handleDeleteProject(id);
+        }}
+      />
+    );
+  }
+
+  const narrationAsset = findNarrationAsset(project);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* App Header */}
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-lg shadow-indigo-600/30">
-            <Cpu className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="font-bold text-base text-slate-100 leading-tight">
-              ESTUDIO AUDIOVISUAL INTELIGENTE
-            </h1>
-            <p className="text-[11px] text-slate-400 font-mono">
-              Producción Local Offline • IA Asistencial
-            </p>
+    <div className="h-screen flex flex-col bg-slate-950 text-slate-100">
+      {/* Header fijo: proyecto, estado de guardado y exportación */}
+      <header className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <button onClick={handleBackHome} className="btn-secondary" title="Volver al inicio">
+            <Home className="w-4 h-4" />
+            <span>Inicio</span>
+          </button>
+
+          <div className="min-w-0">
+            <label htmlFor="project-title" className="block text-slate-500">
+              Proyecto
+            </label>
+            <input
+              id="project-title"
+              value={project.title}
+              onChange={(event) => handleUpdateProject({ ...project, title: event.target.value })}
+              className="bg-transparent border-b border-transparent hover:border-slate-700 focus:border-indigo-500 focus:outline-none text-[16px] font-semibold text-slate-100 w-full max-w-md truncate"
+            />
           </div>
         </div>
 
-        {/* Global Action Banner */}
         <div className="flex items-center gap-3">
+          <SaveIndicator status={saveStatus} />
           <button
-            onClick={handleExportVideo}
-            disabled={isExporting}
-            className={`flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs rounded-lg shadow-lg shadow-indigo-600/20 transition-all ${
-              isExporting ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            onClick={() => {
+              void openExportDialog();
+            }}
+            disabled={isExporting || isPreparingExport}
+            className="btn-primary"
           >
-            {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            <span>{isExporting ? 'Renderizando...' : 'Exportar Video Local'}</span>
+            {isExporting || isPreparingExport ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>{isExporting ? 'Exportando...' : 'Exportar video'}</span>
           </button>
         </div>
       </header>
 
-      {/* Main Workspace Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-[1700px] mx-auto w-full">
-        {/* Left Column: Canvas Preview Studio (Always Accessible) */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="sticky top-20 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-300 font-mono uppercase tracking-wider">
-                Monitor de Producción en Tiempo Real
-              </h2>
-            </div>
+      {saveError && (
+        <div className="shrink-0 bg-rose-950/70 border-b border-rose-800 px-4 py-2 flex items-start justify-between gap-3">
+          <span className="text-sm text-rose-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{saveError}</span>
+          </span>
+          <button onClick={() => setSaveError(null)} className="text-rose-300 hover:text-rose-100 text-sm">
+            Cerrar
+          </button>
+        </div>
+      )}
 
-            <VideoPlayer project={project} />
+      <div className="flex-1 flex min-h-0">
+        {/* Barra lateral de navegación */}
+        <aside className="w-56 shrink-0 bg-slate-900/60 border-r border-slate-800 p-4 space-y-1 overflow-y-auto">
+          <p className="etiqueta px-2 pb-2">Secciones</p>
+          {SECTIONS.map((section) => {
+            const Icon = section.icon;
+            const isActive = activeSection === section.id;
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                aria-current={isActive ? 'page' : undefined}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                <span>{section.label}</span>
+              </button>
+            );
+          })}
 
-            {/* Export Progress / Download Card */}
-            {(isExporting || exportedVideoUrl) && (
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-                {isExporting && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
-                      <span>{exportMessage}</span>
-                      <span>{exportProgress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                      <div
-                        className="bg-indigo-500 h-full transition-all duration-200"
-                        style={{ width: `${exportProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+          <div className="pt-4 mt-4 border-t border-slate-800 space-y-1 text-sm text-slate-400">
+            <p className="px-2">
+              {project.script.scenes.length} escena(s) · {projectDurationSeconds(project)} s
+            </p>
+            <p className="px-2">
+              Narración: {narrationAsset ? narrationAsset.name : 'sin asignar'}
+            </p>
+          </div>
+        </aside>
 
-                {exportedVideoUrl && !isExporting && (
-                  <div className="flex items-center justify-between bg-emerald-950/60 border border-emerald-800/80 p-3 rounded-lg">
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-semibold text-emerald-300 block">
-                        ¡Video Renderizado con Éxito!
-                      </span>
-                      <span className="text-[11px] text-emerald-400/80 font-mono">
-                        Formato listo para descarga (WebM / MP4)
-                      </span>
-                    </div>
-
-                    <a
-                      href={exportedVideoUrl}
-                      download={`${project.title.toLowerCase().replace(/\s+/g, '-')}-720p.webm`}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded transition-colors shadow flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Descargar</span>
-                    </a>
-                  </div>
-                )}
+        {/* Panel derecho: solo la sección activa */}
+        <main className="flex-1 min-w-0 overflow-y-auto p-4">
+          {activeSection === 'guion' && (
+            <ScriptWorkshop project={project} onUpdateProject={handleUpdateProject} />
+          )}
+          {activeSection === 'storyboard' && <StoryboardModule project={project} />}
+          {activeSection === 'biblioteca' && (
+            <MediaLibraryModule project={project} onUpdateProject={handleUpdateProject} />
+          )}
+          {activeSection === 'ideas' && (
+            <IdeaLab project={project} onUpdateProject={handleUpdateProject} />
+          )}
+          {activeSection === 'investigacion' && (
+            <ResearchModule project={project} onUpdateProject={handleUpdateProject} />
+          )}
+          {activeSection === 'monitor' && (
+            <div className="max-w-4xl space-y-4">
+              <h2 className="titulo-seccion">Monitor de previsualización</h2>
+              <VideoPlayer project={project} />
+              <div className="card space-y-1 text-sm text-slate-400">
+                <p>
+                  Resolución: {project.settings.resolution.width} × {project.settings.resolution.height} px a{' '}
+                  {project.settings.fps} fps.
+                </p>
+                <p>La vista previa dibuja cuadro a cuadro el mismo motor que usa la exportación.</p>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Tabbed Intelligent Studio Modules */}
-        <div className="lg:col-span-7 flex flex-col space-y-4">
-          {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1.5 rounded-xl overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('ideas')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'ideas'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Lightbulb className="w-4 h-4" />
-              <span>Laboratorio de Ideas</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('research')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'research'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Search className="w-4 h-4" />
-              <span>Investigación</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('script')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'script'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Taller de Guion</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('storyboard')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'storyboard'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Film className="w-4 h-4" />
-              <span>Storyboard</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('media')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'media'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span>Biblioteca</span>
-            </button>
-          </nav>
-
-          {/* Active Tab Panel */}
-          <div className="flex-1">
-            {activeTab === 'ideas' && <IdeaLab project={project} onUpdateProject={handleUpdateProject} />}
-            {activeTab === 'research' && <ResearchModule project={project} onUpdateProject={handleUpdateProject} />}
-            {activeTab === 'script' && <ScriptWorkshop project={project} onUpdateProject={handleUpdateProject} />}
-            {activeTab === 'storyboard' && <StoryboardModule project={project} />}
-            {activeTab === 'media' && <MediaLibraryModule project={project} onUpdateProject={handleUpdateProject} />}
-          </div>
-        </div>
+            </div>
+          )}
+        </main>
       </div>
+
+      {/* Progreso / resultado de exportación, visible en cualquier sección */}
+      {(isExporting || exportedVideo) && (
+        <div className="fixed bottom-4 right-4 z-50 w-80 card space-y-3 shadow-2xl">
+          {isExporting ? (
+            <>
+              <div className="flex items-center justify-between text-sm text-slate-300">
+                <span className="truncate pr-2">{exportMessage}</span>
+                <span className="font-mono">{exportProgress}%</span>
+              </div>
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                <div className="bg-indigo-500 h-full transition-all" style={{ width: `${exportProgress}%` }} />
+              </div>
+            </>
+          ) : (
+            exportedVideo && (
+              <>
+                <p className="text-sm font-semibold text-emerald-300">Video exportado</p>
+                <p className="text-sm text-slate-400">
+                  {exportedVideo.extension === 'webm' ? 'WebM' : 'MP4'} ·{' '}
+                  {exportedVideo.usedWebCodecs ? 'WebCodecs (cuadro por cuadro)' : 'MediaRecorder (tiempo real)'} ·{' '}
+                  {exportedVideo.narrationAssetName
+                    ? `narración: ${exportedVideo.narrationAssetName}`
+                    : 'sin narración'}
+                </p>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={exportedVideo.url}
+                    download={buildExportFileName(project, exportedVideo.extension)}
+                    className="btn-primary flex-1"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Descargar .{exportedVideo.extension}</span>
+                  </a>
+                  <button onClick={() => setExportedVideo(null)} className="btn-secondary">
+                    Cerrar
+                  </button>
+                </div>
+              </>
+            )
+          )}
+        </div>
+      )}
+
+      {/* Modal previo a la exportación con los datos reales */}
+      {exportDialog && (
+        <Modal
+          title="Confirmar exportación"
+          onClose={() => setExportDialog(null)}
+          footer={
+            <>
+              <button onClick={() => setExportDialog(null)} className="btn-secondary">
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  void handleExportVideo();
+                }}
+                disabled={exportDialog.durationSeconds <= 0}
+                className="btn-primary"
+              >
+                <Download className="w-4 h-4" />
+                <span>Exportar</span>
+              </button>
+            </>
+          }
+        >
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Resolución real</dt>
+              <dd className="text-slate-100 font-mono">
+                {project.settings.resolution.width} × {project.settings.resolution.height} px
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Formato real</dt>
+              <dd className="text-slate-100 font-mono text-right">
+                {exportDialog.format.container} · {exportDialog.format.videoCodec}
+                {exportDialog.format.audioCodec === 'sin audio'
+                  ? ' · sin audio'
+                  : ` · ${exportDialog.format.audioCodec}`}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Modo de codificación</dt>
+              <dd className="text-slate-100 text-right">{exportDialog.format.mode}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Narración</dt>
+              <dd className="text-slate-100 text-right">
+                {exportDialog.narrationName ? exportDialog.narrationName : 'Sin narración (video mudo)'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Duración</dt>
+              <dd className="text-slate-100 font-mono">
+                {exportDialog.durationSeconds} s · {exportDialog.totalFrames} cuadros
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Nombre del archivo</dt>
+              <dd className="text-slate-100 font-mono text-right break-all">
+                {buildExportFileName(project, 'webm')}
+              </dd>
+            </div>
+          </dl>
+
+          {exportDialog.durationSeconds <= 0 && (
+            <p className="text-sm text-rose-300">
+              El proyecto no tiene escenas con duración. Añade al menos una escena en el Taller de guion.
+            </p>
+          )}
+
+          {!exportDialog.format.usedWebCodecs && (
+            <p className="text-sm text-amber-300">
+              Este navegador no soporta WebCodecs para estos ajustes: la exportación usará MediaRecorder en tiempo
+              real y puede tardar lo mismo que la duración del video.
+            </p>
+          )}
+        </Modal>
+      )}
     </div>
   );
 };

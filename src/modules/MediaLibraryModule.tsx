@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { Project, MediaAsset } from '../types';
 import { saveMediaAssetBlob } from '../services/storage/db';
-import { FolderOpen, Upload, Trash2, Image, Music, Film, ShieldCheck } from 'lucide-react';
+import { FolderOpen, Upload, Trash2, Image, Music, Film, Mic } from 'lucide-react';
+import { ConfirmDialog } from '../components/Modal';
 
 interface MediaLibraryProps {
   project: Project;
@@ -12,6 +13,7 @@ interface MediaLibraryProps {
 export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpdateProject }) => {
   const [assets, setAssets] = useState<MediaAsset[]>(project.mediaAssets || []);
   const [filter, setFilter] = useState<'all' | 'image' | 'audio' | 'video'>('all');
+  const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -35,7 +37,7 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
         fileBlob: file,
         mimeType: file.type,
         sizeBytes: file.size,
-        license: 'Propiedad del usuario / Licencia confirmada',
+        license: 'Propiedad del usuario',
         provenance: 'Carga local en cliente',
         createdAt: Date.now(),
       };
@@ -58,6 +60,11 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
 
   const filteredAssets = assets.filter((a) => (filter === 'all' ? true : a.type === filter));
 
+  // La narración es el audio asignado explícitamente o, si no hay asignación, el primer audio.
+  const narrationAsset =
+    assets.find((a) => a.id === project.narrationAssetId && a.type === 'audio') ??
+    assets.find((a) => a.type === 'audio');
+
   const formatSize = (bytes: number) => {
     const mb = bytes / (1024 * 1024);
     if (mb >= 1) return `${mb.toFixed(1)} MB`;
@@ -69,12 +76,16 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
       {/* Top Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-lg">
+          <div className="flex items-center gap-2 text-indigo-400 titulo-seccion">
             <FolderOpen className="w-5 h-5" />
-            <span>Biblioteca Multimedia con Metadatos y Licencias</span>
+            <span>Biblioteca de recursos</span>
           </div>
           <p className="text-slate-400 text-sm mt-1">
-            Importa imágenes, locuciones y clips de video. Los archivos se guardan localmente en IndexedDB.
+            Importa imágenes, locuciones y clips de video. Los archivos se guardan localmente en IndexedDB y el
+            audio marcado como narración se mezcla en el video exportado.
+          </p>
+          <p className="text-xs text-slate-500 mt-1 font-mono">
+            Narración actual: {narrationAsset ? narrationAsset.name : 'ninguna (importa un MP3 o WAV)'}
           </p>
         </div>
 
@@ -126,7 +137,7 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
           }`}
         >
           <Film className="w-3.5 h-3.5" />
-          <span>Video ({assets.filter((a) => a.type === 'video').length})</span>
+          <span>Vídeos ({assets.filter((a) => a.type === 'video').length})</span>
         </button>
       </div>
 
@@ -149,12 +160,12 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
                 ) : asset.type === 'audio' ? (
                   <div className="text-center p-2">
                     <Music className="w-8 h-8 text-indigo-400 mx-auto mb-1" />
-                    <span className="text-[10px] text-slate-500 font-mono">Audio Clip</span>
+                    <span className="text-[11px] text-slate-500 font-mono">Clip de audio</span>
                   </div>
                 ) : (
                   <div className="text-center p-2">
                     <Film className="w-8 h-8 text-indigo-400 mx-auto mb-1" />
-                    <span className="text-[10px] text-slate-500 font-mono">Video Clip</span>
+                    <span className="text-[11px] text-slate-500 font-mono">Clip de vídeo</span>
                   </div>
                 )}
               </div>
@@ -170,16 +181,29 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
                 </div>
               </div>
 
-              {/* License Badge */}
-              <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between">
-                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>Verificado</span>
+              {asset.type === 'audio' && (
+                <button
+                  onClick={() => onUpdateProject({ ...project, narrationAssetId: asset.id })}
+                  className={`mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
+                    narrationAsset?.id === asset.id
+                      ? 'bg-emerald-600/20 text-emerald-300 border-emerald-700'
+                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                  }`}
+                  title="Usar este audio como pista de narración del video exportado"
+                >
+                  <Mic className="w-3 h-3" />
+                  <span>{narrationAsset?.id === asset.id ? 'Narración activa' : 'Usar como narración'}</span>
+                </button>
+              )}
+
+              <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500 truncate" title={asset.license}>
+                  {asset.license}
                 </span>
 
                 <button
-                  onClick={() => handleDeleteAsset(asset.id)}
-                  className="text-slate-500 hover:text-red-400 transition-colors p-1"
+                  onClick={() => setAssetToDelete(asset)}
+                  className="text-slate-500 hover:text-red-400 transition-colors p-1 shrink-0"
                   title="Eliminar recurso"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -188,6 +212,19 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
             </div>
           ))}
         </div>
+      )}
+
+      {assetToDelete && (
+        <ConfirmDialog
+          title="Eliminar recurso"
+          message={`Se eliminará "${assetToDelete.name}" de la biblioteca. Si estaba asignado como narración o imagen de una escena, dejará de estar disponible.`}
+          confirmLabel="Eliminar recurso"
+          onCancel={() => setAssetToDelete(null)}
+          onConfirm={() => {
+            handleDeleteAsset(assetToDelete.id);
+            setAssetToDelete(null);
+          }}
+        />
       )}
     </div>
   );

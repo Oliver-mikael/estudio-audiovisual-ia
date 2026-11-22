@@ -84,9 +84,9 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({ project, onUpdateProject }) =>
       {/* Header Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-lg">
+          <div className="flex items-center gap-2 text-indigo-400 titulo-seccion">
             <Lightbulb className="w-5 h-5" />
-            <span>Laboratorio de Ideas & Ángulos Narrativos</span>
+            <span>Laboratorio de ideas y ángulos narrativos</span>
           </div>
           <p className="text-slate-400 text-sm mt-1">
             Explora cuestionamientos críticos, evita introducciones clónicas y descubre enfoques originales para tus producciones.
@@ -98,7 +98,7 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({ project, onUpdateProject }) =>
           className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg text-sm transition-all shadow-lg shadow-indigo-500/20 whitespace-nowrap"
         >
           <Sparkles className="w-4 h-4" />
-          <span>Sugerir Ángulo Crítico (IA)</span>
+          <span>Sugerir ángulo crítico</span>
         </button>
       </div>
 
@@ -124,7 +124,7 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({ project, onUpdateProject }) =>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Gancho Narrativo (Hook)</label>
+              <label className="block text-slate-400 mb-1">Gancho narrativo</label>
               <textarea
                 rows={2}
                 placeholder="Pregunta o afirmación contundente para captar atención..."
@@ -209,7 +209,7 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({ project, onUpdateProject }) =>
                   </div>
 
                   <div className="bg-slate-950 border border-slate-800/80 rounded-lg p-3">
-                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Gancho (Hook)</p>
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Gancho</p>
                     <p className="text-sm text-indigo-200 font-medium italic">"{ang.hook}"</p>
                   </div>
 

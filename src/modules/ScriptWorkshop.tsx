@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Project, Scene } from '../types';
 import { FileText, Plus, Trash2, Clock, MessageSquare, AlertCircle, Sparkles } from 'lucide-react';
+import { ConfirmDialog } from '../components/Modal';
 
 interface ScriptWorkshopProps {
   project: Project;
@@ -13,6 +14,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const [selectedSceneId, setSelectedSceneId] = useState<string>(
     project.script.scenes.length > 0 ? project.script.scenes[0].id : ''
   );
+  const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
 
   const activeScene = scenes.find((s) => s.id === selectedSceneId);
 
@@ -104,9 +106,9 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       {/* Top Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-lg">
+          <div className="flex items-center gap-2 text-indigo-400 titulo-seccion">
             <FileText className="w-5 h-5" />
-            <span>Taller de Guion & Desglose de Escenas</span>
+            <span>Taller de guion y desglose de escenas</span>
           </div>
           <p className="text-slate-400 text-sm mt-1">
             Construye la estructura narrativa, ajusta el ritmo de la locución y recibe críticas automáticas de tono y duración.
@@ -137,7 +139,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
         <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-amber-300">Crítica de Guion (IA Assistant)</h4>
+            <h4 className="text-sm font-semibold text-amber-300">Crítica de guion</h4>
             <ul className="text-xs text-amber-200/80 list-disc list-inside space-y-0.5">
               {criticalFeedback.map((fb, idx) => (
                 <li key={idx}>{fb}</li>
@@ -180,7 +182,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteScene(sc.id);
+                      setSceneToDelete(sc);
                     }}
                     className="text-slate-600 hover:text-red-400 transition-colors p-1"
                     title="Eliminar escena"
@@ -283,11 +285,11 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="Static">Estático</option>
-                      <option value="Zoom In">Zoom In (Acercamiento)</option>
-                      <option value="Zoom Out">Zoom Out (Alejamiento)</option>
-                      <option value="Pan Left">Panorámica Izquierda</option>
-                      <option value="Pan Right">Panorámica Derecha</option>
-                      <option value="Kinetic Text">Texto Cinético Dinámico</option>
+                      <option value="Zoom In">Acercar</option>
+                      <option value="Zoom Out">Alejar</option>
+                      <option value="Pan Left">Panorámica izquierda</option>
+                      <option value="Pan Right">Panorámica derecha</option>
+                      <option value="Kinetic Text">Texto cinético</option>
                     </select>
                   </div>
 
@@ -304,10 +306,10 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                       }
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
                     >
-                      <option value="Cut">Corte Directo (Cut)</option>
-                      <option value="Fade">Fundido (Fade)</option>
-                      <option value="Slide">Desplazamiento (Slide)</option>
-                      <option value="Zoom">Enfoque Rápido (Zoom)</option>
+                      <option value="Cut">Corte</option>
+                      <option value="Fade">Fundido</option>
+                      <option value="Slide">Deslizamiento</option>
+                      <option value="Zoom">Zoom</option>
                     </select>
                   </div>
                 </div>
@@ -321,6 +323,19 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
           )}
         </div>
       </div>
+
+      {sceneToDelete && (
+        <ConfirmDialog
+          title="Eliminar escena"
+          message={`Se eliminará "${sceneToDelete.title}" del guion. Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar escena"
+          onCancel={() => setSceneToDelete(null)}
+          onConfirm={() => {
+            handleDeleteScene(sceneToDelete.id);
+            setSceneToDelete(null);
+          }}
+        />
+      )}
     </div>
   );
 };
