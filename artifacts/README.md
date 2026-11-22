@@ -99,13 +99,46 @@ ejemplo descargados de internet. Las cifras (duración, resolución, fps, canale
 El resto de la prueba es automatizado: `src/__tests__/history.test.ts` (5 casos, incluido deshacer un borrado
 de escena y recuperar su contenido) y `src/__tests__/subtitles.test.ts` (5 casos).
 
+## Fase 17 — audio en la vista previa del Monitor
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase17-preview-audio.webm` | Audio de 3,9 s capturado de la salida real del Monitor (un `MediaStreamDestination` conectado al mismo `GainNode` que suena), reproduciendo el proyecto de prueba y pulsando Silenciar / Activar sonido. | La vista previa usa la mezcla completa: voz de 1 kHz a 0,0376 con música de 200 Hz a 0,0115 (ducking), silencio de 0,0000 durante el mute y música a 0,0355 sin voz (31 % con voz). El SFX de 4 kHz entra con la segunda escena. |
+| `phase17-monitor-av.png` | Captura del Monitor (360×712) con el estado del audio. | El reproductor muestra la mezcla asignada y el estado de reproducción; el botón de silencio es el mismo que actúa sobre la ganancia. |
+
+Las medidas salen de extraer PCM con ffmpeg (`-f f32le -ac 1 -ar 48000`) y aplicar Goertzel en Node, igual que en la fase 13.
+
+## Fase 18 — tiempos individuales por subtítulo
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase18-subtitle-timings-ui.png` | Captura del taller de guion (360×712) con los campos «Inicio (s)» y «Duración (s)». | La UI lee y escribe los tiempos por línea (0,5 s / 1 s y 3 s / 1,5 s). |
+| `phase18-subtitle-windows.webm` | Export real de 6 s, VP9 1280×720@30, una escena con dos ventanas explícitas: 0,5–1,5 s y 3,0–4,5 s. | Cada subtítulo aparece solo en su ventana; en los huecos no se dibuja nada. |
+| `phase18-t0.3.png`, `phase18-t1.0.png`, `phase18-t2.0.png`, `phase18-t3.5.png`, `phase18-t5.0.png` | Cuadros extraídos con ffmpeg en t = 0,3, 1,0, 2,0, 3,5 y 5,0 s. | «PRIMERA VENTANA» en 1,0 s, «SEGUNDA VENTANA» en 3,5 s y ningún subtítulo en 0,3, 2,0 y 5,0 s. |
+
+## Fase 19 — exportación .srt
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase19-subtitulos.srt` | Archivo descargado desde el botón «Descargar .srt» de la UI (97 bytes). | Contiene dos bloques con timestamps absolutos `00:00:00,500 --> 00:00:01,500` y `00:00:03,000 --> 00:00:04,500`; ffmpeg lo lee y lo reescribe idéntico. |
+| `phase19-export-panel.png` | Captura del modal de exportación (360×712). | Muestra «Subtítulos: 2 línea(s)» y el botón «Descargar .srt» junto a Cancelar/Exportar. |
+| `phase19-subtitles-burned.mp4` | El video de la fase 18 con el `.srt` quemado por el filtro `subtitles` de ffmpeg. | El archivo es válido para ffmpeg junto al video: el subtítulo se ve en t = 0,8 s y 3,6 s y no en t = 2,0 s, respetando los tiempos absolutos. |
+| `phase19-burn-t0.8.png`, `phase19-burn-t2.0.png`, `phase19-burn-t3.6.png` | Cuadros del MP4 anterior. | El texto amarillo del `.srt` aparece y desaparece en los mismos tiempos que en el video original. |
+| `phase19-video-con-subtitulos.mkv` | El WebM de la fase 18 con el `.srt` multiplexado como pista de subtítulos (`-c:s srt`). | ffmpeg reconoce `Stream #0:1: Subtitle: subrip (srt)` dentro del contenedor. |
+
+## Fase 20 — historial persistente
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase20-history-after-reload.png` | Captura del header tras recargar la página y abrir el proyecto, después de un Ctrl+Z. | El historial sobrevive a la recarga: el botón muestra «Rehacer (1 pasos)» y el proyecto tiene otra vez 2 escenas / 5 s. Antes de deshacer, tras recargar, el header mostraba «Deshacer (1 pasos)»; Ctrl+Z restauró «Escena B original» con su contenido y Ctrl+Y la volvió a quitar. |
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |
 | :--- | :--- | :--- |
 | `phase11-export-after-refactor.webm` | La misma exportación de la fase 10 repetida después de extraer `fitNarrationChannels` para las pruebas. | El camino nuevo de narración (decodificar y recortar/rellenar muestras) produce el mismo audio: 5,00 s, RMS 0,0945 y correlación 0,9992 con el WAV, desfase 0. |
 
-Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (32 pruebas en 8 archivos).
+Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (43 pruebas en 10 archivos).
 
 ## Cómo reproducirlo
 

@@ -19,7 +19,7 @@ Otros comandos:
 
 ```bash
 npm run build     # tsc + vite build
-npm test          # Vitest (32 pruebas de lógica y persistencia)
+npm test          # Vitest (43 pruebas de lógica y persistencia)
 ```
 
 ## Qué funciona hoy
@@ -31,8 +31,10 @@ npm test          # Vitest (32 pruebas de lógica y persistencia)
 - **Taller de guion**: crear, editar y eliminar escenas (con confirmación), duración por escena, texto de
   narración, **subtítulos editables**, movimiento de cámara, transición y **reordenar escenas arrastrando**.
 - **Subtítulos editables**: cada escena tiene su propia lista de subtítulos, independiente de la narración.
-  Se pueden añadir, editar y borrar; se reparten en partes iguales de la duración de la escena y se dibujan
-  en el recuadro inferior del video exportado.
+  Se pueden añadir, editar y borrar, y cada línea tiene su propio **inicio y duración** (o el reparto
+  automático en partes iguales). El renderer la dibuja solo dentro de su ventana de tiempo.
+- **Exportación de subtítulos**: el modal y el panel de exportación ofrecen «Descargar .srt» con todos los
+  subtítulos del proyecto y sus timestamps absolutos.
 - **Imágenes por escena**: se elige una imagen subida a la Biblioteca (se guarda `imageAssetId`, y la URL se
   reconstruye desde el blob al recargar).
 - **Clips de video por escena**: un MP4 (H.264) o WebM de la Biblioteca se dibuja cuadro a cuadro con
@@ -50,9 +52,11 @@ npm test          # Vitest (32 pruebas de lógica y persistencia)
   Ajustes.
 - **Efectos de sonido por escena**: cada escena puede llevar un audio corto de la Biblioteca como SFX, que
   suena una vez al inicio de la escena mezclado con la narración y la música.
+- **Monitor con audio**: la vista previa reproduce la misma mezcla que la exportación (narración, música con
+  ducking y efectos), se detiene al pausar, se recoloca al hacer scrub y tiene un mute real.
 - **Deshacer / rehacer**: Ctrl+Z deshace y Ctrl+Y o Ctrl+Shift+Z rehace hasta 50 pasos (escenas, textos,
-  subtítulos, reordenar, asignaciones). La cabecera muestra cuántos pasos hay disponibles. El historial vive
-  en memoria mientras el proyecto está abierto y se reinicia al recargar.
+  subtítulos, reordenar, asignaciones). La cabecera muestra cuántos pasos hay disponibles. El historial se
+  guarda en IndexedDB y se restaura al volver a abrir el proyecto.
 - **Autoguardado** con 1 segundo de debounce e indicador permanente en la cabecera
   (`Guardado ✓` / `Guardando...` / `Error al guardar`). Si IndexedDB falla por cuota, el mensaje aparece
   visible bajo la cabecera.
@@ -73,20 +77,21 @@ npm test          # Vitest (32 pruebas de lógica y persistencia)
 - **No hay app Android publicada.** Solo queda `capacitor.config.json`; no hay build ni paridad probada.
 - **Solo WebM.** No se exporta MP4/H.264. En Safari y Firefox (sin WebCodecs) se usa el respaldo
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
-- **Subtítulos**: no hay tiempos por subtítulo (se reparten a partes iguales en su escena), ni archivo
-  `.srt`/`.vtt` aparte, ni estilo configurable.
+- **Subtítulos**: hay tiempos individuales y exportación `.srt`, pero no `.vtt` ni estilos configurables; la
+  sincronización se ajusta a mano, sin editor de ondas.
 - **Audio**: MP3 y WAV funcionan como narración, música de fondo y efectos de escena (verificado con
   ffmpeg). Sigue habiendo una sola pista de narración para todo el proyecto, y la música y los efectos no
   tienen control de volumen propio (la música sí un volumen global en Ajustes).
 - **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Se probaron un WebM
   (VP8) y un MP4 H.264 dentro de escenas en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 no se
   probaron. El audio propio del clip se ignora.
-- **Sin versiones guardadas del proyecto**: hay deshacer/rehacer en memoria, pero no un historial de
-  versiones persistente ni restauración tras recargar.
+- **Sin historial de versiones**: el deshacer persiste hasta 50 pasos, pero no hay versiones con nombre ni
+  restauración más allá de ese límite.
 - **Probado solo en Chromium.** El resto de navegadores está sin verificar.
-- **Cobertura de pruebas parcial**: 17 pruebas de Vitest cubren persistencia en IndexedDB (con
-  `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido, recorte/relleno de narración y
-  la envolvente de ducking de la música. No hay pruebas de la UI ni de una exportación completa.
+- **Cobertura de pruebas parcial**: 43 pruebas de Vitest cubren persistencia en IndexedDB (proyectos,
+  historial y `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido, recorte/relleno de
+  narración, envolvente de ducking, ventanas de subtítulos y generación de `.srt`. No hay pruebas de la UI ni
+  de una exportación completa.
 
 ## Estructura
 
@@ -94,9 +99,9 @@ npm test          # Vitest (32 pruebas de lógica y persistencia)
 src/
   App.tsx                 # shell: inicio, editor, modal de exportación, autoguardado
   components/             # HomeScreen, Modal/ConfirmDialog, VideoPlayer
-  engine/                 # renderEngine (canvas 2D), exporter (WebCodecs), audioTrack (narración)
+  engine/                 # renderEngine (canvas 2D), exporter (WebCodecs), audioTrack (mezcla), srt
   modules/                # Guion, Storyboard, Biblioteca, Ideas, Investigación
-  services/storage/db.ts  # IndexedDB: proyectos y blobs
+  services/storage/db.ts  # IndexedDB: proyectos, blobs e historial persistente
   services/history/       # deshacer/rehacer (50 pasos, lógica pura)
   data/                   # proyecto demo y fábrica de proyectos vacíos
 artifacts/                # evidencias de verificación (videos, cuadros, WAV) y su README

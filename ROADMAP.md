@@ -14,6 +14,8 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 2. Reproducción y exportación más robustas
 
+- [x] Reproducción de audio en la vista previa del Monitor, con el mismo ducking que la exportación
+  (fase 17).
 - Verificar Safari y Firefox; allí WebCodecs no existe y la exportación cae al respaldo en tiempo real.
 - Añadir exportación MP4/H.264 (hoy la única salida es WebM).
 - Arreglar la duración del WebM del respaldo `MediaRecorder` (hoy no declara duración).
@@ -37,7 +39,9 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Música de fondo global con mezcla y ducking (fase 13).
 - [x] Efecto de sonido por escena al inicio de la escena (fase 14).
 - [x] Subtítulos editables por escena, independientes de la narración (fase 15).
-- [ ] Tiempos por subtítulo y exportación a `.srt`/`.vtt`.
+- [x] Tiempos individuales por subtítulo (fase 18).
+- [x] Exportación de subtítulos a `.srt` (fase 19).
+- [ ] Exportación a `.vtt` y estilos configurables.
 - Recorte y ajuste de inicio de la narración desde la UI.
 - Puntos de entrada/salida y fundido propio de la música.
 
@@ -51,8 +55,9 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - Sincronización entre dispositivos con backend real (el módulo simulado se eliminó).
 - Autenticación y datos por usuario.
 - Exportar/importar el proyecto completo como archivo para no depender del navegador.
-- [x] Deshacer/rehacer en memoria, hasta 50 pasos (fase 16).
-- Historial de versiones persistente (el deshacer actual se pierde al recargar).
+- [x] Deshacer/rehacer, hasta 50 pasos (fase 16).
+- [x] Historial de deshacer persistente en IndexedDB, restaurado al abrir el proyecto (fase 20).
+- Historial de versiones guardadas con nombre y fecha (más allá de los 50 pasos del deshacer).
 
 ## 6. Multiusuario (prioridad baja)
 
@@ -68,6 +73,6 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 8. Calidad
 
-- Pruebas de la UI y de la exportación de punta a punta (hoy hay 17 pruebas de lógica pura y persistencia, sin navegador).
+- Pruebas de la UI y de la exportación de punta a punta (hoy hay 43 pruebas de lógica pura y persistencia, sin navegador).
 - Accesibilidad del editor (foco, teclado, anuncios de estado).
 - Idiomas: hoy toda la interfaz está en español.

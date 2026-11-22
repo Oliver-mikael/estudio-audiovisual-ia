@@ -3,6 +3,61 @@
 Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1.2.0 a 2.1.0) están en
 [docs/CHANGELOG.md](docs/CHANGELOG.md) y describen documentación de diseño, no funcionalidad verificada.
 
+## [Sin publicar] — 22 de noviembre de 2026 (fases 17–20)
+
+### Añadido
+
+- **Audio en la vista previa del Monitor** (fase 17): el reproductor prepara la misma mezcla que la
+  exportación (`prepareProjectAudio`: narración + música en bucle con ducking + efectos por escena) y la
+  reproduce con un `AudioContext`. La fuente se detiene al pausar y se recoloca al mover la barra de tiempo
+  o reiniciar; el botón de silencio controla un `GainNode` real (antes no hacía nada). El reproductor muestra
+  el estado del audio y el punto desde el que suena.
+
+- **Tiempos individuales por subtítulo** (fase 18): cada línea guarda opcionalmente `startSeconds` y
+  `durationSeconds`. El editor del taller de guion tiene campos de inicio y duración (y un enlace para volver
+  al reparto automático); el renderer dibuja cada subtítulo solo dentro de su ventana y no dibuja nada en
+  los huecos ni fuera de la escena. Las escenas guardadas con solo texto siguen usando el reparto en partes
+  iguales.
+
+- **Exportación .srt** (fase 19): botón «Descargar .srt» en el modal y en el panel de exportación. El
+  archivo incluye todos los subtítulos de todas las escenas con timestamps absolutos (`HH:MM:SS,mmm`),
+  omite líneas vacías y ventanas sin duración, y usa un nombre ASCII terminado en `.srt`.
+
+- **Historial persistente** (fase 20): el historial de hasta 50 pasos se guarda en un almacén de IndexedDB
+  (`history`, un registro por proyecto) y se restaura al abrir el proyecto, revalidando las URLs de medios de
+  cada instantánea. Se borra con el proyecto, se vuelca al volver al inicio y se intenta guardar al cerrar
+  la pestaña.
+
+### Verificado con archivos reales
+
+- `artifacts/phase17-preview-audio.webm`: audio capturado de la propia salida del Monitor (MediaStreamDestination
+  del `GainNode`) mientras se reproducía, se silenciaba y se reactivaba. Con ffmpeg y Goertzel: voz de 1 kHz a
+  0,0376 y música de 200 Hz a 0,0115 con voz; silencio (0,0000) durante el mute; música a 0,0355 sin voz
+  (≈31 % con voz, el mismo ducking que la exportación). El SFX de 4 kHz aparece al empezar la segunda escena.
+  En Chromium la fuente arrancó con offset 0, se detuvo al pausar y volvió a arrancar con offset 2,5 s tras
+  hacer scrub; el mute llevó la ganancia a 0 y a 1.
+- `artifacts/phase18-subtitle-windows.webm` y `phase18-t0.3/1.0/2.0/3.5/5.0.png`: export real de 6 s con dos
+  ventanas explícitas (0,5–1,5 s y 3,0–4,5 s). Los cuadros muestran «PRIMERA VENTANA» en t = 1,0 s,
+  «SEGUNDA VENTANA» en t = 3,5 s y ningún subtítulo en 0,3, 2,0 y 5,0 s.
+- `artifacts/phase19-subtitulos.srt`: archivo descargado desde el botón de la UI; ffmpeg lo lee y lo
+  reescribe con los mismos tiempos. Quemado con `subtitles` de ffmpeg sobre el video de la fase 18
+  (`phase19-subtitles-burned.mp4`, cuadros `phase19-burn-t0.8/2.0/3.6.png`) muestra el primer subtítulo en
+  t = 0,8 s, ninguno en t = 2,0 s y el segundo en t = 3,6 s. También se multiplexó como pista `subrip` en
+  `phase19-video-con-subtitulos.mkv`.
+- `artifacts/phase20-history-after-reload.png`: tras borrar la segunda escena, recargar la página y abrir el
+  proyecto, el header mostró «Deshacer (1 pasos)». Ctrl+Z restauró «Escena B original» con su narración y su
+  subtítulo; Ctrl+Y la volvió a quitar y Ctrl+Z la restauró otra vez.
+- `npx tsc --noEmit` sin errores, `npx vitest run` 43/43 en 10 archivos y `npm run build` correcto.
+
+### Limitaciones que siguen
+
+- El audio del Monitor se prepara al abrir la sección y se rehace al cambiar recursos, volumen o duración de
+  escenas; no hay pista de audio propia por clip de video.
+- No se exporta `.vtt` ni hay estilos configurables de subtítulos; los tiempos se ajustan a mano, sin
+  herramienta de sincronización.
+- El historial persiste los últimos 50 pasos del deshacer, no versiones con nombre ni restauración más allá
+  de ese límite.
+
 ## [Sin publicar] — 22 de noviembre de 2026 (fases 13–16)
 
 ### Añadido
