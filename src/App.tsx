@@ -20,6 +20,15 @@ import {
 } from './engine/exporter';
 import { findMusicAsset, findNarrationAsset } from './engine/audioTrack';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
+import {
+  HistoryState,
+  canRedo,
+  canUndo,
+  createHistory,
+  pushHistory,
+  redo,
+  undo,
+} from './services/history/history';
 import { IdeaLab } from './modules/IdeaLab';
 import { ResearchModule } from './modules/ResearchModule';
 import { ScriptWorkshop } from './modules/ScriptWorkshop';
@@ -38,9 +47,16 @@ import {
   Loader2,
   MonitorPlay,
   RefreshCw,
+  Redo2,
   Search,
   Settings,
+  Undo2,
 } from 'lucide-react';
+
+/** Opciones de historial: una clave agrupa las pulsaciones seguidas en un solo paso. */
+export interface HistoryOptions {
+  coalesceKey?: string;
+}
 
 const SECTIONS = [
   { id: 'guion', label: 'Guion', icon: FileText },
@@ -139,6 +155,28 @@ export const App: React.FC = () => {
   const saveTimerRef = useRef<number | null>(null);
   const pendingProjectRef = useRef<Project | null>(null);
 
+  // Historial de deshacer/rehacer (hasta 50 pasos).
+  const historyRef = useRef<HistoryState<Project> | null>(null);
+  const lastHistoryKeyRef = useRef<{ key: string; at: number } | null>(null);
+  const [historyCounts, setHistoryCounts] = useState({ undo: 0, redo: 0 });
+
+  const syncHistoryCounts = useCallback(() => {
+    const history = historyRef.current;
+    setHistoryCounts({
+      undo: history ? history.past.length : 0,
+      redo: history ? history.future.length : 0,
+    });
+  }, []);
+
+  const resetHistory = useCallback(
+    (value: Project) => {
+      historyRef.current = createHistory(value);
+      lastHistoryKeyRef.current = null;
+      syncHistoryCounts();
+    },
+    [syncHistoryCounts]
+  );
+
   const persistProject = useCallback(async (updated: Project) => {
     setSaveStatus('saving');
     try {
@@ -153,8 +191,8 @@ export const App: React.FC = () => {
     }
   }, [refreshProjects]);
 
-  /** Autoguardado con 1 segundo de debounce para no escribir en cada tecla. */
-  const handleUpdateProject = useCallback(
+  /** Aplica un proyecto y programa el autoguardado con 1 segundo de debounce. */
+  const applyProject = useCallback(
     (updated: Project) => {
       setProject(updated);
       pendingProjectRef.current = updated;
@@ -171,6 +209,64 @@ export const App: React.FC = () => {
     [persistProject]
   );
 
+  /** Acción del usuario: registra el estado anterior en el historial y aplica el nuevo. */
+  const handleUpdateProject = useCallback(
+    (updated: Project, options?: HistoryOptions) => {
+      const history = historyRef.current;
+      if (history) {
+        const now = Date.now();
+        const key = options?.coalesceKey;
+        const last = lastHistoryKeyRef.current;
+        const coalesce = Boolean(key && last && last.key === key && now - last.at < 1000);
+        historyRef.current = coalesce
+          ? { ...history, present: updated, future: [] }
+          : pushHistory(history, updated);
+        lastHistoryKeyRef.current = key ? { key, at: now } : null;
+        syncHistoryCounts();
+      }
+      applyProject(updated);
+    },
+    [applyProject, syncHistoryCounts]
+  );
+
+  const handleUndo = useCallback(() => {
+    const history = historyRef.current;
+    if (!history || !canUndo(history)) return;
+    const restored = undo(history);
+    historyRef.current = restored;
+    lastHistoryKeyRef.current = null;
+    syncHistoryCounts();
+    applyProject(restored.present);
+  }, [applyProject, syncHistoryCounts]);
+
+  const handleRedo = useCallback(() => {
+    const history = historyRef.current;
+    if (!history || !canRedo(history)) return;
+    const restored = redo(history);
+    historyRef.current = restored;
+    lastHistoryKeyRef.current = null;
+    syncHistoryCounts();
+    applyProject(restored.present);
+  }, [applyProject, syncHistoryCounts]);
+
+  // Ctrl+Z deshace; Ctrl+Y o Ctrl+Shift+Z rehace.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!historyRef.current) return;
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+      } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleUndo, handleRedo]);
+
   const flushPendingSave = useCallback(async () => {
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current);
@@ -183,13 +279,14 @@ export const App: React.FC = () => {
 
   const handleCreateProject = useCallback(async (title: string) => {
     const created = createEmptyProject(title);
+    resetHistory(created);
     setProject(created);
     setActiveSection('guion');
     setExportedVideo(null);
     setSaveStatus('saved');
     setSaveError(null);
     await persistProject(created);
-  }, [persistProject]);
+  }, [persistProject, resetHistory]);
 
   const handleOpenProject = useCallback(async (id: string) => {
     await flushPendingSave();
@@ -198,12 +295,14 @@ export const App: React.FC = () => {
       setSaveError('No se encontró el proyecto seleccionado en el almacenamiento local.');
       return;
     }
-    setProject(await resolveSceneMediaUrls(stored));
+    const resolved = await resolveSceneMediaUrls(stored);
+    resetHistory(resolved);
+    setProject(resolved);
     setActiveSection('guion');
     setExportedVideo(null);
     setSaveStatus('saved');
     setSaveError(null);
-  }, [flushPendingSave]);
+  }, [flushPendingSave, resetHistory]);
 
   const handleRenameProject = useCallback(
     async (id: string, title: string) => {
@@ -223,6 +322,8 @@ export const App: React.FC = () => {
       await deleteProjectFromStorage(id);
       if (project?.id === id) {
         setProject(null);
+        historyRef.current = null;
+        syncHistoryCounts();
         setExportedVideo(null);
       }
       void refreshProjects();
@@ -233,10 +334,12 @@ export const App: React.FC = () => {
   const handleBackHome = useCallback(() => {
     void flushPendingSave();
     setProject(null);
+    historyRef.current = null;
+    syncHistoryCounts();
     setExportedVideo(null);
     setSaveError(null);
     void refreshProjects();
-  }, [flushPendingSave, refreshProjects]);
+  }, [flushPendingSave, refreshProjects, syncHistoryCounts]);
 
   // Al cerrar la pestaña se intenta guardar lo que quede pendiente.
   useEffect(() => {
@@ -356,6 +459,28 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleUndo}
+              disabled={historyCounts.undo === 0}
+              className="btn-secondary"
+              title="Deshacer (Ctrl+Z)"
+              aria-label={`Deshacer (${historyCounts.undo} pasos)`}
+            >
+              <Undo2 className="w-4 h-4" />
+              <span className="font-mono text-xs">{historyCounts.undo}</span>
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={historyCounts.redo === 0}
+              className="btn-secondary"
+              title="Rehacer (Ctrl+Y)"
+              aria-label={`Rehacer (${historyCounts.redo} pasos)`}
+            >
+              <Redo2 className="w-4 h-4" />
+              <span className="font-mono text-xs">{historyCounts.redo}</span>
+            </button>
+          </div>
           <SaveIndicator status={saveStatus} />
           <button
             onClick={() => {

@@ -28,7 +28,7 @@ verificado.
 | Efecto de sonido por escena | **Probado** | En el taller de guion se asigna un audio de la Biblioteca como SFX de una escena (`scene.sfxAssetId`); suena una vez al inicio de la escena, mezclado con narración y música. Export real de 4 s (dos escenas de 2 s, SFX en la segunda): la componente de 4 kHz vale 0,0480 en t = 2,0–2,3 s y 0,0000 en 0,4–0,7 s y en 2,4–2,7 s. |
 | Música de fondo con ducking | **Probado** | Un audio se marca aparte como «música» en la Biblioteca; se mezcla en bucle con la narración y baja al 30 % mientras hay voz. Export real por la UI de 4 s (voz 1 kHz de 0 a 2 s + música 200 Hz): la música medida a 200 Hz vale 0,0593 sin voz y 0,0182 con voz (30,7 %, −10,3 dB) y vuelve a subir en el silencio. El volumen general de la música (0–100 %) se guarda en Ajustes del proyecto. |
 | Compilación | **Probado** | `npx tsc --noEmit` sin errores; `npm run build` correcto. |
-| Pruebas unitarias | **Probado** | `npx vitest run`: 17 pruebas en 5 archivos. Persistencia real en IndexedDB (guardar, recargar el módulo de almacenamiento y recuperar con escena), nombre de archivo ASCII, límite móvil con user agent de Android, opacidad del Fundido cuadro a cuadro y recorte/relleno de la narración. No cubren la UI ni una exportación completa. |
+| Pruebas unitarias | **Probado** | `npx vitest run`: 32 pruebas en 8 archivos. Persistencia real en IndexedDB (guardar, recargar el módulo de almacenamiento y recuperar con escena), nombre de archivo ASCII, límite móvil con user agent de Android, opacidad del Fundido cuadro a cuadro, recorte/relleno de la narración, envolvente de ducking y bucle de la música, reparto de subtítulos y el historial de deshacer/rehacer (incluido restaurar una escena borrada con su contenido). No cubren la UI ni una exportación completa. |
 
 ## No implementado o no verificado
 
@@ -43,7 +43,8 @@ verificado.
 | Pruebas de UI y de exportación | **No existen** | Las 17 pruebas cubren lógica pura y persistencia, no clics reales ni el archivo exportado. |
 | Safari y Firefox | **No verificado** | Sin WebCodecs se usaría el respaldo en tiempo real; no se probó. |
 | Narración por escena | **No implementado** | Una sola pista de narración para todo el proyecto; la música es global y los efectos de sonido sí son por escena. |
-| Deshacer / versiones | **No implementado** | — |
+| Deshacer / rehacer | **Probado** | Historial de hasta 50 estados del proyecto. Ctrl+Z deshace y Ctrl+Y / Ctrl+Shift+Z rehace; el header muestra botones con el número de pasos disponibles. En Chromium: borrar la segunda escena (2 → 1), Ctrl+Z la restaura con su título, su SFX y su subtítulo, Ctrl+Y la vuelve a quitar y Ctrl+Shift+Z la rehace. Las pulsaciones seguidas en un mismo campo de texto se agrupan en un solo paso. Prueba automatizada: `history.test.ts`, 5 casos. |
+| Historial de versiones guardadas | **No implementado** | El historial vive en memoria mientras el proyecto está abierto; al recargar se reinicia. |
 | Persistencia más allá del navegador | **No existe** | IndexedDB local; borrar datos del sitio borra los proyectos. |
 
 ## Notas sobre documentación antigua

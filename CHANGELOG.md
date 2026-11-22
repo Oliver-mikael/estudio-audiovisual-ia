@@ -22,8 +22,17 @@ Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1
   partes iguales de la duración de la escena (`subtitleAt`, función pura y probada) y no dibuja nada si la
   lista está vacía. Editar la narración ya no toca los subtítulos, ni al revés.
 
+- **Deshacer / rehacer** (fase 16): historial de hasta 50 estados (`services/history/history.ts`, lógica
+  pura). Ctrl+Z deshace, Ctrl+Y y Ctrl+Shift+Z rehacen, y la cabecera muestra dos botones con el número de
+  pasos disponibles. Las pulsaciones seguidas en un mismo campo de texto se agrupan en un paso para no
+  llenar el historial con cada carácter. El taller de guion sincroniza su lista local al restaurar un
+  estado.
+
 ### Verificado con archivos reales
 
+- `artifacts/phase16-header-undo.png`: captura del header tras borrar una escena, con «Deshacer 1» activo y
+  «Rehacer 0» deshabilitado. En la misma sesión de Chromium, Ctrl+Z restauró la escena con su título, su
+  efecto de sonido y su subtítulo; Ctrl+Y la volvió a borrar y Ctrl+Shift+Z la rehizo.
 - `artifacts/phase15-subtitles.webm` con `phase15-t05.png` y `phase15-t15.png`: export real de 4 s con dos
   subtítulos escritos desde la UI en una escena de 2 s. Los cuadros extraídos con ffmpeg en t = 0,5 s y
   t = 1,5 s muestran «PRIMERA LINEA EDITABLE» y «SEGUNDA LINEA DISTINTA» en el recuadro inferior.
@@ -39,6 +48,7 @@ Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1
 - La música es una sola pista global, sin puntos de entrada/salida ni fundidos propios.
 - El SFX no tiene control de volumen propio ni se puede retrasar dentro de la escena.
 - Los subtítulos no tienen tiempos individuales ni se exportan como `.srt`/`.vtt`.
+- El historial de deshacer vive en memoria: se pierde al recargar y no hay versiones persistentes.
 
 ## [Sin publicar] — 22 de noviembre de 2026 (fases 9–12)
 

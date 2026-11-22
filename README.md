@@ -19,7 +19,7 @@ Otros comandos:
 
 ```bash
 npm run build     # tsc + vite build
-npm test          # Vitest (17 pruebas de lógica y persistencia)
+npm test          # Vitest (32 pruebas de lógica y persistencia)
 ```
 
 ## Qué funciona hoy
@@ -50,6 +50,9 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
   Ajustes.
 - **Efectos de sonido por escena**: cada escena puede llevar un audio corto de la Biblioteca como SFX, que
   suena una vez al inicio de la escena mezclado con la narración y la música.
+- **Deshacer / rehacer**: Ctrl+Z deshace y Ctrl+Y o Ctrl+Shift+Z rehace hasta 50 pasos (escenas, textos,
+  subtítulos, reordenar, asignaciones). La cabecera muestra cuántos pasos hay disponibles. El historial vive
+  en memoria mientras el proyecto está abierto y se reinicia al recargar.
 - **Autoguardado** con 1 segundo de debounce e indicador permanente en la cabecera
   (`Guardado ✓` / `Guardando...` / `Error al guardar`). Si IndexedDB falla por cuota, el mensaje aparece
   visible bajo la cabecera.
@@ -78,7 +81,8 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
 - **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Se probaron un WebM
   (VP8) y un MP4 H.264 dentro de escenas en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 no se
   probaron. El audio propio del clip se ignora.
-- **Sin deshacer** y sin versiones del proyecto.
+- **Sin versiones guardadas del proyecto**: hay deshacer/rehacer en memoria, pero no un historial de
+  versiones persistente ni restauración tras recargar.
 - **Probado solo en Chromium.** El resto de navegadores está sin verificar.
 - **Cobertura de pruebas parcial**: 17 pruebas de Vitest cubren persistencia en IndexedDB (con
   `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido, recorte/relleno de narración y
@@ -93,6 +97,7 @@ src/
   engine/                 # renderEngine (canvas 2D), exporter (WebCodecs), audioTrack (narración)
   modules/                # Guion, Storyboard, Biblioteca, Ideas, Investigación
   services/storage/db.ts  # IndexedDB: proyectos y blobs
+  services/history/       # deshacer/rehacer (50 pasos, lógica pura)
   data/                   # proyecto demo y fábrica de proyectos vacíos
 artifacts/                # evidencias de verificación (videos, cuadros, WAV) y su README
 docs/                     # auditorías y documentación histórica

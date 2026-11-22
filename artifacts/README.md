@@ -90,13 +90,22 @@ ejemplo descargados de internet. Las cifras (duración, resolución, fps, canale
 | `phase15-t05.png` | Cuadro extraído con ffmpeg en t = 0,5 s (1280×720). | Se ve el primer subtítulo en el recuadro inferior centrado. |
 | `phase15-t15.png` | Cuadro extraído en t = 1,5 s. | Se ve el segundo subtítulo, en la misma posición y con el texto correcto. |
 
+## Fase 16 — deshacer / rehacer
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase16-header-undo.png` | Captura del header (360×712) justo después de borrar la segunda escena. | El botón «Deshacer» muestra el paso disponible y «Rehacer» está a 0 y deshabilitado. En la misma sesión, Ctrl+Z restauró la escena con su SFX y su subtítulo y Ctrl+Y / Ctrl+Shift+Z rehicieron el borrado. |
+
+El resto de la prueba es automatizado: `src/__tests__/history.test.ts` (5 casos, incluido deshacer un borrado
+de escena y recuperar su contenido) y `src/__tests__/subtitles.test.ts` (5 casos).
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |
 | :--- | :--- | :--- |
 | `phase11-export-after-refactor.webm` | La misma exportación de la fase 10 repetida después de extraer `fitNarrationChannels` para las pruebas. | El camino nuevo de narración (decodificar y recortar/rellenar muestras) produce el mismo audio: 5,00 s, RMS 0,0945 y correlación 0,9992 con el WAV, desfase 0. |
 
-Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (17 pruebas en 5 archivos).
+Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (32 pruebas en 8 archivos).
 
 ## Cómo reproducirlo
 

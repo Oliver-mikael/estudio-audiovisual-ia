@@ -51,7 +51,8 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - Sincronización entre dispositivos con backend real (el módulo simulado se eliminó).
 - Autenticación y datos por usuario.
 - Exportar/importar el proyecto completo como archivo para no depender del navegador.
-- Historial de versiones y deshacer.
+- [x] Deshacer/rehacer en memoria, hasta 50 pasos (fase 16).
+- Historial de versiones persistente (el deshacer actual se pierde al recargar).
 
 ## 6. Multiusuario (prioridad baja)
 

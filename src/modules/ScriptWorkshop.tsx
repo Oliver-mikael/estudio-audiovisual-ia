@@ -1,5 +1,5 @@
 // Script Workshop Component for Estudio Audiovisual Inteligente
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Project, Scene } from '../types';
 import { getMediaAssetBlob } from '../services/storage/db';
 import {
@@ -21,7 +21,8 @@ import { ConfirmDialog } from '../components/Modal';
 
 interface ScriptWorkshopProps {
   project: Project;
-  onUpdateProject: (updated: Project) => void;
+  /** `coalesceKey` agrupa las pulsaciones seguidas en un solo paso de deshacer. */
+  onUpdateProject: (updated: Project, options?: { coalesceKey?: string }) => void;
 }
 
 export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdateProject }) => {
@@ -36,6 +37,17 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const [assigningImage, setAssigningImage] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [assigningVideo, setAssigningVideo] = useState(false);
+
+  // Deshacer/rehacer puede restaurar otra versión del proyecto: la lista local se
+  // sincroniza y la selección se mantiene solo si la escena sigue existiendo.
+  useEffect(() => {
+    const list = project.script.scenes || [];
+    setScenes(list);
+    setSelectedSceneId((current) => {
+      if (list.some((scene) => scene.id === current)) return current;
+      return list.length > 0 ? list[0].id : '';
+    });
+  }, [project.script.scenes]);
 
   const activeScene = scenes.find((s) => s.id === selectedSceneId);
 
@@ -52,19 +64,25 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     videoAssets.find((asset) => asset.url === activeScene?.videoUrl)?.id ??
     '';
 
-  const handleUpdateActiveScene = (updatedFields: Partial<Scene>) => {
+  const handleUpdateActiveScene = (
+    updatedFields: Partial<Scene>,
+    options?: { coalesceKey?: string }
+  ) => {
     if (!selectedSceneId) return;
     const updatedScenes = scenes.map((s) =>
       s.id === selectedSceneId ? { ...s, ...updatedFields } : s
     );
     setScenes(updatedScenes);
-    onUpdateProject({
-      ...project,
-      script: {
-        ...project.script,
-        scenes: updatedScenes,
+    onUpdateProject(
+      {
+        ...project,
+        script: {
+          ...project.script,
+          scenes: updatedScenes,
+        },
       },
-    });
+      options
+    );
   };
 
   const handleAddScene = () => {
@@ -341,7 +359,12 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   <input
                     type="text"
                     value={activeScene.title}
-                    onChange={(e) => handleUpdateActiveScene({ title: e.target.value })}
+                    onChange={(e) =>
+                      handleUpdateActiveScene(
+                        { title: e.target.value },
+                        { coalesceKey: `scene:${activeScene.id}:title` }
+                      )
+                    }
                     className="block text-xl font-bold text-slate-100 bg-transparent focus:outline-none focus:border-b focus:border-indigo-500 w-full mt-1"
                   />
                 </div>
@@ -377,7 +400,12 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                 <textarea
                   rows={4}
                   value={activeScene.narrationText}
-                  onChange={(e) => handleUpdateActiveScene({ narrationText: e.target.value })}
+                  onChange={(e) =>
+                    handleUpdateActiveScene(
+                      { narrationText: e.target.value },
+                      { coalesceKey: `scene:${activeScene.id}:narration` }
+                    )
+                  }
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500"
                   placeholder="Escribe la narración que leerá la voz..."
                 />
@@ -422,7 +450,10 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                           onChange={(e) => {
                             const next = [...(activeScene.subtitles ?? [])];
                             next[index] = e.target.value;
-                            handleUpdateActiveScene({ subtitles: next });
+                            handleUpdateActiveScene(
+                              { subtitles: next },
+                              { coalesceKey: `scene:${activeScene.id}:subtitle:${index}` }
+                            );
                           }}
                           className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
                           placeholder="Texto del subtítulo"
@@ -457,7 +488,12 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   <textarea
                     rows={3}
                     value={activeScene.visualIntent}
-                    onChange={(e) => handleUpdateActiveScene({ visualIntent: e.target.value })}
+                    onChange={(e) =>
+                      handleUpdateActiveScene(
+                        { visualIntent: e.target.value },
+                        { coalesceKey: `scene:${activeScene.id}:intent` }
+                      )
+                    }
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
                     placeholder="E.g. Gráfico explicativo con animación cinética..."
                   />
