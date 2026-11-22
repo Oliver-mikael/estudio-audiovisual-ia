@@ -14,6 +14,8 @@ import {
   ImagePlus,
   Film,
   AudioLines,
+  Captions,
+  PlusCircle,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
@@ -74,7 +76,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       cameraMotion: 'Static',
       transition: 'Fade',
       durationSeconds: 10,
-      subtitles: ['Escribe aquí la narración explicativa...'],
+      subtitles: [],
     };
 
     const updatedScenes = [...scenes, newScene];
@@ -375,16 +377,75 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                 <textarea
                   rows={4}
                   value={activeScene.narrationText}
-                  onChange={(e) => {
-                    const text = e.target.value;
-                    handleUpdateActiveScene({
-                      narrationText: text,
-                      subtitles: text.split('. ').filter(Boolean),
-                    });
-                  }}
+                  onChange={(e) => handleUpdateActiveScene({ narrationText: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500"
                   placeholder="Escribe la narración que leerá la voz..."
                 />
+              </div>
+
+              {/* Subtítulos editables, independientes del texto de narración */}
+              <div className="space-y-2 border-t border-slate-800 pt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="etiqueta flex items-center gap-1.5">
+                    <Captions className="w-4 h-4 text-indigo-400" />
+                    <span>Subtítulos del video</span>
+                  </span>
+                  <button
+                    onClick={() =>
+                      handleUpdateActiveScene({
+                        subtitles: [...(activeScene.subtitles ?? []), ''],
+                      })
+                    }
+                    className="btn-secondary text-xs"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Añadir subtítulo</span>
+                  </button>
+                </div>
+
+                {(activeScene.subtitles ?? []).length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    Esta escena no muestra subtítulos. Añade los que quieras: se reparten en partes iguales
+                    de la duración de la escena y se dibujan en el video exportado.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {(activeScene.subtitles ?? []).map((subtitle, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono text-slate-500 w-6 text-right shrink-0">
+                          {index + 1}.
+                        </span>
+                        <input
+                          type="text"
+                          value={subtitle}
+                          aria-label={`Subtítulo ${index + 1}`}
+                          onChange={(e) => {
+                            const next = [...(activeScene.subtitles ?? [])];
+                            next[index] = e.target.value;
+                            handleUpdateActiveScene({ subtitles: next });
+                          }}
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                          placeholder="Texto del subtítulo"
+                        />
+                        <button
+                          onClick={() => {
+                            const next = (activeScene.subtitles ?? []).filter((_, i) => i !== index);
+                            handleUpdateActiveScene({ subtitles: next });
+                          }}
+                          className="text-slate-500 hover:text-red-400 transition-colors p-1 shrink-0"
+                          title="Eliminar subtítulo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <p className="text-sm text-slate-500">
+                  Los subtítulos son independientes de la narración: editarlos no cambia el texto de
+                  locución ni al revés.
+                </p>
               </div>
 
               {/* Visual Intent & Camera Settings */}

@@ -97,6 +97,47 @@ export function fadeOpacity(progress: number): number {
   return Math.max(0, Math.min(1, progress));
 }
 
+export interface SubtitleFrame {
+  index: number;
+  text: string;
+  /** Segundo (relativo a la escena) en el que empieza a mostrarse. */
+  start: number;
+  /** Segundo (relativo a la escena) en el que deja de mostrarse. */
+  end: number;
+}
+
+/**
+ * Subtítulos editables de una escena, en orden. Las líneas vacías se ignoran.
+ * Son independientes del texto de narración: si no hay subtítulos no se dibuja
+ * ninguno.
+ */
+export function sceneSubtitles(scene: Scene): string[] {
+  return (scene.subtitles ?? []).map((line) => line.trim()).filter((line) => line.length > 0);
+}
+
+/** Subtítulo visible en un instante de la escena, o null si no hay ninguno. */
+export function subtitleAt(scene: Scene, localTime: number): SubtitleFrame | null {
+  const subtitles = sceneSubtitles(scene);
+  if (subtitles.length === 0) return null;
+
+  const duration = Math.max(0, scene.durationSeconds);
+  const partDuration = duration / subtitles.length;
+  if (partDuration <= 0) {
+    return { index: 0, text: subtitles[0], start: 0, end: 0 };
+  }
+
+  const index = Math.min(
+    subtitles.length - 1,
+    Math.max(0, Math.floor(localTime / partDuration))
+  );
+  return {
+    index,
+    text: subtitles[index],
+    start: index * partDuration,
+    end: (index + 1) * partDuration,
+  };
+}
+
 export class CanvasRenderEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -494,22 +535,17 @@ export class CanvasRenderEngine {
     scene: Scene,
     sceneLocalTime: number
   ): void {
-    const subtitles =
-      scene.subtitles && scene.subtitles.length > 0 ? scene.subtitles : [scene.narrationText];
+    const subtitle = subtitleAt(scene, sceneLocalTime);
+    // Sin subtítulos editables no se dibuja nada: ya no se derivan del texto de narración.
+    if (!subtitle) return;
 
-    const partDuration = scene.durationSeconds / subtitles.length;
-    const currentSubIndex = Math.min(
-      subtitles.length - 1,
-      Math.max(0, Math.floor(sceneLocalTime / partDuration))
-    );
-
-    const currentText = subtitles[currentSubIndex] || scene.narrationText;
+    const currentText = subtitle.text;
 
     // Draw main narration kinetic typography
     ctx.save();
 
     // Kinetic entry effect (fade in & slide up)
-    const subLocalTime = sceneLocalTime % partDuration;
+    const subLocalTime = Math.max(0, sceneLocalTime - subtitle.start);
     const entryProgress = Math.min(1, subLocalTime * 3); // 0.33s fade in
     const opacity = entryProgress;
     const translateY = (1 - entryProgress) * 15;

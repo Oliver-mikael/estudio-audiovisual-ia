@@ -29,7 +29,10 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
 - **Editor con barra lateral**: Guion, Storyboard, Biblioteca, Ideas, Investigación y Monitor. Se ve una sola
   sección a la vez.
 - **Taller de guion**: crear, editar y eliminar escenas (con confirmación), duración por escena, texto de
-  narración, movimiento de cámara, transición y **reordenar escenas arrastrando**.
+  narración, **subtítulos editables**, movimiento de cámara, transición y **reordenar escenas arrastrando**.
+- **Subtítulos editables**: cada escena tiene su propia lista de subtítulos, independiente de la narración.
+  Se pueden añadir, editar y borrar; se reparten en partes iguales de la duración de la escena y se dibujan
+  en el recuadro inferior del video exportado.
 - **Imágenes por escena**: se elige una imagen subida a la Biblioteca (se guarda `imageAssetId`, y la URL se
   reconstruye desde el blob al recargar).
 - **Clips de video por escena**: un MP4 (H.264) o WebM de la Biblioteca se dibuja cuadro a cuadro con
@@ -67,6 +70,8 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
 - **No hay app Android publicada.** Solo queda `capacitor.config.json`; no hay build ni paridad probada.
 - **Solo WebM.** No se exporta MP4/H.264. En Safari y Firefox (sin WebCodecs) se usa el respaldo
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
+- **Subtítulos**: no hay tiempos por subtítulo (se reparten a partes iguales en su escena), ni archivo
+  `.srt`/`.vtt` aparte, ni estilo configurable.
 - **Audio**: MP3 y WAV funcionan como narración, música de fondo y efectos de escena (verificado con
   ffmpeg). Sigue habiendo una sola pista de narración para todo el proyecto, y la música y los efectos no
   tienen control de volumen propio (la música sí un volumen global en Ajustes).

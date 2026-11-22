@@ -17,8 +17,16 @@ Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1
   inicio de la escena, mezclado con narración y música (ganancia fija de 0,8). Se asigna en el taller de
   guion con un desplegable de los audios de la Biblioteca.
 
+- **Subtítulos editables** (fase 15): cada escena guarda su lista de subtítulos y ya no se derivan de
+  `narrationText.split('. ')`. En el taller de guion se añaden, editan y borran; el render los reparte en
+  partes iguales de la duración de la escena (`subtitleAt`, función pura y probada) y no dibuja nada si la
+  lista está vacía. Editar la narración ya no toca los subtítulos, ni al revés.
+
 ### Verificado con archivos reales
 
+- `artifacts/phase15-subtitles.webm` con `phase15-t05.png` y `phase15-t15.png`: export real de 4 s con dos
+  subtítulos escritos desde la UI en una escena de 2 s. Los cuadros extraídos con ffmpeg en t = 0,5 s y
+  t = 1,5 s muestran «PRIMERA LINEA EDITABLE» y «SEGUNDA LINEA DISTINTA» en el recuadro inferior.
 - `artifacts/phase14-scene-sfx.webm`: export real de 4 s con dos escenas y un SFX de 4 kHz en la segunda.
   Medido con ffmpeg: 4 kHz a 0,0480 en t = 2,0–2,3 s y 0,0000 fuera de ese tramo, con narración y música
   presentes a la vez.
@@ -30,6 +38,7 @@ Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1
 
 - La música es una sola pista global, sin puntos de entrada/salida ni fundidos propios.
 - El SFX no tiene control de volumen propio ni se puede retrasar dentro de la escena.
+- Los subtítulos no tienen tiempos individuales ni se exportan como `.srt`/`.vtt`.
 
 ## [Sin publicar] — 22 de noviembre de 2026 (fases 9–12)
 

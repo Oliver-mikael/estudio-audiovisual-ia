@@ -82,6 +82,14 @@ ejemplo descargados de internet. Las cifras (duración, resolución, fps, canale
 | `phase14-export-modal.png` | Captura del modal de exportación (360×712). | Muestra «Efectos por escena: 1 asignado(s)» junto a la narración y la música. |
 | `phase14-scene-sfx.webm` | Export real de 4,00 s (VP9 1280×720@30 + Opus), dos escenas de 2 s; la segunda lleva `test-sfx-4000hz.mp3`. | El efecto suena al inicio de su escena y solo allí: la componente de 4 kHz vale 0,0480 en t = 2,0–2,3 s, 0,0000 en 0,4–0,7 s y 0,0000 en 2,4–2,7 s. La música de 200 Hz sigue con ducking (0,0187 con voz, 0,0593 al final) y la voz de 1 kHz solo en la primera escena. |
 
+## Fase 15 — subtítulos editables
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase15-subtitles.webm` | Export real de 4,00 s (VP9 1280×720@30 + Opus) tras escribir dos subtítulos en la UI: «PRIMERA LINEA EDITABLE» y «SEGUNDA LINEA DISTINTA» en la escena de 2 s. | Los subtítulos escritos a mano llegan al video, no se derivan de la narración (que se cambió a otro texto) y se reparten a partes iguales de la escena. |
+| `phase15-t05.png` | Cuadro extraído con ffmpeg en t = 0,5 s (1280×720). | Se ve el primer subtítulo en el recuadro inferior centrado. |
+| `phase15-t15.png` | Cuadro extraído en t = 1,5 s. | Se ve el segundo subtítulo, en la misma posición y con el texto correcto. |
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |
