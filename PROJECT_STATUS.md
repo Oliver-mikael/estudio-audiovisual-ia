@@ -18,6 +18,11 @@ verificado.
 | Reordenar escenas | **Implementado** | Drag & drop nativo; no se probó con lector de pantalla ni táctil. |
 | Imagen de escena desde la Biblioteca | **Implementado** | Resuelve el blob y lo asigna a `imageUrl`. |
 | Autoguardado | **Implementado** | Debounce de 1 s; el aviso de cuota está escrito pero no se forzó un fallo real. |
+| Transiciones | **Probado** | Fundido, Deslizamiento y Zoom compuestos en buffers. Export real (4,5 s) con fundido medido: color medio interpolado de forma monotona. |
+| Resolución y FPS | **Probado** | 480p/720p/1080p y 24/30/60 fps. Export real 1920×1080 a 30 fps confirmado por ffmpeg. |
+| Límite móvil | **Probado (simulado)** | Con UA de Android, una petición de 1080p/60 se exporta a 1280×720/30 (`mobileLimited=true`). No se probó en un teléfono real. |
+| Clips de video en escenas | **Probado (WebM)** | Clip de 1,2 s en escena de 2,5 s: el timecode interno vuelve a ~0,2 s a los 1,4 s (bucle). En escena de 0,8 s se recorta. MP4 dentro de escena sin verificar. |
+| Narración WAV | **Probado** | WAV PCM 48 kHz estéreo (voz TTS). Export de 6 s: Opus 48 kHz, pico 0,58, RMS −20,8 dBFS, correlación 0,9992 con la fuente y desfase 0 ms. |
 | Compilación | **Probado** | `npx tsc --noEmit` sin errores; `npm run build` correcto. |
 | Pruebas unitarias | **Probado** | `npx vitest run` 8/8 (modelo de datos, no UI ni exportación). |
 
@@ -30,11 +35,7 @@ verificado.
 | Android (Capacitor) | **No verificado** | Solo queda la configuración; no hay build ni pruebas en dispositivo. |
 | MP4/H.264 | **No implementado** | La salida es siempre WebM. |
 | Safari y Firefox | **No verificado** | Sin WebCodecs se usaría el respaldo en tiempo real; no se probó. |
-| WAV | **No probado** | Debería funcionar vía `decodeAudioData`, sin evidencia. |
-| Transiciones de escena | **No aplicadas** | El dato se guarda; el render no las ejecuta. |
 | Audio por escena / musicalización | **No implementado** | Una sola pista de narración por proyecto. |
-| Video dentro de escenas | **No implementado** | Se sube a la biblioteca, no se compone. |
-| Resolución / fps configurables | **No implementado** | 1280×720 @ 30 fps fijos. |
 | Deshacer / versiones | **No implementado** | — |
 | Persistencia más allá del navegador | **No existe** | IndexedDB local; borrar datos del sitio borra los proyectos. |
 

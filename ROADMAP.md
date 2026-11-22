@@ -14,12 +14,19 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 2. Reproducción y exportación más robustas
 
-- Probar y documentar WAV además de MP3.
 - Verificar Safari y Firefox; allí WebCodecs no existe y la exportación cae al respaldo en tiempo real.
-- Añadir exportación MP4/H.264 (o documentar que WebM es la única salida).
+- Añadir exportación MP4/H.264 (hoy la única salida es WebM).
 - Arreglar la duración del WebM del respaldo `MediaRecorder` (hoy no declara duración).
-- Aplicar de verdad las transiciones Corte / Fundido / Deslizamiento / Zoom.
-- Interfaz para elegir resolución, fps y relación de aspecto (hoy fijos en 1280×720 @ 30 fps).
+- Probar clips MP4 dentro de escenas (solo se verificó WebM) y clips con audio propio.
+- Interfaz para la relación de aspecto 9:16 y 1:1 (hoy solo 16:9 en la UI).
+- Probar el límite móvil en un dispositivo real, no solo simulando el user agent.
+
+## 2b. Hecho en las fases 5–8
+
+- [x] Transiciones Fundido / Deslizamiento / Zoom con duración configurable por escena.
+- [x] Resolución 480p/720p/1080p y fps 24/30/60, con límite automático 720p/30 en móvil.
+- [x] Clips de video de la biblioteca como fondo de escena, con bucle y recorte.
+- [x] Narración WAV verificada con ffmpeg además de MP3.
 
 ## 3. Edición de audio
 
@@ -29,7 +36,6 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 4. Recursos
 
-- Componer clips de video dentro de las escenas (hoy solo se suben a la biblioteca).
 - Miniaturas y previsualización de audio con reproducción.
 - Límites y aviso de cuota antes de quedarse sin espacio en IndexedDB.
 

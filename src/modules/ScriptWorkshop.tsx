@@ -389,7 +389,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                    Intención Visual Narrative
+                    Intención visual
                   </label>
                   <textarea
                     rows={3}

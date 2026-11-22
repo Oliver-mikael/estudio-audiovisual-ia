@@ -30,8 +30,14 @@ npm test          # Vitest (8 pruebas del modelo de datos)
   sección a la vez.
 - **Taller de guion**: crear, editar y eliminar escenas (con confirmación), duración por escena, texto de
   narración, movimiento de cámara, transición y **reordenar escenas arrastrando**.
-- **Imágenes por escena**: se elige una imagen subida a la Biblioteca y se guarda en el campo `imageUrl` que
-  consume el motor de canvas.
+- **Imágenes por escena**: se elige una imagen subida a la Biblioteca (se guarda `imageAssetId`, y la URL se
+  reconstruye desde el blob al recargar).
+- **Clips de video por escena**: un MP4/WebM de la Biblioteca se dibuja cuadro a cuadro con `drawImage` en el
+  timestamp exacto. Si el clip dura menos que la escena se repite en bucle; si dura más, se recorta.
+- **Transiciones reales**: Fundido (opacidad), Deslizamiento (empuje horizontal) y Zoom (escala 1.0 → 1.1)
+  entre escenas, con duración configurable por escena (0,5 s por defecto). Corte es el cambio directo.
+- **Resolución y FPS configurables**: 480p, 720p o 1080p y 24, 30 o 60 fps. En Android/móvil la exportación
+  se limita automáticamente a 720p y 30 fps.
 - **Biblioteca**: importa imágenes, audio y video; los blobs se guardan en IndexedDB y los object URLs se
   reconstruyen al recargar. Puedes marcar un audio como **narración**.
 - **Autoguardado** con 1 segundo de debounce e indicador permanente en la cabecera
@@ -54,13 +60,10 @@ npm test          # Vitest (8 pruebas del modelo de datos)
 - **No hay app Android publicada.** Solo queda `capacitor.config.json`; no hay build ni paridad probada.
 - **Solo WebM.** No se exporta MP4/H.264. En Safari y Firefox (sin WebCodecs) se usa el respaldo
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
-- **Audio**: la narración se probó con MP3. WAV debería decodificar con `decodeAudioData`, pero no está
-  probado. La narración es una sola pista para todo el proyecto (no hay audio por escena).
-- **Video de la biblioteca**: se puede subir, pero no se compone dentro de las escenas; solo se usan
-  imágenes y la pista de narración.
-- **Transiciones**: el motor aplica Zoom/Pan y la entrada de subtítulos; los valores Corte, Fundido,
-  Deslizamiento y Zoom se guardan pero **no se aplican** en el render.
-- **Ajustes fijos**: 1280×720 a 30 fps. No hay interfaz para cambiar resolución, fps ni relación de aspecto.
+- **Audio**: MP3 y WAV funcionan como narración (verificado con ffmpeg). Sigue habiendo una sola pista de
+  narración para todo el proyecto: no hay audio por escena ni música de fondo.
+- **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Solo se probó un WebM
+  (VP8) generado con ffmpeg; MP4 dentro de una escena no está verificado.
 - **Sin deshacer** y sin versiones del proyecto.
 - **Probado solo en Chromium.** El resto de navegadores está sin verificar.
 - **Cobertura de pruebas mínima**: Vitest cubre el modelo de datos y el cálculo de cuadros, no la UI ni la
