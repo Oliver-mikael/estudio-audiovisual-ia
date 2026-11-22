@@ -13,6 +13,7 @@ import {
   PreparedNarration,
   prepareNarration,
 } from './audioTrack';
+import { effectiveSettings, isLimitedForMobile } from './capabilities';
 
 export interface ExportProgressCallback {
   (progress: number, statusMessage: string): void;
@@ -28,6 +29,10 @@ export interface VideoExportResult {
   /** true = exportación cuadro por cuadro con WebCodecs; false = respaldo MediaRecorder. */
   usedWebCodecs: boolean;
   narrationAssetName: string | null;
+  /** Ajustes realmente usados (pueden estar limitados en móvil). */
+  width: number;
+  height: number;
+  fps: number;
 }
 
 interface VideoCodecPlan {
@@ -112,6 +117,11 @@ export interface ExportFormatInfo {
   audioCodec: string;
   mode: string;
   usedWebCodecs: boolean;
+  width: number;
+  height: number;
+  fps: number;
+  /** true si el dispositivo es móvil y se han recortado los ajustes. */
+  mobileLimited: boolean;
 }
 
 /**
@@ -122,9 +132,11 @@ export async function describeExportFormat(
   project: Project,
   hasNarration: boolean
 ): Promise<ExportFormatInfo> {
-  const fps = project.settings.fps || 30;
-  const width = Math.max(2, Math.round(project.settings.resolution.width / 2) * 2);
-  const height = Math.max(2, Math.round(project.settings.resolution.height / 2) * 2);
+  const settings = effectiveSettings(project);
+  const fps = settings.fps || 30;
+  const width = Math.max(2, Math.round(settings.resolution.width / 2) * 2);
+  const height = Math.max(2, Math.round(settings.resolution.height / 2) * 2);
+  const mobileLimited = isLimitedForMobile(project.settings);
 
   const plan = await planVideoCodec(width, height, fps);
   const audioOk = hasNarration ? await supportsOpusAudio() : true;
@@ -136,6 +148,10 @@ export async function describeExportFormat(
       audioCodec: hasNarration ? 'Opus' : 'sin audio',
       mode: 'cuadro por cuadro (WebCodecs)',
       usedWebCodecs: true,
+      width,
+      height,
+      fps,
+      mobileLimited,
     };
   }
 
@@ -145,6 +161,10 @@ export async function describeExportFormat(
     audioCodec: hasNarration ? 'Opus' : 'sin audio',
     mode: 'tiempo real (MediaRecorder)',
     usedWebCodecs: false,
+    width,
+    height,
+    fps,
+    mobileLimited,
   };
 }
 
@@ -168,10 +188,14 @@ export class VideoExporter {
       throw new Error('El proyecto no contiene escenas con duración válida.');
     }
 
-    const fps = project.settings.fps || 30;
+    // Ajustes efectivos: en móvil se recorta a 720p/30 fps.
+    const settings = effectiveSettings(project);
+    const exportProject: Project = settings === project.settings ? project : { ...project, settings };
+
+    const fps = settings.fps || 30;
     // Los codificadores exigen dimensiones pares.
-    const width = Math.max(2, Math.round(project.settings.resolution.width / 2) * 2);
-    const height = Math.max(2, Math.round(project.settings.resolution.height / 2) * 2);
+    const width = Math.max(2, Math.round(settings.resolution.width / 2) * 2);
+    const height = Math.max(2, Math.round(settings.resolution.height / 2) * 2);
     const totalFrames = Math.max(1, Math.round(durationSeconds * fps));
 
     onProgress(0, 'Iniciando renderizado cuadro por cuadro...');
@@ -182,16 +206,16 @@ export class VideoExporter {
     const renderEngine = new CanvasRenderEngine(canvas);
 
     onProgress(2, 'Precargando imágenes del proyecto...');
-    await renderEngine.preloadImages(project.script.scenes);
+    await renderEngine.preloadImages(exportProject.script.scenes);
 
     onProgress(5, 'Decodificando pista de narración...');
-    const narration = await prepareNarration(project, durationSeconds);
+    const narration = await prepareNarration(exportProject, durationSeconds);
 
     const codecPlan = await planVideoCodec(width, height, fps);
     const canEncodeAudio = narration ? await supportsOpusAudio() : true;
 
     const context: ExportContext = {
-      project,
+      project: exportProject,
       canvas,
       renderEngine,
       durationSeconds,
@@ -302,6 +326,9 @@ export class VideoExporter {
       totalFrames,
       usedWebCodecs: true,
       narrationAssetName: narration ? narration.asset.name : null,
+      width: canvas.width,
+      height: canvas.height,
+      fps,
     };
   }
 
@@ -433,6 +460,9 @@ export class VideoExporter {
       totalFrames,
       usedWebCodecs: false,
       narrationAssetName: narration ? narration.asset.name : null,
+      width: canvas.width,
+      height: canvas.height,
+      fps,
     };
   }
 }

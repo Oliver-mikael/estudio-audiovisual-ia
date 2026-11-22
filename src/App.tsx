@@ -24,6 +24,7 @@ import { ResearchModule } from './modules/ResearchModule';
 import { ScriptWorkshop } from './modules/ScriptWorkshop';
 import { StoryboardModule } from './modules/StoryboardModule';
 import { MediaLibraryModule } from './modules/MediaLibraryModule';
+import { SettingsModule } from './modules/SettingsModule';
 import {
   AlertCircle,
   CheckCircle2,
@@ -37,6 +38,7 @@ import {
   MonitorPlay,
   RefreshCw,
   Search,
+  Settings,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -46,6 +48,7 @@ const SECTIONS = [
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'investigacion', label: 'Investigación', icon: Search },
   { id: 'monitor', label: 'Monitor', icon: MonitorPlay },
+  { id: 'ajustes', label: 'Ajustes', icon: Settings },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]['id'];
@@ -255,7 +258,7 @@ export const App: React.FC = () => {
         format,
         narrationName: narrationAsset ? narrationAsset.name : null,
         durationSeconds,
-        totalFrames: Math.round(durationSeconds * (project.settings.fps || 30)),
+        totalFrames: Math.round(durationSeconds * format.fps),
       });
     } finally {
       setIsPreparingExport(false);
@@ -417,6 +420,9 @@ export const App: React.FC = () => {
           {activeSection === 'investigacion' && (
             <ResearchModule project={project} onUpdateProject={handleUpdateProject} />
           )}
+          {activeSection === 'ajustes' && (
+            <SettingsModule project={project} onUpdateProject={handleUpdateProject} />
+          )}
           {activeSection === 'monitor' && (
             <div className="max-w-4xl space-y-4">
               <h2 className="titulo-seccion">Monitor de previsualización</h2>
@@ -503,7 +509,7 @@ export const App: React.FC = () => {
             <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Resolución real</dt>
               <dd className="text-slate-100 font-mono">
-                {project.settings.resolution.width} × {project.settings.resolution.height} px
+                {exportDialog.format.width} × {exportDialog.format.height} px
               </dd>
             </div>
             <div className="flex justify-between gap-4">
@@ -528,7 +534,8 @@ export const App: React.FC = () => {
             <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Duración</dt>
               <dd className="text-slate-100 font-mono">
-                {exportDialog.durationSeconds} s · {exportDialog.totalFrames} cuadros
+                {exportDialog.durationSeconds} s · {exportDialog.totalFrames} cuadros · {exportDialog.format.fps}{' '}
+                fps
               </dd>
             </div>
             <div className="flex justify-between gap-4">
@@ -542,6 +549,13 @@ export const App: React.FC = () => {
           {exportDialog.durationSeconds <= 0 && (
             <p className="text-sm text-rose-300">
               El proyecto no tiene escenas con duración. Añade al menos una escena en el Taller de guion.
+            </p>
+          )}
+
+          {exportDialog.format.mobileLimited && (
+            <p className="text-sm text-amber-300">
+              Dispositivo móvil detectado: la exportación se limita a {exportDialog.format.width} ×{' '}
+              {exportDialog.format.height} px y {exportDialog.format.fps} fps aunque el proyecto pida más.
             </p>
           )}
 
