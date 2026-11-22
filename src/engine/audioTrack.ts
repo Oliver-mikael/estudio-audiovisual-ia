@@ -23,6 +23,34 @@ export function findNarrationAsset(project: Project): MediaAsset | null {
   return assets.find((asset) => asset.type === 'audio') ?? null;
 }
 
+/** Estructura mínima de un AudioBuffer ya decodificado. */
+export interface DecodedAudioLike {
+  numberOfChannels: number;
+  length: number;
+  getChannelData(channel: number): Float32Array;
+}
+
+/**
+ * Ajusta el audio decodificado al número exacto de cuadros del proyecto:
+ * recorta si la narración es más larga y rellena con silencio si es más corta.
+ * Devuelve siempre el número de canales de la narración exportada (estéreo),
+ * duplicando el mono si hace falta.
+ */
+export function fitNarrationChannels(
+  decoded: DecodedAudioLike,
+  targetFrames: number
+): Float32Array[] {
+  const frames = Math.max(1, Math.round(targetFrames));
+  const sourceChannels = Math.max(1, decoded.numberOfChannels);
+
+  return Array.from({ length: NARRATION_CHANNELS }, (_, channel) => {
+    const source = decoded.getChannelData(Math.min(channel, sourceChannels - 1));
+    const fitted = new Float32Array(frames);
+    fitted.set(source.subarray(0, Math.min(source.length, frames)));
+    return fitted;
+  });
+}
+
 async function readAssetBlob(asset: MediaAsset): Promise<Blob> {
   if (asset.fileBlob) return asset.fileBlob;
   const response = await fetch(asset.url);
@@ -47,8 +75,8 @@ export async function prepareNarration(
   const encoded = await (await readAssetBlob(asset)).arrayBuffer();
   const frames = Math.max(1, Math.ceil(durationSeconds * NARRATION_SAMPLE_RATE));
 
-  // OfflineAudioContext no requiere gesto del usuario y entrega PCM exacto.
-  const offlineCtx = new OfflineAudioContext(NARRATION_CHANNELS, frames, NARRATION_SAMPLE_RATE);
+  // OfflineAudioContext no requiere gesto del usuario y decodifica a 48 kHz.
+  const offlineCtx = new OfflineAudioContext(NARRATION_CHANNELS, 1, NARRATION_SAMPLE_RATE);
 
   let decoded: AudioBuffer;
   try {
@@ -59,11 +87,10 @@ export async function prepareNarration(
     );
   }
 
-  const source = offlineCtx.createBufferSource();
-  source.buffer = decoded;
-  source.connect(offlineCtx.destination);
-  source.start(0);
+  // Recorte o relleno de silencio hasta la duración exacta del proyecto.
+  const channels = fitNarrationChannels(decoded, frames);
+  const buffer = offlineCtx.createBuffer(NARRATION_CHANNELS, frames, NARRATION_SAMPLE_RATE);
+  channels.forEach((data, channel) => buffer.getChannelData(channel).set(data));
 
-  const buffer = await offlineCtx.startRendering();
   return { buffer, asset };
 }

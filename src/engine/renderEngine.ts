@@ -12,13 +12,90 @@ export interface RenderState {
   isPlaying: boolean;
 }
 
-interface TimelineEntry {
+export interface TimelineEntry {
   scene: Scene;
   start: number;
   duration: number;
 }
 
+export interface TransitionFrameState {
+  current: TimelineEntry;
+  localTime: number;
+  progress: number;
+  previous: TimelineEntry | null;
+  previousLocalTime: number;
+  /** Duración efectiva de la transición de entrada de la escena actual (s). */
+  transitionSeconds: number;
+}
+
 export const DEFAULT_TRANSITION_SECONDS = 0.5;
+
+/** Línea de tiempo acumulada de las escenas del proyecto. */
+export function buildTimeline(project: Project): TimelineEntry[] {
+  let cursor = 0;
+  return project.script.scenes.map((scene) => {
+    const duration = Math.max(0, scene.durationSeconds);
+    const entry: TimelineEntry = { scene, start: cursor, duration };
+    cursor += duration;
+    return entry;
+  });
+}
+
+/** Duración real de la transición de entrada de una escena. */
+export function transitionSecondsFor(scene: Scene): number {
+  if (scene.transition === 'Cut') return 0;
+  const requested = scene.transitionDurationSeconds ?? DEFAULT_TRANSITION_SECONDS;
+  if (!Number.isFinite(requested) || requested <= 0) return 0;
+  // La transición nunca puede ocupar más de la mitad de la escena.
+  return Math.min(requested, scene.durationSeconds / 2);
+}
+
+/**
+ * Resuelve qué se dibuja en un instante: la escena actual, la anterior durante la
+ * transición y el progreso 0→1 de la mezcla. Es lógica pura (sin canvas) para poder
+ * probarla y para que la exportación y la previsualización compartan el mismo cálculo.
+ */
+export function computeTransitionFrame(
+  project: Project,
+  timeSeconds: number
+): TransitionFrameState | null {
+  const timeline = buildTimeline(project);
+  if (timeline.length === 0) return null;
+
+  let index = timeline.findIndex(
+    (entry) => timeSeconds >= entry.start && timeSeconds < entry.start + entry.duration
+  );
+  if (index === -1) index = timeline.length - 1;
+
+  const current = timeline[index];
+  const localTime = Math.max(0, Math.min(timeSeconds - current.start, current.duration));
+  const transitionSeconds = transitionSecondsFor(current.scene);
+  const candidatePrevious = index > 0 ? timeline[index - 1] : null;
+  const inTransition =
+    Boolean(candidatePrevious) && transitionSeconds > 0 && localTime < transitionSeconds;
+
+  return {
+    current,
+    localTime,
+    progress: inTransition ? Math.min(1, localTime / transitionSeconds) : 0,
+    previous: inTransition ? candidatePrevious : null,
+    previousLocalTime: candidatePrevious
+      ? Math.max(
+          0,
+          Math.min(
+            candidatePrevious.duration,
+            candidatePrevious.duration - transitionSeconds + localTime
+          )
+        )
+      : 0,
+    transitionSeconds,
+  };
+}
+
+/** Opacidad de la escena entrante en un Fundido: 0 al empezar, 1 al terminar. */
+export function fadeOpacity(progress: number): number {
+  return Math.max(0, Math.min(1, progress));
+}
 
 export class CanvasRenderEngine {
   private canvas: HTMLCanvasElement;
@@ -150,7 +227,7 @@ export class CanvasRenderEngine {
    * exactamente el frame del timestamp, y no el reloj de reproducción.
    */
   public async prepareFrame(project: Project, timeSeconds: number): Promise<void> {
-    const target = this.resolveRenderTarget(project, timeSeconds);
+    const target = computeTransitionFrame(project, timeSeconds);
     if (!target) return;
 
     const tasks: Promise<void>[] = [this.seekSceneVideo(target.current.scene, target.localTime)];
@@ -171,65 +248,6 @@ export class CanvasRenderEngine {
     return project.script.scenes.reduce((sum, scene) => sum + Math.max(0, scene.durationSeconds), 0);
   }
 
-  private buildTimeline(project: Project): TimelineEntry[] {
-    let cursor = 0;
-    return project.script.scenes.map((scene) => {
-      const duration = Math.max(0, scene.durationSeconds);
-      const entry: TimelineEntry = { scene, start: cursor, duration };
-      cursor += duration;
-      return entry;
-    });
-  }
-
-  private resolveTransitionSeconds(scene: Scene): number {
-    if (scene.transition === 'Cut') return 0;
-    const requested = scene.transitionDurationSeconds ?? DEFAULT_TRANSITION_SECONDS;
-    if (!Number.isFinite(requested) || requested <= 0) return 0;
-    // La transición nunca puede ocupar más de la mitad de la escena.
-    return Math.min(requested, scene.durationSeconds / 2);
-  }
-
-  private resolveRenderTarget(
-    project: Project,
-    timeSeconds: number
-  ): {
-    current: TimelineEntry;
-    localTime: number;
-    progress: number;
-    previous: TimelineEntry | null;
-    previousLocalTime: number;
-  } | null {
-    const timeline = this.buildTimeline(project);
-    if (timeline.length === 0) return null;
-
-    let index = timeline.findIndex(
-      (entry) => timeSeconds >= entry.start && timeSeconds <= entry.start + entry.duration
-    );
-    if (index === -1) index = timeline.length - 1;
-
-    const current = timeline[index];
-    const localTime = Math.max(0, Math.min(timeSeconds - current.start, current.duration));
-    const transitionSeconds = this.resolveTransitionSeconds(current.scene);
-    const candidatePrevious = index > 0 ? timeline[index - 1] : null;
-    const inTransition = Boolean(candidatePrevious) && transitionSeconds > 0 && localTime < transitionSeconds;
-
-    return {
-      current,
-      localTime,
-      progress: inTransition ? Math.min(1, localTime / transitionSeconds) : 0,
-      previous: inTransition ? candidatePrevious : null,
-      previousLocalTime: candidatePrevious
-        ? Math.max(
-            0,
-            Math.min(
-              candidatePrevious.duration,
-              candidatePrevious.duration - transitionSeconds + localTime
-            )
-          )
-        : 0,
-    };
-  }
-
   public renderFrame(project: Project, timeSeconds: number): void {
     const { width, height } = project.settings.resolution;
 
@@ -239,7 +257,7 @@ export class CanvasRenderEngine {
       this.canvas.height = height;
     }
 
-    const target = this.resolveRenderTarget(project, timeSeconds);
+    const target = computeTransitionFrame(project, timeSeconds);
     if (!target) {
       this.drawEmptyState(width, height);
       return;
@@ -302,7 +320,7 @@ export class CanvasRenderEngine {
     if (transition === 'Fade') {
       // La escena anterior se queda y la nueva aparece con opacidad 0 → 1.
       ctx.drawImage(outgoing, 0, 0, width, height);
-      ctx.globalAlpha = progress;
+      ctx.globalAlpha = fadeOpacity(progress);
       ctx.drawImage(incoming, 0, 0, width, height);
     } else if (transition === 'Slide') {
       // Empuje horizontal: la anterior sale a la izquierda y la nueva entra desde la derecha.
