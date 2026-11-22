@@ -14,6 +14,7 @@ import {
   prepareNarration,
 } from './audioTrack';
 import { effectiveSettings, isLimitedForMobile } from './capabilities';
+import { resolveSceneMediaUrls } from './mediaResolver';
 
 export interface ExportProgressCallback {
   (progress: number, statusMessage: string): void;
@@ -190,7 +191,9 @@ export class VideoExporter {
 
     // Ajustes efectivos: en móvil se recorta a 720p/30 fps.
     const settings = effectiveSettings(project);
-    const exportProject: Project = settings === project.settings ? project : { ...project, settings };
+    const settingsProject: Project = settings === project.settings ? project : { ...project, settings };
+    // Reconstruye las URLs de imagen/video de las escenas desde sus blobs.
+    const exportProject = await resolveSceneMediaUrls(settingsProject);
 
     const fps = settings.fps || 30;
     // Los codificadores exigen dimensiones pares.
@@ -205,8 +208,9 @@ export class VideoExporter {
     canvas.height = height;
     const renderEngine = new CanvasRenderEngine(canvas);
 
-    onProgress(2, 'Precargando imágenes del proyecto...');
+    onProgress(2, 'Precargando imágenes y clips del proyecto...');
     await renderEngine.preloadImages(exportProject.script.scenes);
+    await renderEngine.preloadVideos(exportProject.script.scenes);
 
     onProgress(5, 'Decodificando pista de narración...');
     const narration = await prepareNarration(exportProject, durationSeconds);
@@ -289,6 +293,7 @@ export class VideoExporter {
       if (encoderError) throw encoderError;
 
       const timeSeconds = frameIndex / fps;
+      await renderEngine.prepareFrame(project, timeSeconds);
       renderEngine.renderFrame(project, timeSeconds);
 
       const frame = new VideoFrame(canvas, {
@@ -434,6 +439,7 @@ export class VideoExporter {
       const wait = targetTime - performance.now();
       if (wait > 0) await sleep(wait);
 
+      await renderEngine.prepareFrame(project, frameIndex / fps);
       renderEngine.renderFrame(project, frameIndex / fps);
       videoTrack.requestFrame();
 

@@ -29,8 +29,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
     if (canvasRef.current) {
       const engine = new CanvasRenderEngine(canvasRef.current);
       engineRef.current = engine;
-      engine.preloadImages(project.script.scenes);
-      engine.renderFrame(project, currentTime);
+      void engine.preloadImages(project.script.scenes);
+      void engine.preloadVideos(project.script.scenes);
+      void engine.renderFrameAt(project, currentTime);
     }
   }, [project]);
 
@@ -71,9 +72,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
   }, [isPlaying, tick]);
 
   useEffect(() => {
-    if (engineRef.current) {
-      engineRef.current.renderFrame(project, currentTime);
-    }
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    let cancelled = false;
+    const draw = async () => {
+      // Los clips se buscan al instante pedido antes de dibujar el cuadro.
+      await engine.preloadVideos(project.script.scenes);
+      if (cancelled) return;
+      await engine.renderFrameAt(project, currentTime);
+    };
+
+    void draw();
+    return () => {
+      cancelled = true;
+    };
   }, [currentTime, project]);
 
   const togglePlay = () => {

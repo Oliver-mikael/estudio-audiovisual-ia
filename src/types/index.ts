@@ -33,6 +33,11 @@ export interface Scene {
   transitionDurationSeconds?: number;
   durationSeconds: number;
   imageUrl?: string;
+  /** Id del recurso de imagen de la biblioteca (permite reconstruir la URL). */
+  imageAssetId?: string;
+  /** Clip de video de la biblioteca que se usa como fondo animado. */
+  videoUrl?: string;
+  videoAssetId?: string;
   audioUrl?: string;
   subtitles?: string[];
   notes?: string;

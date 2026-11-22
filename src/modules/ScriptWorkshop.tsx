@@ -2,7 +2,18 @@
 import React, { useState } from 'react';
 import { Project, Scene } from '../types';
 import { getMediaAssetBlob } from '../services/storage/db';
-import { FileText, Plus, Trash2, Clock, MessageSquare, AlertCircle, Sparkles, GripVertical, ImagePlus } from 'lucide-react';
+import {
+  FileText,
+  Plus,
+  Trash2,
+  Clock,
+  MessageSquare,
+  AlertCircle,
+  Sparkles,
+  GripVertical,
+  ImagePlus,
+  Film,
+} from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
 interface ScriptWorkshopProps {
@@ -20,12 +31,22 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [assigningImage, setAssigningImage] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [assigningVideo, setAssigningVideo] = useState(false);
 
   const activeScene = scenes.find((s) => s.id === selectedSceneId);
 
   const totalDuration = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
   const imageAssets = (project.mediaAssets || []).filter((asset) => asset.type === 'image');
-  const activeImageAssetId = imageAssets.find((asset) => asset.url === activeScene?.imageUrl)?.id ?? '';
+  const videoAssets = (project.mediaAssets || []).filter((asset) => asset.type === 'video');
+  const activeImageAssetId =
+    activeScene?.imageAssetId ??
+    imageAssets.find((asset) => asset.url === activeScene?.imageUrl)?.id ??
+    '';
+  const activeVideoAssetId =
+    activeScene?.videoAssetId ??
+    videoAssets.find((asset) => asset.url === activeScene?.videoUrl)?.id ??
+    '';
 
   const handleUpdateActiveScene = (updatedFields: Partial<Scene>) => {
     if (!selectedSceneId) return;
@@ -91,7 +112,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const handleAssignImage = async (assetId: string) => {
     setImageError(null);
     if (!assetId) {
-      handleUpdateActiveScene({ imageUrl: undefined });
+      handleUpdateActiveScene({ imageUrl: undefined, imageAssetId: undefined });
       return;
     }
 
@@ -111,11 +132,43 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       if (!blob) throw new Error('La imagen no está guardada en el almacenamiento local.');
 
       const imageUrl = URL.createObjectURL(blob);
-      handleUpdateActiveScene({ imageUrl });
+      handleUpdateActiveScene({ imageUrl, imageAssetId: assetId });
     } catch (error) {
       setImageError(error instanceof Error ? error.message : 'No se pudo asignar la imagen.');
     } finally {
       setAssigningImage(false);
+    }
+  };
+
+  /** Asigna a la escena activa un clip de video de la biblioteca. */
+  const handleAssignVideo = async (assetId: string) => {
+    setVideoError(null);
+    if (!assetId) {
+      handleUpdateActiveScene({ videoUrl: undefined, videoAssetId: undefined });
+      return;
+    }
+
+    const asset = (project.mediaAssets || []).find((item) => item.id === assetId);
+    if (!asset) {
+      setVideoError('No se encontró el clip en la biblioteca del proyecto.');
+      return;
+    }
+
+    try {
+      setAssigningVideo(true);
+      let blob = asset.fileBlob ?? null;
+      if (!blob) {
+        const stored = await getMediaAssetBlob(asset.id);
+        blob = stored?.fileBlob ?? null;
+      }
+      if (!blob) throw new Error('El clip no está guardado en el almacenamiento local.');
+
+      const videoUrl = URL.createObjectURL(blob);
+      handleUpdateActiveScene({ videoUrl, videoAssetId: assetId });
+    } catch (error) {
+      setVideoError(error instanceof Error ? error.message : 'No se pudo asignar el clip.');
+    } finally {
+      setAssigningVideo(false);
     }
   };
 
@@ -448,7 +501,9 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
 
                   {activeScene.imageUrl && (
                     <button
-                      onClick={() => handleUpdateActiveScene({ imageUrl: undefined })}
+                      onClick={() =>
+                        handleUpdateActiveScene({ imageUrl: undefined, imageAssetId: undefined })
+                      }
                       className="btn-secondary shrink-0"
                     >
                       Quitar imagen
@@ -463,6 +518,56 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                 )}
                 {assigningImage && <p className="text-sm text-slate-400">Cargando imagen...</p>}
                 {imageError && <p className="text-sm text-rose-300">{imageError}</p>}
+              </div>
+
+              {/* Clip de video tomado de la biblioteca */}
+              <div className="space-y-2 border-t border-slate-800 pt-4">
+                <label htmlFor="scene-video" className="etiqueta flex items-center gap-1.5">
+                  <Film className="w-4 h-4 text-indigo-400" />
+                  <span>Clip de video de la escena</span>
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    id="scene-video"
+                    value={activeVideoAssetId}
+                    disabled={assigningVideo}
+                    onChange={(event) => {
+                      void handleAssignVideo(event.target.value);
+                    }}
+                    className="campo"
+                  >
+                    <option value="">Sin clip de video</option>
+                    {videoAssets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {activeScene.videoUrl && (
+                    <button
+                      onClick={() =>
+                        handleUpdateActiveScene({ videoUrl: undefined, videoAssetId: undefined })
+                      }
+                      className="btn-secondary shrink-0"
+                    >
+                      Quitar clip
+                    </button>
+                  )}
+                </div>
+
+                {videoAssets.length === 0 && (
+                  <p className="text-sm text-slate-500">
+                    No hay clips en la biblioteca. Sube un MP4 o WebM desde la sección Biblioteca.
+                  </p>
+                )}
+                <p className="text-sm text-slate-500">
+                  El clip tiene prioridad sobre la imagen. Si dura menos que la escena se repite en bucle; si dura
+                  más, se recorta al final de la escena.
+                </p>
+                {assigningVideo && <p className="text-sm text-slate-400">Cargando clip...</p>}
+                {videoError && <p className="text-sm text-rose-300">{videoError}</p>}
               </div>
             </>
           ) : (

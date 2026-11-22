@@ -24,6 +24,8 @@ export class CanvasRenderEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private imageCache: Map<string, HTMLImageElement> = new Map();
+  private videoCache: Map<string, HTMLVideoElement> = new Map();
+  private videoReady: Map<string, Promise<void>> = new Map();
 
   // Dos buffers: 0 = escena entrante, 1 = escena saliente.
   private buffers: [HTMLCanvasElement, HTMLCanvasElement];
@@ -68,6 +70,102 @@ export class CanvasRenderEngine {
     await Promise.all(promises);
   }
 
+  /** Carga los clips de video de las escenas que los usan. */
+  public async preloadVideos(scenes: Scene[]): Promise<void> {
+    const urls = scenes.map((scene) => scene.videoUrl).filter((url): url is string => Boolean(url));
+    await Promise.all(urls.map((url) => this.ensureVideo(url)));
+  }
+
+  private ensureVideo(url: string): Promise<void> {
+    const pending = this.videoReady.get(url);
+    if (pending) return pending;
+
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.crossOrigin = 'anonymous';
+    this.videoCache.set(url, video);
+
+    const ready = new Promise<void>((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      video.addEventListener('loadeddata', done, { once: true });
+      video.addEventListener('error', done, { once: true });
+      // Un video con problemas de códec no debe colgar la exportación.
+      setTimeout(done, 4000);
+      video.load();
+    });
+
+    this.videoReady.set(url, ready);
+    return ready;
+  }
+
+  /** Tiempo del clip para un instante de la escena: repite (loop) si es más corto. */
+  private videoTimeFor(scene: Scene, sceneLocalTime: number): number {
+    const video = scene.videoUrl ? this.videoCache.get(scene.videoUrl) : null;
+    const duration = video && Number.isFinite(video.duration) ? video.duration : 0;
+    if (duration <= 0) return 0;
+    return sceneLocalTime % duration;
+  }
+
+  private async seekSceneVideo(scene: Scene, sceneLocalTime: number): Promise<void> {
+    if (!scene.videoUrl) return;
+    const video = this.videoCache.get(scene.videoUrl);
+    if (!video) return;
+
+    await this.ensureVideo(scene.videoUrl);
+    if (video.readyState < 2) return;
+
+    const target = this.videoTimeFor(scene, sceneLocalTime);
+    if (Math.abs(video.currentTime - target) < 0.002) return;
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        video.removeEventListener('seeked', finish);
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, 500);
+      video.addEventListener('seeked', finish, { once: true });
+      try {
+        video.currentTime = target;
+      } catch {
+        finish();
+      }
+    });
+  }
+
+  /**
+   * Coloca cada video en el cuadro que corresponde al instante pedido.
+   * La exportación llama a esto antes de renderFrame para que drawImage use
+   * exactamente el frame del timestamp, y no el reloj de reproducción.
+   */
+  public async prepareFrame(project: Project, timeSeconds: number): Promise<void> {
+    const target = this.resolveRenderTarget(project, timeSeconds);
+    if (!target) return;
+
+    const tasks: Promise<void>[] = [this.seekSceneVideo(target.current.scene, target.localTime)];
+    if (target.previous) {
+      tasks.push(this.seekSceneVideo(target.previous.scene, target.previousLocalTime));
+    }
+    await Promise.all(tasks);
+  }
+
+  /** Preparar y dibujar un cuadro (usado por la previsualización). */
+  public async renderFrameAt(project: Project, timeSeconds: number): Promise<void> {
+    await this.prepareFrame(project, timeSeconds);
+    this.renderFrame(project, timeSeconds);
+  }
+
   /** Duración total del proyecto en segundos. */
   public static totalDuration(project: Project): number {
     return project.script.scenes.reduce((sum, scene) => sum + Math.max(0, scene.durationSeconds), 0);
@@ -91,6 +189,47 @@ export class CanvasRenderEngine {
     return Math.min(requested, scene.durationSeconds / 2);
   }
 
+  private resolveRenderTarget(
+    project: Project,
+    timeSeconds: number
+  ): {
+    current: TimelineEntry;
+    localTime: number;
+    progress: number;
+    previous: TimelineEntry | null;
+    previousLocalTime: number;
+  } | null {
+    const timeline = this.buildTimeline(project);
+    if (timeline.length === 0) return null;
+
+    let index = timeline.findIndex(
+      (entry) => timeSeconds >= entry.start && timeSeconds <= entry.start + entry.duration
+    );
+    if (index === -1) index = timeline.length - 1;
+
+    const current = timeline[index];
+    const localTime = Math.max(0, Math.min(timeSeconds - current.start, current.duration));
+    const transitionSeconds = this.resolveTransitionSeconds(current.scene);
+    const candidatePrevious = index > 0 ? timeline[index - 1] : null;
+    const inTransition = Boolean(candidatePrevious) && transitionSeconds > 0 && localTime < transitionSeconds;
+
+    return {
+      current,
+      localTime,
+      progress: inTransition ? Math.min(1, localTime / transitionSeconds) : 0,
+      previous: inTransition ? candidatePrevious : null,
+      previousLocalTime: candidatePrevious
+        ? Math.max(
+            0,
+            Math.min(
+              candidatePrevious.duration,
+              candidatePrevious.duration - transitionSeconds + localTime
+            )
+          )
+        : 0,
+    };
+  }
+
   public renderFrame(project: Project, timeSeconds: number): void {
     const { width, height } = project.settings.resolution;
 
@@ -100,32 +239,15 @@ export class CanvasRenderEngine {
       this.canvas.height = height;
     }
 
-    const timeline = this.buildTimeline(project);
-    if (timeline.length === 0) {
+    const target = this.resolveRenderTarget(project, timeSeconds);
+    if (!target) {
       this.drawEmptyState(width, height);
       return;
     }
 
-    // Escena activa según el tiempo global.
-    let index = timeline.findIndex(
-      (entry) => timeSeconds >= entry.start && timeSeconds <= entry.start + entry.duration
-    );
-    if (index === -1) index = timeline.length - 1;
+    const { current, localTime, progress, previous, previousLocalTime } = target;
 
-    const current = timeline[index];
-    const localTime = Math.max(0, Math.min(timeSeconds - current.start, current.duration));
-
-    const transitionSeconds = this.resolveTransitionSeconds(current.scene);
-    const previous = index > 0 ? timeline[index - 1] : null;
-
-    if (previous && transitionSeconds > 0 && localTime < transitionSeconds) {
-      const progress = Math.min(1, localTime / transitionSeconds);
-      // La escena anterior sigue reproduciéndose mientras entra la nueva.
-      const previousLocalTime = Math.max(
-        0,
-        Math.min(previous.duration, previous.duration - transitionSeconds + localTime)
-      );
-
+    if (previous) {
       const incoming = this.buffers[0];
       const outgoing = this.buffers[1];
       this.prepareBuffer(incoming, width, height);
@@ -253,8 +375,16 @@ export class CanvasRenderEngine {
     progress: number
   ): void {
     const img = scene.imageUrl ? this.imageCache.get(scene.imageUrl) : null;
+    const video = scene.videoUrl ? this.videoCache.get(scene.videoUrl) : null;
+    const videoReady = Boolean(video && video.readyState >= 2 && video.videoWidth > 0);
 
-    if (img) {
+    // El clip de video tiene prioridad sobre la imagen; si aún no está listo se
+    // usa la imagen (o el fondo generado) para no dejar el cuadro vacío.
+    const source: CanvasImageSource | null = videoReady ? (video as HTMLVideoElement) : img ?? null;
+    const sourceWidth = videoReady ? (video as HTMLVideoElement).videoWidth : img?.width ?? 0;
+    const sourceHeight = videoReady ? (video as HTMLVideoElement).videoHeight : img?.height ?? 0;
+
+    if (source && sourceWidth > 0 && sourceHeight > 0) {
       ctx.save();
 
       // Calculate camera motion transform
@@ -275,19 +405,19 @@ export class CanvasRenderEngine {
       ctx.translate(width / 2 + dx, height / 2 + dy);
       ctx.scale(scale, scale);
 
-      // Draw image scaled to cover
-      const imgRatio = img.width / img.height;
+      // Draw source scaled to cover
+      const sourceRatio = sourceWidth / sourceHeight;
       const canvasRatio = width / height;
       let drawW = width;
       let drawH = height;
 
-      if (imgRatio > canvasRatio) {
-        drawW = height * imgRatio;
+      if (sourceRatio > canvasRatio) {
+        drawW = height * sourceRatio;
       } else {
-        drawH = width / imgRatio;
+        drawH = width / sourceRatio;
       }
 
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.drawImage(source, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
       // Dark overlay for readability

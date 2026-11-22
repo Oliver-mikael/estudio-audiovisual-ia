@@ -19,6 +19,7 @@ import {
   projectDurationSeconds,
 } from './engine/exporter';
 import { findNarrationAsset } from './engine/audioTrack';
+import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import { IdeaLab } from './modules/IdeaLab';
 import { ResearchModule } from './modules/ResearchModule';
 import { ScriptWorkshop } from './modules/ScriptWorkshop';
@@ -193,7 +194,7 @@ export const App: React.FC = () => {
       setSaveError('No se encontró el proyecto seleccionado en el almacenamiento local.');
       return;
     }
-    setProject(stored);
+    setProject(await resolveSceneMediaUrls(stored));
     setActiveSection('guion');
     setExportedVideo(null);
     setSaveStatus('saved');
