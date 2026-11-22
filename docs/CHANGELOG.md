@@ -1,5 +1,10 @@
 # Registro de Cambios - Estudio Audiovisual Inteligente
 
+> **Nota:** este registro recoge documentación de diseño de sesiones anteriores. Las entradas 2.0.0 y 2.1.0
+> mencionan `SyncEngine` (`src/services/sync/syncEngine.ts`), `JobQueueManager` (`src/services/jobs/jobQueue.ts`)
+> y `cloudApi`, que se eliminaron del repositorio por ser código muerto de una nube simulada: nunca estuvieron
+> conectados a un backend real. El registro vigente está en [../CHANGELOG.md](../CHANGELOG.md).
+
 ## [2.1.0] - Auditoría de Funcionamiento Real Cloud-First
 ### Añadido
 - **Informe de Auditoría de Integración Cloud (`docs/CLOUD_INTEGRATION_AUDIT.md`)**: Diagnóstico detallado del funcionamiento real frente a simuladores, clasificación de las 6 áreas clave (Autenticación, Persistencia, Sincronización, Trabajos Cloud, Renderizado y Capacitor) y respuesta directa a las 9 preguntas clave del proyecto.

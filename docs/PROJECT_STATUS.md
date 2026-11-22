@@ -1,23 +1,12 @@
-# Estado del Proyecto - Estudio Audiovisual Inteligente
+# Estado del proyecto (documento sustituido)
 
-**Última actualización:** Auditoría de Funcionamiento Real Cloud-First Completada
-**Estado:** AUDITORÍA CLOUD-FIRST COMPLETADA Y DOCUMENTADA EN `docs/CLOUD_INTEGRATION_AUDIT.md`
+Este archivo describía el proyecto como «🟢 Operativo» en módulos que en realidad eran diseño o
+simuladores locales. El estado real y verificado está ahora en [../PROJECT_STATUS.md](../PROJECT_STATUS.md).
 
-## Resumen del Estado
-1. **Auditoría de Integración Cloud-First (`docs/CLOUD_INTEGRATION_AUDIT.md`):**
-   - Evaluadas las 6 dimensiones clave: Autenticación, Persistencia Cloud, Sincronización, Trabajos Asíncronos, Renderizado y Capacitor Android.
-   - Diagnóstico claro: La arquitectura y los componentes locales funcionan con total estabilidad en IndexedDB, mientras que la réplica remota y los workers asíncronos están diseñados e implementados con adaptadores/simuladores locales pendientes de despliegue cloud real.
-2. **Calidad y Pruebas:**
-   - Compilación TypeScript (`npx tsc --noEmit`) sin errores.
-   - Suite de pruebas unitarias Vitest: 8/8 pasaron al 100%.
+Resumen: el flujo local (proyectos en IndexedDB, escenas, imágenes, narración importada y exportación WebM
+con WebCodecs) está implementado y probado en Chromium. La IA real, la nube, la sincronización, el
+multiusuario y el build de Android **no** existen o no están verificados. El código de nube simulado
+(`cloudApi`, `syncEngine`, `jobQueueManager`) fue eliminado del repositorio.
 
-## Módulos y Preparación
-
-| Módulo | Estado | Detalles |
-| :--- | :--- | :--- |
-| **Auditoría Cloud** | 🟢 Completado | Informe riguroso publicado en `docs/CLOUD_INTEGRATION_AUDIT.md`. |
-| **Arquitectura Cloud** | 🟢 Operativo | `CLOUD_ARCHITECTURE.md`, `SECURITY_MODEL.md`, `DEPLOYMENT_GUIDE.md`. |
-| **Backend & Sync** | 🟢 Operativo | `supabase/schema.sql`, `api.ts`, `syncEngine.ts`, `jobQueue.ts`. |
-| **Documental Cap. 2** | 🟢 Completado | Guion desglosado de 85s (ENQUIRE, Sendall, Cailliau, propuesta 1989). |
-| **Motor de Renderizado**| 🟢 Operativo | Canvas 2D local para previsualizaciones + Worker FFmpeg/Cloud especificado. |
-| **Config Multiplataforma**| 🟢 Operativo | Configuración nativa `capacitor.config.json` para Android. |
+Los informes de auditoría de `docs/` (`CLOUD_INTEGRATION_AUDIT.md`, `CLOUD_ARCHITECTURE.md`,
+`STORAGE_AND_SYNC.md`, `CLOUD_RENDERING.md`) se conservan como documentación histórica de diseño.

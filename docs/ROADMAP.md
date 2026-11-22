@@ -1,4 +1,9 @@
-# Roadmap de Desarrollo - Estudio Audiovisual Inteligente
+# Roadmap de Desarrollo (documento histórico)
+
+> Este roadmap describía las fases iniciales de 2025 y ya no refleja el estado del proyecto. El roadmap
+> vigente, priorizado por lo que falta de verdad, está en [../ROADMAP.md](../ROADMAP.md).
+
+# Roadmap original - Estudio Audiovisual Inteligente
 
 ## Fase 1: Inspección, Protección y Documentación Base
 - [x] Crear `.gitignore` seguro para evitar subir claves y dependencias.

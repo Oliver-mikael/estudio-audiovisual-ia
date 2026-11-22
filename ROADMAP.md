@@ -1,0 +1,59 @@
+# Roadmap
+
+Lista priorizada de lo que falta, empezando por lo que más limita el uso real. Nada de esta lista está
+implementado salvo que se indique lo contrario.
+
+## 1. IA real (prioridad alta)
+
+Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
+
+- Conectar un modelo real para generar ángulos narrativos y críticas de guion.
+- Definir dónde corre: API en la nube con clave del usuario, o modelo local (WebGPU/ONNX).
+- Presupuesto y límites de uso por proyecto.
+- Mostrar claramente cuándo un texto lo ha generado un modelo y cuándo es una plantilla.
+
+## 2. Reproducción y exportación más robustas
+
+- Probar y documentar WAV además de MP3.
+- Verificar Safari y Firefox; allí WebCodecs no existe y la exportación cae al respaldo en tiempo real.
+- Añadir exportación MP4/H.264 (o documentar que WebM es la única salida).
+- Arreglar la duración del WebM del respaldo `MediaRecorder` (hoy no declara duración).
+- Aplicar de verdad las transiciones Corte / Fundido / Deslizamiento / Zoom.
+- Interfaz para elegir resolución, fps y relación de aspecto (hoy fijos en 1280×720 @ 30 fps).
+
+## 3. Edición de audio
+
+- Narración por escena en lugar de una sola pista para todo el proyecto.
+- Música de fondo con mezcla y ducking.
+- Recorte y ajuste de inicio de la narración desde la UI.
+
+## 4. Recursos
+
+- Componer clips de video dentro de las escenas (hoy solo se suben a la biblioteca).
+- Miniaturas y previsualización de audio con reproducción.
+- Límites y aviso de cuota antes de quedarse sin espacio en IndexedDB.
+
+## 5. Persistencia y nube (prioridad media)
+
+- Sincronización entre dispositivos con backend real (el módulo simulado se eliminó).
+- Autenticación y datos por usuario.
+- Exportar/importar el proyecto completo como archivo para no depender del navegador.
+- Historial de versiones y deshacer.
+
+## 6. Multiusuario (prioridad baja)
+
+- Espacios de trabajo compartidos.
+- Comentarios sobre escenas y fuentes.
+- Roles y permisos.
+
+## 7. Android (prioridad baja, sin verificar)
+
+- Build real con Capacitor y pruebas en dispositivo.
+- Comprobar si WebCodecs existe en el WebView usado y qué rendimiento tiene.
+- Almacenamiento y exportación de archivos con las APIs nativas.
+
+## 8. Calidad
+
+- Pruebas de la UI y de la exportación (hoy solo hay 8 pruebas del modelo de datos).
+- Accesibilidad del editor (foco, teclado, anuncios de estado).
+- Idiomas: hoy toda la interfaz está en español.
