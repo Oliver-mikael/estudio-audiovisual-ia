@@ -75,6 +75,13 @@ ejemplo descargados de internet. Las cifras (duración, resolución, fps, canale
 | `phase13-export-modal.png` | Captura del modal de exportación (360×712). | Muestra la narración `voz-1000hz-2s.wav`, la música `musica-200hz.mp3`, 4 s · 120 cuadros · 30 fps y el nombre `prueba-fase-13-mezcla-720p.webm`. |
 | `phase13-music-ducking.webm` | Export real descargado pulsando el botón, 4,00 s, VP9 1280×720@30 + Opus 48 kHz estéreo. | La música baja durante la voz: medida con Goertzel sobre el PCM extraído con ffmpeg, la componente de 200 Hz vale 0,0182 en 0,8–1,8 s (voz) y 0,0593 en 3,0–3,9 s (silencio), es decir el 30,7 % (−10,3 dB). La voz de 1 kHz aparece a 0,0375 en la primera mitad y desaparece en la segunda. |
 
+## Fase 14 — efecto de sonido por escena
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase14-export-modal.png` | Captura del modal de exportación (360×712). | Muestra «Efectos por escena: 1 asignado(s)» junto a la narración y la música. |
+| `phase14-scene-sfx.webm` | Export real de 4,00 s (VP9 1280×720@30 + Opus), dos escenas de 2 s; la segunda lleva `test-sfx-4000hz.mp3`. | El efecto suena al inicio de su escena y solo allí: la componente de 4 kHz vale 0,0480 en t = 2,0–2,3 s, 0,0000 en 0,4–0,7 s y 0,0000 en 2,4–2,7 s. La música de 200 Hz sigue con ducking (0,0187 con voz, 0,0593 al final) y la voz de 1 kHz solo en la primera escena. |
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |

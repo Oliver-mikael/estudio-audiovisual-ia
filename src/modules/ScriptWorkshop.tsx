@@ -13,6 +13,7 @@ import {
   GripVertical,
   ImagePlus,
   Film,
+  AudioLines,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
@@ -39,6 +40,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const totalDuration = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
   const imageAssets = (project.mediaAssets || []).filter((asset) => asset.type === 'image');
   const videoAssets = (project.mediaAssets || []).filter((asset) => asset.type === 'video');
+  const audioAssets = (project.mediaAssets || []).filter((asset) => asset.type === 'audio');
   const activeImageAssetId =
     activeScene?.imageAssetId ??
     imageAssets.find((asset) => asset.url === activeScene?.imageUrl)?.id ??
@@ -568,6 +570,51 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                 </p>
                 {assigningVideo && <p className="text-sm text-slate-400">Cargando clip...</p>}
                 {videoError && <p className="text-sm text-rose-300">{videoError}</p>}
+              </div>
+
+              {/* Efecto de sonido al inicio de la escena */}
+              <div className="space-y-2 border-t border-slate-800 pt-4">
+                <label htmlFor="scene-sfx" className="etiqueta flex items-center gap-1.5">
+                  <AudioLines className="w-4 h-4 text-indigo-400" />
+                  <span>Efecto de sonido (SFX) de la escena</span>
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    id="scene-sfx"
+                    value={activeScene.sfxAssetId ?? ''}
+                    onChange={(event) =>
+                      handleUpdateActiveScene({ sfxAssetId: event.target.value || undefined })
+                    }
+                    className="campo"
+                  >
+                    <option value="">Sin efecto de sonido</option>
+                    {audioAssets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {activeScene.sfxAssetId && (
+                    <button
+                      onClick={() => handleUpdateActiveScene({ sfxAssetId: undefined })}
+                      className="btn-secondary shrink-0"
+                    >
+                      Quitar efecto
+                    </button>
+                  )}
+                </div>
+
+                {audioAssets.length === 0 && (
+                  <p className="text-sm text-slate-500">
+                    No hay audios en la biblioteca. Súbelos desde la sección Biblioteca.
+                  </p>
+                )}
+                <p className="text-sm text-slate-500">
+                  El efecto suena una sola vez al inicio de esta escena, mezclado con la narración y la música
+                  de fondo.
+                </p>
               </div>
             </>
           ) : (

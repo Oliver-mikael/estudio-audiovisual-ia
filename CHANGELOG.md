@@ -13,8 +13,15 @@ Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1
   mientras hay voz, con ataque de 0,12 s y liberación de 0,4 s. Se ajusta en Ajustes del proyecto y el modal
   de exportación muestra la música y los efectos asignados.
 
+- **Efectos de sonido por escena** (fase 14): cada escena guarda `sfxAssetId` y suena una sola vez al
+  inicio de la escena, mezclado con narración y música (ganancia fija de 0,8). Se asigna en el taller de
+  guion con un desplegable de los audios de la Biblioteca.
+
 ### Verificado con archivos reales
 
+- `artifacts/phase14-scene-sfx.webm`: export real de 4 s con dos escenas y un SFX de 4 kHz en la segunda.
+  Medido con ffmpeg: 4 kHz a 0,0480 en t = 2,0–2,3 s y 0,0000 fuera de ese tramo, con narración y música
+  presentes a la vez.
 - `artifacts/phase13-music-ducking.webm`: export real por la UI (4 s, VP9 1280×720@30 + Opus). Narración de
   1 kHz de 0 a 2 s y música de 200 Hz. Analizado con ffmpeg: la música a 200 Hz vale **0,0593 sin voz** y
   **0,0182 con voz** (30,7 %, −10,3 dB), y vuelve a subir tras la narración.
@@ -22,6 +29,7 @@ Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1
 ### Limitaciones que siguen
 
 - La música es una sola pista global, sin puntos de entrada/salida ni fundidos propios.
+- El SFX no tiene control de volumen propio ni se puede retrasar dentro de la escena.
 
 ## [Sin publicar] — 22 de noviembre de 2026 (fases 9–12)
 

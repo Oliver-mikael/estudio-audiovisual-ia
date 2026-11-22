@@ -45,6 +45,8 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
 - **Música de fondo con ducking**: la música se mezcla en bucle con la narración y baja automáticamente al
   30 % mientras hay voz, volviendo a su volumen en el silencio. El volumen general (0–100 %) se ajusta en
   Ajustes.
+- **Efectos de sonido por escena**: cada escena puede llevar un audio corto de la Biblioteca como SFX, que
+  suena una vez al inicio de la escena mezclado con la narración y la música.
 - **Autoguardado** con 1 segundo de debounce e indicador permanente en la cabecera
   (`Guardado ✓` / `Guardando...` / `Error al guardar`). Si IndexedDB falla por cuota, el mensaje aparece
   visible bajo la cabecera.
@@ -65,9 +67,9 @@ npm test          # Vitest (17 pruebas de lógica y persistencia)
 - **No hay app Android publicada.** Solo queda `capacitor.config.json`; no hay build ni paridad probada.
 - **Solo WebM.** No se exporta MP4/H.264. En Safari y Firefox (sin WebCodecs) se usa el respaldo
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
-- **Audio**: MP3 y WAV funcionan como narración y como música de fondo (verificado con ffmpeg). Sigue
-  habiendo una sola pista de narración para todo el proyecto; no hay narración por escena ni ajuste de
-  entrada/salida de la música.
+- **Audio**: MP3 y WAV funcionan como narración, música de fondo y efectos de escena (verificado con
+  ffmpeg). Sigue habiendo una sola pista de narración para todo el proyecto, y la música y los efectos no
+  tienen control de volumen propio (la música sí un volumen global en Ajustes).
 - **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Se probaron un WebM
   (VP8) y un MP4 H.264 dentro de escenas en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 no se
   probaron. El audio propio del clip se ignora.

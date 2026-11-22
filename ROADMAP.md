@@ -35,6 +35,7 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 - Narración por escena en lugar de una sola pista para todo el proyecto.
 - [x] Música de fondo global con mezcla y ducking (fase 13).
+- [x] Efecto de sonido por escena al inicio de la escena (fase 14).
 - Recorte y ajuste de inicio de la narración desde la UI.
 - Puntos de entrada/salida y fundido propio de la música.
 
