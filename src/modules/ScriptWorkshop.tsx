@@ -1,7 +1,8 @@
 // Script Workshop Component for Estudio Audiovisual Inteligente
 import React, { useEffect, useState } from 'react';
-import { Project, Scene } from '../types';
+import { Project, Scene, SubtitleEntry } from '../types';
 import { getMediaAssetBlob } from '../services/storage/db';
+import { subtitleSlotDefaults, subtitleText } from '../engine/renderEngine';
 import {
   FileText,
   Plus,
@@ -63,6 +64,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     activeScene?.videoAssetId ??
     videoAssets.find((asset) => asset.url === activeScene?.videoUrl)?.id ??
     '';
+  const subtitleDefaults = activeScene ? subtitleSlotDefaults(activeScene) : [];
 
   const handleUpdateActiveScene = (
     updatedFields: Partial<Scene>,
@@ -83,6 +85,52 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       },
       options
     );
+  };
+
+  /** Cambia el texto de un subtítulo conservando sus tiempos si ya eran explícitos. */
+  const handleSubtitleTextChange = (index: number, value: string) => {
+    if (!activeScene) return;
+    const entries = [...(activeScene.subtitles ?? [])];
+    const current = entries[index];
+    entries[index] = typeof current === 'string' ? value : { ...current, text: value };
+    handleUpdateActiveScene(
+      { subtitles: entries },
+      { coalesceKey: `scene:${activeScene.id}:subtitle:${index}` }
+    );
+  };
+
+  /** Fija el inicio o la duración de una línea; el resto se conserva. */
+  const handleSubtitleTimingChange = (
+    index: number,
+    patch: { startSeconds?: number; durationSeconds?: number }
+  ) => {
+    if (!activeScene) return;
+    const entries = [...(activeScene.subtitles ?? [])];
+    const current = entries[index];
+    const defaults = subtitleSlotDefaults(activeScene)[index] ?? { start: 0, duration: 0 };
+    const base =
+      typeof current === 'string'
+        ? { text: current, startSeconds: defaults.start, durationSeconds: defaults.duration }
+        : {
+            ...current,
+            startSeconds: current.startSeconds ?? defaults.start,
+            durationSeconds: current.durationSeconds ?? defaults.duration,
+          };
+    entries[index] = { ...base, ...patch };
+    handleUpdateActiveScene(
+      { subtitles: entries },
+      { coalesceKey: `scene:${activeScene.id}:subtitle-time:${index}` }
+    );
+  };
+
+  /** Vuelve al reparto automático en partes iguales. */
+  const handleSubtitleAuto = (index: number) => {
+    if (!activeScene) return;
+    const entries = [...(activeScene.subtitles ?? [])];
+    const current = entries[index];
+    if (typeof current === 'string') return;
+    entries[index] = current.text;
+    handleUpdateActiveScene({ subtitles: entries });
   };
 
   const handleAddScene = () => {
@@ -433,49 +481,119 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
 
                 {(activeScene.subtitles ?? []).length === 0 ? (
                   <p className="text-sm text-slate-500">
-                    Esta escena no muestra subtítulos. Añade los que quieras: se reparten en partes iguales
-                    de la duración de la escena y se dibujan en el video exportado.
+                    Esta escena no muestra subtítulos. Añade los que quieras: puedes dejar los tiempos
+                    automáticos (reparto igual) o fijar el inicio y la duración de cada línea.
                   </p>
                 ) : (
-                  <ul className="space-y-2">
-                    {(activeScene.subtitles ?? []).map((subtitle, index) => (
-                      <li key={index} className="flex items-center gap-2">
-                        <span className="text-[11px] font-mono text-slate-500 w-6 text-right shrink-0">
-                          {index + 1}.
-                        </span>
-                        <input
-                          type="text"
-                          value={subtitle}
-                          aria-label={`Subtítulo ${index + 1}`}
-                          onChange={(e) => {
-                            const next = [...(activeScene.subtitles ?? [])];
-                            next[index] = e.target.value;
-                            handleUpdateActiveScene(
-                              { subtitles: next },
-                              { coalesceKey: `scene:${activeScene.id}:subtitle:${index}` }
-                            );
-                          }}
-                          className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
-                          placeholder="Texto del subtítulo"
-                        />
-                        <button
-                          onClick={() => {
-                            const next = (activeScene.subtitles ?? []).filter((_, i) => i !== index);
-                            handleUpdateActiveScene({ subtitles: next });
-                          }}
-                          className="text-slate-500 hover:text-red-400 transition-colors p-1 shrink-0"
-                          title="Eliminar subtítulo"
+                  <ul className="space-y-3">
+                    {(activeScene.subtitles ?? []).map((subtitle, index) => {
+                      const entry = subtitle as SubtitleEntry;
+                      const fallback = subtitleDefaults[index] ?? { start: 0, duration: 0 };
+                      const isAuto = typeof entry === 'string';
+                      const startValue = isAuto ? fallback.start : entry.startSeconds ?? fallback.start;
+                      const durationValue = isAuto
+                        ? fallback.duration
+                        : entry.durationSeconds ?? fallback.duration;
+
+                      return (
+                        <li
+                          key={index}
+                          className="rounded-lg border border-slate-800 bg-slate-950/60 p-2 space-y-2"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </li>
-                    ))}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-slate-500 w-6 text-right shrink-0">
+                              {index + 1}.
+                            </span>
+                            <input
+                              type="text"
+                              value={subtitleText(entry)}
+                              aria-label={`Texto del subtítulo ${index + 1}`}
+                              onChange={(e) => handleSubtitleTextChange(index, e.target.value)}
+                              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                              placeholder="Texto del subtítulo"
+                            />
+                            <button
+                              onClick={() => {
+                                const next = (activeScene.subtitles ?? []).filter((_, i) => i !== index);
+                                handleUpdateActiveScene({ subtitles: next });
+                              }}
+                              className="text-slate-500 hover:text-red-400 transition-colors p-1 shrink-0"
+                              title="Eliminar subtítulo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 pl-8">
+                            <label
+                              htmlFor={`subtitle-start-${index}`}
+                              className="text-[11px] text-slate-400"
+                            >
+                              Inicio (s)
+                            </label>
+                            <input
+                              id={`subtitle-start-${index}`}
+                              type="number"
+                              min="0"
+                              max={activeScene.durationSeconds}
+                              step="0.1"
+                              value={Number(startValue.toFixed(2))}
+                              onChange={(e) => {
+                                const parsed = parseFloat(e.target.value);
+                                handleSubtitleTimingChange(index, {
+                                  startSeconds: Number.isFinite(parsed)
+                                    ? Math.min(activeScene.durationSeconds, Math.max(0, parsed))
+                                    : 0,
+                                });
+                              }}
+                              className="w-20 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs font-mono text-indigo-300 text-center"
+                            />
+                            <label
+                              htmlFor={`subtitle-duration-${index}`}
+                              className="text-[11px] text-slate-400"
+                            >
+                              Duración (s)
+                            </label>
+                            <input
+                              id={`subtitle-duration-${index}`}
+                              type="number"
+                              min="0"
+                              max={activeScene.durationSeconds}
+                              step="0.1"
+                              value={Number(durationValue.toFixed(2))}
+                              onChange={(e) => {
+                                const parsed = parseFloat(e.target.value);
+                                handleSubtitleTimingChange(index, {
+                                  durationSeconds: Number.isFinite(parsed)
+                                    ? Math.max(0, Math.min(activeScene.durationSeconds, parsed))
+                                    : 0,
+                                });
+                              }}
+                              className="w-20 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs font-mono text-indigo-300 text-center"
+                            />
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              {startValue.toFixed(1)}–{Math.min(activeScene.durationSeconds, startValue + durationValue).toFixed(1)} s
+                            </span>
+                            {!isAuto && (
+                              <button
+                                onClick={() => handleSubtitleAuto(index)}
+                                className="text-[11px] text-indigo-300 hover:text-indigo-200 underline underline-offset-2"
+                                title="Volver al reparto automático"
+                              >
+                                Automático
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
 
                 <p className="text-sm text-slate-500">
-                  Los subtítulos son independientes de la narración: editarlos no cambia el texto de
-                  locución ni al revés.
+                  Cada subtítulo se dibuja solo en su ventana de tiempo. Sin tiempos fijos se reparten en
+                  partes iguales de la duración de la escena. Son independientes de la narración: editarlos
+                  no cambia el texto de locución ni al revés.
                 </p>
               </div>
 

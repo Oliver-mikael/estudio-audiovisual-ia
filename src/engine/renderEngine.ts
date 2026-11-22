@@ -5,7 +5,7 @@
 // anterior y la entrante (Fundido, Deslizamiento y Zoom) sin que se pisen los
 // dibujos de una y otra.
 
-import { Scene, Project } from '../types';
+import { Scene, Project, SubtitleEntry } from '../types';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -106,36 +106,89 @@ export interface SubtitleFrame {
   end: number;
 }
 
+/** Texto de una entrada de subtítulo, sea cadena (automática) u objeto con tiempos. */
+export function subtitleText(entry: SubtitleEntry): string {
+  return typeof entry === 'string' ? entry : entry.text ?? '';
+}
+
+function clampSeconds(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Inicio y duración automáticos de cada entrada, alineados con `scene.subtitles`.
+ * Las líneas con texto se reparten en partes iguales de la duración de la escena;
+ * las vacías no ocupan tiempo.
+ */
+export function subtitleSlotDefaults(scene: Scene): { start: number; duration: number }[] {
+  const entries = scene.subtitles ?? [];
+  const duration = Math.max(0, scene.durationSeconds);
+  const visibleCount = entries.filter((entry) => subtitleText(entry).trim().length > 0).length;
+  const slot = visibleCount > 0 ? duration / visibleCount : duration;
+
+  let visibleIndex = 0;
+  return entries.map((entry) => {
+    if (subtitleText(entry).trim().length === 0) return { start: 0, duration: 0 };
+    const start = visibleIndex * slot;
+    visibleIndex += 1;
+    return { start, duration: slot };
+  });
+}
+
 /**
  * Subtítulos editables de una escena, en orden. Las líneas vacías se ignoran.
  * Son independientes del texto de narración: si no hay subtítulos no se dibuja
  * ninguno.
  */
 export function sceneSubtitles(scene: Scene): string[] {
-  return (scene.subtitles ?? []).map((line) => line.trim()).filter((line) => line.length > 0);
+  return (scene.subtitles ?? [])
+    .map((entry) => subtitleText(entry).trim())
+    .filter((line) => line.length > 0);
 }
 
-/** Subtítulo visible en un instante de la escena, o null si no hay ninguno. */
-export function subtitleAt(scene: Scene, localTime: number): SubtitleFrame | null {
-  const subtitles = sceneSubtitles(scene);
-  if (subtitles.length === 0) return null;
-
+/**
+ * Todos los subtítulos de la escena con su ventana temporal resuelta. Cada línea
+ * usa sus tiempos explícitos (inicio y duración) o, si no los tiene, la parte
+ * igual que le corresponde. Sin tiempos explícitos el comportamiento es el de
+ * las fases anteriores.
+ */
+export function subtitleCues(scene: Scene): SubtitleFrame[] {
+  const entries = scene.subtitles ?? [];
+  const defaults = subtitleSlotDefaults(scene);
   const duration = Math.max(0, scene.durationSeconds);
-  const partDuration = duration / subtitles.length;
-  if (partDuration <= 0) {
-    return { index: 0, text: subtitles[0], start: 0, end: 0 };
-  }
+  const cues: SubtitleFrame[] = [];
 
-  const index = Math.min(
-    subtitles.length - 1,
-    Math.max(0, Math.floor(localTime / partDuration))
-  );
-  return {
-    index,
-    text: subtitles[index],
-    start: index * partDuration,
-    end: (index + 1) * partDuration,
-  };
+  entries.forEach((entry, rawIndex) => {
+    const text = subtitleText(entry).trim();
+    if (!text) return;
+
+    const explicit: { startSeconds?: number; durationSeconds?: number } =
+      typeof entry === 'string' ? {} : entry;
+    const fallback = defaults[rawIndex] ?? { start: 0, duration: 0 };
+    const start = clampSeconds(
+      explicit.startSeconds ?? fallback.start,
+      0,
+      duration
+    );
+    const durationValue = Math.max(0, explicit.durationSeconds ?? fallback.duration);
+    const end = clampSeconds(start + durationValue, 0, duration);
+
+    cues.push({ index: cues.length, text, start, end });
+  });
+
+  return cues;
+}
+
+/**
+ * Subtítulo visible en un instante de la escena. Solo se dibuja dentro de su
+ * ventana de tiempo: en los huecos o fuera de la escena devuelve null.
+ */
+export function subtitleAt(scene: Scene, localTime: number): SubtitleFrame | null {
+  const cues = subtitleCues(scene);
+  if (cues.length === 0) return null;
+
+  return cues.find((cue) => localTime >= cue.start && localTime < cue.end) ?? null;
 }
 
 export class CanvasRenderEngine {

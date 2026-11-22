@@ -22,6 +22,18 @@ export interface NarrativeAngle {
   alternativeApproach: string;
 }
 
+/** Línea de subtítulo con tiempos explícitos dentro de la escena (segundos). */
+export interface SubtitleCue {
+  text: string;
+  /** Inicio desde el comienzo de la escena. Si falta, se reparte automáticamente. */
+  startSeconds?: number;
+  /** Duración visible. Si falta, se reparte automáticamente. */
+  durationSeconds?: number;
+}
+
+/** Compatibilidad: las escenas antiguas guardan solo el texto y usan el reparto automático. */
+export type SubtitleEntry = string | SubtitleCue;
+
 export interface Scene {
   id: string;
   title: string;
@@ -41,8 +53,8 @@ export interface Scene {
   audioUrl?: string;
   /** Efecto de sonido (audio corto de la biblioteca) que suena al iniciar la escena. */
   sfxAssetId?: string;
-  /** Subtítulos editables de la escena, en orden; cada uno ocupa una fracción igual de la escena. */
-  subtitles?: string[];
+  /** Subtítulos editables de la escena, en orden. */
+  subtitles?: SubtitleEntry[];
   notes?: string;
 }
 
