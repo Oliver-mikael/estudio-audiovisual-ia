@@ -67,6 +67,8 @@ export interface Project {
   sources: SourceReference[];
   script: ScriptModel;
   mediaAssets: MediaAsset[];
+  /** Id del MediaAsset de audio usado como pista de narración al exportar. */
+  narrationAssetId?: string;
   settings: {
     fps: number;
     resolution: {
