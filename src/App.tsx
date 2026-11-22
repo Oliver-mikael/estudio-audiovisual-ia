@@ -3,9 +3,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Project } from './types';
 import { createEmptyProject } from './data/newProject';
 import {
+  deleteHistoryFromStorage,
   deleteProjectFromStorage,
   getAllProjectsFromStorage,
+  getHistoryFromStorage,
   getProjectFromStorage,
+  saveHistoryToStorage,
   saveProjectToStorage,
 } from './services/storage/db';
 import { VideoPlayer } from './components/VideoPlayer';
@@ -22,6 +25,7 @@ import { findMusicAsset, findNarrationAsset } from './engine/audioTrack';
 import { buildSrt, buildSrtFileName, collectSrtCues } from './engine/srt';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import {
+  HISTORY_LIMIT,
   HistoryState,
   canRedo,
   canUndo,
@@ -160,6 +164,9 @@ export const App: React.FC = () => {
   // Historial de deshacer/rehacer (hasta 50 pasos).
   const historyRef = useRef<HistoryState<Project> | null>(null);
   const lastHistoryKeyRef = useRef<{ key: string; at: number } | null>(null);
+  const historyTimerRef = useRef<number | null>(null);
+  const projectIdRef = useRef<string | null>(null);
+  projectIdRef.current = project?.id ?? null;
   const [historyCounts, setHistoryCounts] = useState({ undo: 0, redo: 0 });
 
   const syncHistoryCounts = useCallback(() => {
@@ -178,6 +185,36 @@ export const App: React.FC = () => {
     },
     [syncHistoryCounts]
   );
+
+  /** Guarda el historial en IndexedDB (un registro por proyecto, 50 pasos). */
+  const flushHistorySave = useCallback(async () => {
+    if (historyTimerRef.current !== null) {
+      window.clearTimeout(historyTimerRef.current);
+      historyTimerRef.current = null;
+    }
+    const history = historyRef.current;
+    const projectId = projectIdRef.current;
+    if (!history || !projectId) return;
+
+    try {
+      await saveHistoryToStorage(projectId, {
+        past: history.past,
+        present: history.present,
+        future: history.future,
+      });
+    } catch (error) {
+      console.error('No se pudo guardar el historial en el almacenamiento local:', error);
+    }
+  }, []);
+
+  /** Programa el guardado del historial para no escribir en cada tecla. */
+  const scheduleHistorySave = useCallback(() => {
+    if (historyTimerRef.current !== null) window.clearTimeout(historyTimerRef.current);
+    historyTimerRef.current = window.setTimeout(() => {
+      historyTimerRef.current = null;
+      void flushHistorySave();
+    }, 700);
+  }, [flushHistorySave]);
 
   const persistProject = useCallback(async (updated: Project) => {
     setSaveStatus('saving');
@@ -225,10 +262,11 @@ export const App: React.FC = () => {
           : pushHistory(history, updated);
         lastHistoryKeyRef.current = key ? { key, at: now } : null;
         syncHistoryCounts();
+        scheduleHistorySave();
       }
       applyProject(updated);
     },
-    [applyProject, syncHistoryCounts]
+    [applyProject, scheduleHistorySave, syncHistoryCounts]
   );
 
   const handleUndo = useCallback(() => {
@@ -238,8 +276,9 @@ export const App: React.FC = () => {
     historyRef.current = restored;
     lastHistoryKeyRef.current = null;
     syncHistoryCounts();
+    scheduleHistorySave();
     applyProject(restored.present);
-  }, [applyProject, syncHistoryCounts]);
+  }, [applyProject, scheduleHistorySave, syncHistoryCounts]);
 
   const handleRedo = useCallback(() => {
     const history = historyRef.current;
@@ -248,8 +287,9 @@ export const App: React.FC = () => {
     historyRef.current = restored;
     lastHistoryKeyRef.current = null;
     syncHistoryCounts();
+    scheduleHistorySave();
     applyProject(restored.present);
-  }, [applyProject, syncHistoryCounts]);
+  }, [applyProject, scheduleHistorySave, syncHistoryCounts]);
 
   // Ctrl+Z deshace; Ctrl+Y o Ctrl+Shift+Z rehace.
   useEffect(() => {
@@ -292,25 +332,51 @@ export const App: React.FC = () => {
 
   const handleOpenProject = useCallback(async (id: string) => {
     await flushPendingSave();
+    await flushHistorySave();
     const stored = await getProjectFromStorage(id);
     if (!stored) {
       setSaveError('No se encontró el proyecto seleccionado en el almacenamiento local.');
       return;
     }
-    const resolved = await resolveSceneMediaUrls(stored);
-    resetHistory(resolved);
-    setProject(resolved);
+
+    const storedHistory = await getHistoryFromStorage(id).catch(() => null);
+
+    if (storedHistory && storedHistory.present?.id === id) {
+      // Restaura el historial guardado y revalida las URLs de imagen/video de
+      // cada instantánea (los object URLs mueren al recargar la página).
+      const [past, present, future] = await Promise.all([
+        Promise.all(storedHistory.past.map((snapshot) => resolveSceneMediaUrls(snapshot))),
+        resolveSceneMediaUrls(storedHistory.present),
+        Promise.all(storedHistory.future.map((snapshot) => resolveSceneMediaUrls(snapshot))),
+      ]);
+
+      historyRef.current = {
+        past: past.slice(Math.max(0, past.length - HISTORY_LIMIT)),
+        present,
+        future: future.slice(0, HISTORY_LIMIT),
+      };
+      lastHistoryKeyRef.current = null;
+      syncHistoryCounts();
+      setProject(present);
+      // El presente del historial puede ser más reciente que el proyecto guardado.
+      void persistProject(present);
+    } else {
+      const resolved = await resolveSceneMediaUrls(stored);
+      resetHistory(resolved);
+      setProject(resolved);
+    }
+
     setActiveSection('guion');
     setExportedVideo(null);
     setSaveStatus('saved');
     setSaveError(null);
-  }, [flushPendingSave, resetHistory]);
+  }, [flushHistorySave, flushPendingSave, persistProject, resetHistory, syncHistoryCounts]);
 
   const handleRenameProject = useCallback(
     async (id: string, title: string) => {
       const stored = await getProjectFromStorage(id);
       if (!stored) return;
-      const updated = { ...stored, title };
+      const updated = { ...stored, title, updatedAt: Date.now() };
       setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
       await saveProjectToStorage(updated);
       if (project?.id === id) setProject(updated);
@@ -322,6 +388,7 @@ export const App: React.FC = () => {
   const handleDeleteProject = useCallback(
     async (id: string) => {
       await deleteProjectFromStorage(id);
+      await deleteHistoryFromStorage(id).catch(() => undefined);
       if (project?.id === id) {
         setProject(null);
         historyRef.current = null;
@@ -335,13 +402,14 @@ export const App: React.FC = () => {
 
   const handleBackHome = useCallback(() => {
     void flushPendingSave();
+    void flushHistorySave();
     setProject(null);
     historyRef.current = null;
     syncHistoryCounts();
     setExportedVideo(null);
     setSaveError(null);
     void refreshProjects();
-  }, [flushPendingSave, refreshProjects, syncHistoryCounts]);
+  }, [flushHistorySave, flushPendingSave, refreshProjects, syncHistoryCounts]);
 
   // Al cerrar la pestaña se intenta guardar lo que quede pendiente.
   useEffect(() => {
@@ -351,6 +419,21 @@ export const App: React.FC = () => {
         saveTimerRef.current = null;
         const pending = pendingProjectRef.current;
         if (pending) void saveProjectToStorage(pending);
+      }
+
+      // El historial pendiente también se intenta guardar al cerrar la pestaña.
+      if (historyTimerRef.current !== null) {
+        window.clearTimeout(historyTimerRef.current);
+        historyTimerRef.current = null;
+      }
+      const history = historyRef.current;
+      const projectId = projectIdRef.current;
+      if (history && projectId) {
+        void saveHistoryToStorage(projectId, {
+          past: history.past,
+          present: history.present,
+          future: history.future,
+        });
       }
     };
     window.addEventListener('beforeunload', handler);
