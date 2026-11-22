@@ -12,6 +12,7 @@ verificado.
 | Exportación WebCodecs | **Probado** | VP9 + Opus + `webm-muxer`, cuadro por cuadro. Video de prueba de 10,00 s / 300 cuadros, correlación 0,9991 con la voz fuente. |
 | Narración importada | **Probado (MP3)** | `decodeAudioData` en `OfflineAudioContext` 48 kHz estéreo, recortada a la duración del proyecto. |
 | Nombre y extensión del archivo | **Probado** | Chrome descargó `…-720p.webm`; el nombre se sanea y la extensión sale del MIME real. |
+| Exportación completa desde la UI | **Probado** | Proyecto creado en la pantalla de inicio, dos escenas (3 s + 2 s), WAV importado en la Biblioteca y «Exportar video». El modal mostró 1280 × 720, WebM · VP9 · Opus, WebCodecs, la narración y el nombre `prueba-fase-10-exportacion-completa-720p.webm`; la descarga del navegador usó ese mismo nombre. ffmpeg: 5,00 s, VP9 1280×720@30 + Opus 48 kHz estéreo, RMS 0,0945, pico 0,5817, correlación 0,9992 con el WAV y desfase 0. |
 | Respaldo sin WebCodecs | **Probado (Chromium, forzado)** | `MediaRecorder` + `captureStream(0)` con audio real; el WebM no declara duración. |
 | Pantalla de inicio y proyectos | **Implementado** | Crear, abrir, renombrar y eliminar contra IndexedDB. No se ha probado con cuota llena. |
 | Editor y navegación lateral | **Implementado** | Una sección visible a la vez; tipografía 14/18/12 px; textos en español. |
