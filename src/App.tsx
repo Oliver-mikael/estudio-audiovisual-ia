@@ -19,6 +19,7 @@ import {
   projectDurationSeconds,
 } from './engine/exporter';
 import { findMusicAsset, findNarrationAsset } from './engine/audioTrack';
+import { buildSrt, buildSrtFileName, collectSrtCues } from './engine/srt';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import {
   HistoryState,
@@ -85,6 +86,7 @@ interface ExportDialogData {
   narrationName: string | null;
   musicName: string | null;
   sfxCount: number;
+  subtitleCount: number;
   durationSeconds: number;
   totalFrames: number;
 }
@@ -372,6 +374,7 @@ export const App: React.FC = () => {
         narrationName: narrationAsset ? narrationAsset.name : null,
         musicName: musicAsset ? musicAsset.name : null,
         sfxCount,
+        subtitleCount: collectSrtCues(project).length,
         durationSeconds,
         totalFrames: Math.round(durationSeconds * format.fps),
       });
@@ -410,6 +413,26 @@ export const App: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
+  }, [project]);
+
+  /** Descarga los subtítulos de todo el proyecto como .srt con tiempos absolutos. */
+  const handleDownloadSrt = useCallback(() => {
+    if (!project) return;
+    const srt = buildSrt(project);
+    if (!srt) {
+      setSaveError('El proyecto no tiene subtítulos que exportar. Añádelos en el taller de guion.');
+      return;
+    }
+
+    const blob = new Blob([srt], { type: 'application/x-subrip;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = buildSrtFileName(project);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, [project]);
 
   if (!project) {
@@ -615,7 +638,7 @@ export const App: React.FC = () => {
                     ? ` · ${exportedVideo.sfxAssetNames.length} efecto(s)`
                     : ''}
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <a
                     href={exportedVideo.url}
                     download={buildExportFileName(project, exportedVideo.extension)}
@@ -624,6 +647,14 @@ export const App: React.FC = () => {
                     <Download className="w-4 h-4" />
                     <span>Descargar .{exportedVideo.extension}</span>
                   </a>
+                  <button
+                    onClick={handleDownloadSrt}
+                    className="btn-secondary"
+                    title="Descargar los subtítulos de todas las escenas como .srt"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>.srt</span>
+                  </button>
                   <button onClick={() => setExportedVideo(null)} className="btn-secondary">
                     Cerrar
                   </button>
@@ -641,6 +672,15 @@ export const App: React.FC = () => {
           onClose={() => setExportDialog(null)}
           footer={
             <>
+              <button
+                onClick={handleDownloadSrt}
+                disabled={exportDialog.subtitleCount === 0}
+                className="btn-secondary mr-auto"
+                title="Descargar los subtítulos de todas las escenas como .srt"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Descargar .srt</span>
+              </button>
               <button onClick={() => setExportDialog(null)} className="btn-secondary">
                 Cancelar
               </button>
@@ -693,6 +733,14 @@ export const App: React.FC = () => {
               <dt className="text-slate-400">Efectos por escena</dt>
               <dd className="text-slate-100 text-right">
                 {exportDialog.sfxCount > 0 ? `${exportDialog.sfxCount} asignado(s)` : 'Ninguno'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-400">Subtítulos</dt>
+              <dd className="text-slate-100 text-right">
+                {exportDialog.subtitleCount > 0
+                  ? `${exportDialog.subtitleCount} línea(s) · ${buildSrtFileName(project)}`
+                  : 'Ninguno'}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
