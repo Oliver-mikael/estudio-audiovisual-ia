@@ -42,6 +42,8 @@ export interface VideoExportResult {
   width: number;
   height: number;
   fps: number;
+  /** Códec real de la pista de audio ('AAC-LC (mp4a.40.2)', 'Opus' o 'sin audio'). */
+  audioCodec: string;
 }
 
 /** Contenedor de salida elegido para la exportación. */
@@ -55,6 +57,134 @@ interface VideoCodecPlan {
 
 /** Perfil H.264 baseline nivel 3.0, el que admite WebCodecs con más frecuencia. */
 export const MP4_VIDEO_CODEC = 'avc1.42E01E';
+
+/** AAC-LC: el códec de audio que hace falta para la máxima compatibilidad en MP4. */
+export const MP4_AUDIO_CODEC = 'mp4a.40.2';
+
+export type Mp4MuxerAudioCodec = 'aac' | 'opus';
+
+export interface AudioCodecPlan {
+  /** Códec que se pasa a AudioEncoder.configure(). */
+  encoderCodec: 'mp4a.40.2' | 'opus';
+  /** Códec que espera el empaquetador. */
+  muxerCodec: Mp4MuxerAudioCodec;
+  /** Nombre legible para el modal y el informe.
+   */
+  label: string;
+  container: ExportContainer;
+}
+
+/**
+ * Configuración de AudioEncoder común a los dos códecs. En AAC se pide el
+ * formato crudo (`aac`), que es el que mp4-muxer empaqueta con su `esds`.
+ */
+function audioEncoderConfig(codec: AudioCodecPlan['encoderCodec']) {
+  return {
+    codec,
+    sampleRate: NARRATION_SAMPLE_RATE,
+    numberOfChannels: NARRATION_CHANNELS,
+    bitrate: AUDIO_BITRATE,
+    ...(codec === MP4_AUDIO_CODEC ? { aac: { format: 'aac' as const } } : {}),
+  };
+}
+
+/** Resultado del sondeo de codificadores (se cachea por sesión). */
+const audioEncoderSupport = new Map<string, boolean>();
+
+/**
+ * Comprueba de verdad que AudioEncoder puede codificar este códec.
+ *
+ * `isConfigSupported` no basta: Chrome para Linux sin el codificador AAC de
+ * FFmpeg responde `supported: true` y luego lanza `NotSupportedError` al
+ * configurar o al enviar la primera trama. Por eso, además de la consulta, se
+ * codifica una trama de silencio y se espera al `flush`.
+ */
+async function canEncodeAudio(codec: AudioCodecPlan['encoderCodec']): Promise<boolean> {
+  const cached = audioEncoderSupport.get(codec);
+  if (cached !== undefined) return cached;
+  if (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined') return false;
+
+  const config = audioEncoderConfig(codec);
+  try {
+    const support = await AudioEncoder.isConfigSupported(config);
+    if (!support.supported) {
+      audioEncoderSupport.set(codec, false);
+      return false;
+    }
+  } catch {
+    audioEncoderSupport.set(codec, false);
+    return false;
+  }
+
+  const works = await new Promise<boolean>((resolve) => {
+    let settled = false;
+    let encoder: AudioEncoder | null = null;
+    const finish = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+      try {
+        encoder?.close();
+      } catch {
+        // Ya estaba cerrado.
+      }
+    };
+
+    try {
+      encoder = new AudioEncoder({ output: () => undefined, error: () => finish(false) });
+      encoder.configure(config);
+      const frames = 960; // 20 ms @ 48 kHz
+      encoder.encode(
+        new AudioData({
+          format: 'f32-planar',
+          sampleRate: NARRATION_SAMPLE_RATE,
+          numberOfFrames: frames,
+          numberOfChannels: NARRATION_CHANNELS,
+          timestamp: 0,
+          data: new Float32Array(frames * NARRATION_CHANNELS),
+        })
+      );
+      encoder.flush().then(
+        () => finish(true),
+        () => finish(false)
+      );
+    } catch {
+      finish(false);
+    }
+    // Ningún navegador debería tardar 3 s en codificar 20 ms de silencio.
+    setTimeout(() => finish(false), 3000);
+  });
+
+  audioEncoderSupport.set(codec, works);
+  return works;
+}
+
+/**
+ * Códec de audio real de este navegador. En MP4 se prefiere AAC-LC
+ * (`mp4a.40.2`); si AudioEncoder no lo puede codificar de verdad se usa Opus,
+ * que el empaquetador también sabe escribir dentro de un MP4.
+ */
+export async function planAudioCodec(container: ExportContainer): Promise<AudioCodecPlan | null> {
+  if (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined') return null;
+
+  const candidates: AudioCodecPlan[] =
+    container === 'mp4'
+      ? [
+          {
+            encoderCodec: MP4_AUDIO_CODEC,
+            muxerCodec: 'aac',
+            label: 'AAC-LC (mp4a.40.2)',
+            container,
+          },
+          { encoderCodec: 'opus', muxerCodec: 'opus', label: 'Opus (este navegador no codifica AAC)', container },
+        ]
+      : [{ encoderCodec: 'opus', muxerCodec: 'opus', label: 'Opus', container }];
+
+  for (const candidate of candidates) {
+    if (await canEncodeAudio(candidate.encoderCodec)) return candidate;
+  }
+  return null;
+}
 
 const VIDEO_BITRATE = 2_500_000;
 const AUDIO_BITRATE = 128_000;
@@ -145,23 +275,23 @@ interface CreatedMuxer {
   finalize: () => { buffer: ArrayBuffer; mimeType: string; container: ExportContainer };
 }
 
-/** Crea el empaquetador del contenedor pedido (WebM/VP9 o MP4/H.264). */
+/** Crea el empaquetador del contenedor pedido (WebM/VP9 o MP4/H.264 + AAC/Opus). */
 function createMuxer(
   plan: VideoCodecPlan,
   width: number,
   height: number,
   fps: number,
-  withAudio: boolean
+  audioCodec: AudioCodecPlan | null
 ): CreatedMuxer {
   if (plan.container === 'mp4') {
     const target = new Mp4ArrayBufferTarget();
     const muxer = new Mp4Muxer({
       target,
       video: { codec: 'avc', width, height, frameRate: fps },
-      ...(withAudio
+      ...(audioCodec
         ? {
             audio: {
-              codec: 'opus' as const,
+              codec: audioCodec.muxerCodec,
               numberOfChannels: NARRATION_CHANNELS,
               sampleRate: NARRATION_SAMPLE_RATE,
             },
@@ -183,7 +313,7 @@ function createMuxer(
   const muxer = new WebmMuxer({
     target,
     video: { codec: plan.muxerCodec as 'V_VP9' | 'V_VP8', width, height, frameRate: fps },
-    ...(withAudio
+    ...(audioCodec
       ? {
           audio: {
             codec: 'A_OPUS' as const,
@@ -203,21 +333,6 @@ function createMuxer(
   };
 }
 
-async function supportsOpusAudio(): Promise<boolean> {
-  if (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined') return false;
-  try {
-    const support = await AudioEncoder.isConfigSupported({
-      codec: 'opus',
-      sampleRate: NARRATION_SAMPLE_RATE,
-      numberOfChannels: NARRATION_CHANNELS,
-      bitrate: AUDIO_BITRATE,
-    });
-    return support.supported === true;
-  } catch {
-    return false;
-  }
-}
-
 export interface ExportFormatInfo {
   container: string;
   videoCodec: string;
@@ -235,12 +350,16 @@ export interface ExportFormatInfo {
   supported: boolean;
   /** Explicación del motivo cuando `supported` es false. */
   message: string | null;
+  /** Aviso no bloqueante sobre el códec de audio elegido. */
+  audioNote: string | null;
 }
 
 const MP4_UNSUPPORTED_MESSAGE =
   'Este navegador no soporta la codificación H.264 en WebCodecs, así que no puede exportar MP4. Elige WebM o usa Chrome/Edge de escritorio actualizado.';
 const MP4_AUDIO_UNSUPPORTED_MESSAGE =
-  'Este navegador no puede codificar audio Opus para el MP4. Elige WebM o usa Chrome/Edge de escritorio actualizado.';
+  'Este navegador no puede codificar audio AAC ni Opus para el MP4. Elige WebM o usa Chrome/Edge de escritorio actualizado.';
+const MP4_AUDIO_OPUS_NOTE =
+  'Este navegador no puede codificar AAC-LC (mp4a.40.2): la pista de audio del MP4 se guarda en Opus, que también es válido dentro de un MP4. El empaquetador no admite PCM sin comprimir en MP4; para audio sin comprimir usa «Exportar audio» (WAV de 48 kHz).';
 
 /**
  * Describe el formato que producirá realmente la exportación en este navegador,
@@ -258,14 +377,18 @@ export async function describeExportFormat(
   const mobileLimited = isLimitedForMobile(project.settings);
 
   const plan = await planVideoCodec(width, height, fps, container);
-  const audioOk = hasAudio ? await supportsOpusAudio() : true;
+  const audioPlan = hasAudio ? await planAudioCodec(container) : null;
+  const audioOk = hasAudio ? Boolean(audioPlan) : true;
+  const audioLabel = audioPlan ? audioPlan.label : 'sin audio';
+  const opusFallbackNote =
+    container === 'mp4' && audioPlan?.muxerCodec === 'opus' ? MP4_AUDIO_OPUS_NOTE : null;
 
   if (container === 'mp4') {
     if (!plan) {
       return {
         container: 'MP4',
         videoCodec: 'H.264',
-        audioCodec: hasAudio ? 'Opus' : 'sin audio',
+        audioCodec: hasAudio ? audioLabel : 'sin audio',
         mode: 'no disponible',
         usedWebCodecs: false,
         width,
@@ -275,6 +398,7 @@ export async function describeExportFormat(
         requestedContainer: 'mp4',
         supported: false,
         message: MP4_UNSUPPORTED_MESSAGE,
+        audioNote: null,
       };
     }
     if (!audioOk) {
@@ -291,12 +415,13 @@ export async function describeExportFormat(
         requestedContainer: 'mp4',
         supported: false,
         message: MP4_AUDIO_UNSUPPORTED_MESSAGE,
+        audioNote: null,
       };
     }
     return {
       container: 'MP4',
       videoCodec: 'H.264 (avc1.42E01E)',
-      audioCodec: hasAudio ? 'Opus' : 'sin audio',
+      audioCodec: hasAudio ? audioLabel : 'sin audio',
       mode: 'cuadro por cuadro (WebCodecs)',
       usedWebCodecs: true,
       width,
@@ -306,6 +431,7 @@ export async function describeExportFormat(
       requestedContainer: 'mp4',
       supported: true,
       message: null,
+      audioNote: opusFallbackNote,
     };
   }
 
@@ -313,7 +439,7 @@ export async function describeExportFormat(
     return {
       container: 'WebM',
       videoCodec: plan.muxerCodec === 'V_VP9' ? 'VP9' : 'VP8',
-      audioCodec: hasAudio ? 'Opus' : 'sin audio',
+      audioCodec: hasAudio ? audioLabel : 'sin audio',
       mode: 'cuadro por cuadro (WebCodecs)',
       usedWebCodecs: true,
       width,
@@ -323,13 +449,14 @@ export async function describeExportFormat(
       requestedContainer: 'webm',
       supported: true,
       message: null,
+      audioNote: null,
     };
   }
 
   return {
     container: 'WebM',
     videoCodec: 'VP9/VP8',
-    audioCodec: hasAudio ? 'Opus' : 'sin audio',
+    audioCodec: hasAudio ? audioLabel : 'sin audio',
     mode: 'tiempo real (MediaRecorder)',
     usedWebCodecs: false,
     width,
@@ -339,6 +466,7 @@ export async function describeExportFormat(
     requestedContainer: 'webm',
     supported: true,
     message: null,
+    audioNote: null,
   };
 }
 
@@ -391,7 +519,8 @@ export class VideoExporter {
 
     const container = options.container ?? 'webm';
     const codecPlan = await planVideoCodec(width, height, fps, container);
-    const canEncodeAudio = audio ? await supportsOpusAudio() : true;
+    const audioPlan = audio ? await planAudioCodec(container) : null;
+    const canEncodeAudio = audio ? Boolean(audioPlan) : true;
 
     if (container === 'mp4' && !codecPlan) {
       throw new Error(MP4_UNSUPPORTED_MESSAGE);
@@ -411,7 +540,7 @@ export class VideoExporter {
     };
 
     if (codecPlan && canEncodeAudio) {
-      return VideoExporter.exportWithWebCodecs(context, codecPlan, audio);
+      return VideoExporter.exportWithWebCodecs(context, codecPlan, audio, audioPlan);
     }
 
     onProgress(8, 'WebCodecs no disponible: exportando con MediaRecorder...');
@@ -421,17 +550,19 @@ export class VideoExporter {
   private static async exportWithWebCodecs(
     context: ExportContext,
     codecPlan: VideoCodecPlan,
-    audio: PreparedAudio | null
+    audio: PreparedAudio | null,
+    audioPlan: AudioCodecPlan | null
   ): Promise<VideoExportResult> {
     const { label: audioLabel, ...audioNames } = VideoExporter.describeMixedAudio(audio);
     const { project, canvas, renderEngine, durationSeconds, totalFrames, fps, onProgress } = context;
 
-    const muxer = createMuxer(codecPlan, canvas.width, canvas.height, fps, Boolean(audio));
+    const muxer = createMuxer(codecPlan, canvas.width, canvas.height, fps, audio ? audioPlan : null);
 
-    // 1. Mezcla real de audio (sin tonos sintéticos), codificada en Opus.
-    if (audio) {
-      onProgress(10, `Codificando audio: ${audioLabel}...`);
-      await VideoExporter.encodeAudioBuffer(muxer.sink, audio.buffer);
+    // 1. Mezcla real de audio (sin tonos sintéticos): AAC-LC en MP4 y Opus en el resto.
+    const audioCodecLabel = audioPlan ? audioPlan.label : 'sin audio';
+    if (audio && audioPlan) {
+      onProgress(10, `Codificando audio ${audioCodecLabel}: ${audioLabel}...`);
+      await VideoExporter.encodeAudioBuffer(muxer.sink, audio.buffer, audioPlan);
     }
 
     // 2. Video cuadro por cuadro: el tiempo de cada cuadro es i / fps, no el reloj de pared.
@@ -499,6 +630,7 @@ export class VideoExporter {
       width: canvas.width,
       height: canvas.height,
       fps,
+      audioCodec: audioCodecLabel,
     };
   }
 
@@ -543,7 +675,8 @@ export class VideoExporter {
 
   private static async encodeAudioBuffer(
     muxer: MuxerSink,
-    buffer: AudioBuffer
+    buffer: AudioBuffer,
+    audioPlan: AudioCodecPlan
   ): Promise<void> {
     let encoderError: Error | null = null;
     const encoder = new AudioEncoder({
@@ -553,12 +686,7 @@ export class VideoExporter {
       },
     });
 
-    encoder.configure({
-      codec: 'opus',
-      sampleRate: NARRATION_SAMPLE_RATE,
-      numberOfChannels: NARRATION_CHANNELS,
-      bitrate: AUDIO_BITRATE,
-    });
+    encoder.configure(audioEncoderConfig(audioPlan.encoderCodec));
 
     const channels: Float32Array[] = [];
     for (let channel = 0; channel < NARRATION_CHANNELS; channel++) {
@@ -675,6 +803,7 @@ export class VideoExporter {
       width: canvas.width,
       height: canvas.height,
       fps,
+      audioCodec: audio ? 'Opus' : 'sin audio',
     };
   }
 }

@@ -84,6 +84,7 @@ type SaveStatus = 'saved' | 'saving' | 'error';
 interface ExportedVideo {
   url: string;
   extension: 'webm' | 'mp4';
+  audioCodec: string;
   narrationAssetName: string | null;
   sceneNarrationCount: number;
   musicAssetName: string | null;
@@ -510,6 +511,7 @@ export const App: React.FC = () => {
       setExportedVideo({
         url: URL.createObjectURL(result.blob),
         extension: result.extension,
+        audioCodec: result.audioCodec,
         narrationAssetName: result.narrationAssetName,
         sceneNarrationCount: result.sceneNarrationCount,
         musicAssetName: result.musicAssetName,
@@ -809,6 +811,7 @@ export const App: React.FC = () => {
                 <p className="text-sm text-slate-400">
                   {exportedVideo.extension === 'webm' ? 'WebM' : 'MP4'} ·{' '}
                   {exportedVideo.usedWebCodecs ? 'WebCodecs (cuadro por cuadro)' : 'MediaRecorder (tiempo real)'} ·{' '}
+                  audio: {exportedVideo.audioCodec} ·{' '}
                   {exportedVideo.narrationAssetName
                     ? `narración: ${exportedVideo.narrationAssetName}`
                     : 'sin narración'}
@@ -968,6 +971,12 @@ export const App: React.FC = () => {
           {exportDialog.format.message && (
             <p data-testid="export-format-message" className="text-sm text-rose-300">
               {exportDialog.format.message}
+            </p>
+          )}
+
+          {exportDialog.format.audioNote && (
+            <p data-testid="export-audio-note" className="text-sm text-amber-300">
+              {exportDialog.format.audioNote}
             </p>
           )}
 

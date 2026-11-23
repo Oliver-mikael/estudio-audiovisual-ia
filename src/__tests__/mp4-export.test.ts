@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MP4_AUDIO_CODEC,
   MP4_VIDEO_CODEC,
   buildExportFileName,
   describeExportFormat,
+  planAudioCodec,
 } from '../engine/exporter';
 import { Project } from '../types';
 
@@ -41,6 +43,14 @@ describe('exportación MP4/H.264', () => {
     expect(buildExportFileName(project(), 'mp4')).toBe('prueba-mp4-720p.mp4');
   });
 
+  it('prefiere AAC-LC (mp4a.40.2) para el audio del MP4', async () => {
+    expect(MP4_AUDIO_CODEC).toBe('mp4a.40.2');
+    // En Node no existe AudioEncoder: no hay ningún plan de audio posible, igual
+    // que en un navegador sin WebCodecs (el MP4 se rechaza con su propio aviso).
+    expect(await planAudioCodec('mp4')).toBeNull();
+    expect(await planAudioCodec('webm')).toBeNull();
+  });
+
   it('explica que falta H.264 en WebCodecs cuando el navegador no lo soporta', async () => {
     // En Node no existen VideoEncoder/AudioEncoder: el mismo camino que un navegador sin H.264.
     const mp4 = await describeExportFormat(project(), false, 'mp4');
@@ -50,6 +60,7 @@ describe('exportación MP4/H.264', () => {
     expect(mp4.usedWebCodecs).toBe(false);
     expect(mp4.message).toMatch(/H\.264/);
     expect(mp4.message).toMatch(/WebM/);
+    expect(mp4.audioNote).toBeNull();
   });
 
   it('mantiene WebM como respaldo con MediaRecorder', async () => {
