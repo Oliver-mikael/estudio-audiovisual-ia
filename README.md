@@ -20,7 +20,7 @@ Otros comandos:
 
 ```bash
 npm run build     # tsc + vite build
-npm test          # Vitest (74 pruebas de lógica y persistencia)
+npm test          # Vitest (93 pruebas de lógica y persistencia)
 ```
 
 ## Claves de API (opcionales)
@@ -37,7 +37,9 @@ app sin backend, la clave viaja desde tu navegador: usa claves propias y con lí
 
 Sin claves puedes seguir usando el editor, el guion manual, la Biblioteca, los subtítulos, el historial y la
 exportación. Las pruebas de las fases 21–24 usaron respuestas simuladas de estas APIs porque el entorno de
-desarrollo no tenía claves; los flujos se verificaron con archivos reales (ver [artifacts/](artifacts/README.md)).
+desarrollo no tenía claves; los flujos se verificaron con archivos reales. Las fases 25–28 (música adaptativa,
+animaciones, gancho y biblioteca CC0) se verificaron exportando y midiendo archivos reales (ver
+[artifacts/](artifacts/README.md)).
 
 ## Qué funciona hoy
 
@@ -54,6 +56,9 @@ desarrollo no tenía claves; los flujos se verificaron con archivos reales (ver 
 - **Subtítulos editables**: cada escena tiene su propia lista de subtítulos, independiente de la narración.
   Se pueden añadir, editar y borrar, y cada línea tiene su propio **inicio y duración** (o el reparto
   automático en partes iguales). El renderer la dibuja solo dentro de su ventana de tiempo.
+- **Animaciones de subtítulo**: cada línea elige **Fundido**, **Máquina de escribir** o **Deslizar hacia
+  arriba**. La entrada y la salida duran 0,3 s; la máquina de escribir revela el texto carácter a carácter
+  y el deslizamiento entra desde 40 px abajo. Las escenas antiguas usan el fundido por defecto.
 - **Exportación de subtítulos**: el modal y el panel de exportación ofrecen «Descargar .srt» con todos los
   subtítulos del proyecto y sus timestamps absolutos.
 - **Imágenes por escena**: se elige una imagen subida a la Biblioteca (se guarda `imageAssetId`, y la URL se
@@ -63,6 +68,9 @@ desarrollo no tenía claves; los flujos se verificaron con archivos reales (ver 
   también se busca una imagen para cada escena generada (y se pueden reemplazar a mano).
 - **Ritmo visual (B-roll)**: en escenas de más de 4 segundos, el renderer alterna la imagen principal y una
   secundaria cada 3 segundos para que el cuadro no quede estático. Se puede desactivar por escena.
+- **Gancho visual en la intro**: el texto del gancho (editable, o el título de la primera escena) se superpone
+  en grande y centrado durante los primeros 3 s, con zoom de entrada de 110 % a 100 % en 0,5 s y un velo
+  oscuro para legibilidad. Se puede desactivar por proyecto desde el Taller.
 - **Voz TTS por escena**: «Generar voz» convierte la narración de una escena en un MP3 con Google Cloud TTS
   (voz femenina o masculina), lo guarda en la Biblioteca y lo asigna a esa escena; suena al inicio de la
   escena y no invade la siguiente. Si la escena ya tenía voz, pide confirmación. «Escuchar» reproduce la
@@ -77,9 +85,13 @@ desarrollo no tenía claves; los flujos se verificaron con archivos reales (ver 
 - **Biblioteca**: importa imágenes, audio y video; los blobs se guardan en IndexedDB y los object URLs se
   reconstruyen al recargar. Puedes marcar un audio como **narración** o como **música de fondo** (son
   pistas distintas).
-- **Música de fondo con ducking**: la música se mezcla en bucle con la narración y baja automáticamente al
-  30 % mientras hay voz, volviendo a su volumen en el silencio. El volumen general (0–100 %) se ajusta en
-  Ajustes.
+- **Música de fondo adaptativa**: la ganancia se calcula muestra a muestra según el timestamp. En la intro
+  (primeros 3 s) empieza al 80 % y sube gradualmente; con narración baja al 30 % (ducking); en el cierre
+  (últimos 3 s) vuelve al 100 % y hace un fundido de salida suave. El volumen general (0–100 %) se ajusta
+  en Ajustes.
+- **Música libre incluida**: 10 pistas CC0 propias en Épica, Suave, Tecnología, Misterio y Motivacional.
+  Se escuchan antes de elegir, se filtran por categoría y la elegida se descarga, se guarda en IndexedDB y
+  queda asignada como música de fondo del proyecto.
 - **Efectos de sonido por escena**: cada escena puede llevar un audio corto de la Biblioteca como SFX, que
   suena una vez al inicio de la escena mezclado con la narración y la música.
 - **Monitor con audio**: la vista previa reproduce la misma mezcla que la exportación (narración, música con
@@ -113,7 +125,7 @@ desarrollo no tenía claves; los flujos se verificaron con archivos reales (ver 
 - **No hay app Android publicada.** Solo queda `capacitor.config.json`; no hay build ni paridad probada.
 - **Solo WebM.** No se exporta MP4/H.264. En Safari y Firefox (sin WebCodecs) se usa el respaldo
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
-- **Subtítulos**: hay tiempos individuales y exportación `.srt`, pero no `.vtt` ni estilos configurables; la
+- **Subtítulos**: hay tiempos individuales, animaciones por línea y exportación `.srt`, pero no `.vtt`; la
   sincronización se ajusta a mano, sin editor de ondas.
 - **Audio**: MP3 y WAV funcionan como narración (global o una voz por escena), música de fondo y efectos de
   escena (verificado con ffmpeg). La música y los efectos no tienen control de volumen propio (la música sí
@@ -124,11 +136,12 @@ desarrollo no tenía claves; los flujos se verificaron con archivos reales (ver 
 - **Sin historial de versiones**: el deshacer persiste hasta 50 pasos, pero no hay versiones con nombre ni
   restauración más allá de ese límite.
 - **Probado solo en Chromium.** El resto de navegadores está sin verificar.
-- **Cobertura de pruebas parcial**: 74 pruebas de Vitest cubren persistencia en IndexedDB (proyectos,
+- **Cobertura de pruebas parcial**: 93 pruebas de Vitest cubren persistencia en IndexedDB (proyectos,
   historial y `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido, recorte/relleno de
-  narración, envolvente de ducking, ventanas de subtítulos, generación de `.srt`, análisis del guion de
-  Gemini, peticiones de TTS y Pexels, palabras clave visuales y cortes automáticos. No hay pruebas de la UI
-  ni de una exportación completa dentro de Vitest (esas se hicieron a mano en Chromium).
+  narración, envolvente de ducking, curva adaptativa de la música, animaciones de subtítulo, gancho de la
+  intro, catálogo de música CC0, ventanas de subtítulos, generación de `.srt`, análisis del guion de Gemini,
+  peticiones de TTS y Pexels, palabras clave visuales y cortes automáticos. No hay pruebas de la UI ni de una
+  exportación completa dentro de Vitest (esas se hicieron a mano en Chromium).
 
 ## Estructura
 
@@ -137,7 +150,8 @@ src/
   App.tsx                 # shell: inicio, editor, modal de exportación, autoguardado
   components/             # HomeScreen, Modal/ConfirmDialog, VideoPlayer
   engine/                 # renderEngine (canvas 2D), exporter (WebCodecs), audioTrack (mezcla), srt,
-                          # gemini (guion), tts (voz), pexels (imágenes), visualRhythm (cortes)
+                          # gemini (guion), tts (voz), pexels (imágenes), visualRhythm (cortes),
+                          # musicDynamics (curva de música), textAnimation, introHook
   modules/                # Guion, Storyboard, Biblioteca, Ideas, Investigación
   services/storage/db.ts  # IndexedDB: proyectos, blobs e historial persistente
   services/history/       # deshacer/rehacer (50 pasos, lógica pura)

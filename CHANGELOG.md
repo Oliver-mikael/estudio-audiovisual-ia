@@ -3,6 +3,46 @@
 Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1.2.0 a 2.1.0) están en
 [docs/CHANGELOG.md](docs/CHANGELOG.md) y describen documentación de diseño, no funcionalidad verificada.
 
+## [Sin publicar] — 23 de noviembre de 2026 (fases 25–28)
+
+### Añadido
+
+- **Música adaptativa** (fase 25): la ganancia de la música se calcula muestra a muestra desde el
+  timestamp. En la intro (primeros 3 s) empieza al 80 % del volumen y sube; mientras hay narración baja al
+  30 % (ducking); en el cierre (últimos 3 s) recupera el 100 % y hace un fundido de salida suave. No es un
+  valor fijo: la curva se combina con la envolvente de voz y el volumen general del proyecto.
+- **Animaciones de subtítulo** (fase 26): cada línea elige Fundido, Máquina de escribir o Deslizar hacia
+  arriba desde el taller de guion. La entrada y la salida duran 0,3 s; la máquina de escribir revela el
+  texto carácter a carácter; el deslizamiento entra desde 40 px abajo. Las escenas antiguas conservan el
+  fundido por defecto y la misma forma de datos.
+- **Gancho visual en la intro** (fase 27): el texto del gancho (editable o el título de la primera escena)
+  se superpone en grande y centrado durante los primeros 3 s, con zoom de entrada de 110 % a 100 % en 0,5 s,
+  velo oscuro y sombra para legibilidad. Se puede desactivar por proyecto desde el Taller.
+- **Biblioteca de música libre** (fase 28): 10 pistas MP3 CC0 propias (16 s) en Épica, Suave, Tecnología,
+  Misterio y Motivacional, incluidas en `public/music` y generadas con `scripts/generate-music.mjs`. La
+  Biblioteca permite escucharlas, filtrar por categoría y asignar una como música de fondo; la pista se
+  descarga, se guarda en IndexedDB y queda como un audio más del proyecto.
+
+### Verificado con archivos reales
+
+- **Fase 25**: exportación real de 9 s (VP9 640×360@30 + Opus) con música de 200 Hz y voz de 1 kHz entre 4 y
+  6 s. La componente de 200 Hz medida con ffmpeg/Goertzel vale 0,0300 en t = 0,2 s, 0,0372 en t = 2,0 s,
+  0,0110 en t = 4,5 s (con voz), 0,0361 en t = 6,5 s y 0,0108 en t = 8,5 s: 80,8 %, 100 %, 29,7 %, 97 % y
+  29 % del volumen de referencia. Archivo: `artifacts/phase25-music-adaptive.webm`.
+- **Fase 26**: exportación real de 6 s con tres líneas de subtítulo. Los cuadros extraídos muestran «MA» en
+  t = 2,3 s, «MAQUINA DE E» en t = 2,9 s y el texto completo en t = 3,7 s; el fundido gana opacidad entre
+  0,25 y 0,6 s y el deslizamiento aparece más abajo en t = 4,25 s y centrado en t = 4,6 s. Archivo:
+  `artifacts/phase26-text-animations.webm` y sus PNG.
+- **Fase 27**: exportación real de 5 s con el gancho «EL GANCHO EN GRANDE». El texto está presente en
+  t = 0,05, 0,3 y 1,5 s y desaparece en t = 3,1 s. El ancho del texto baja de 470 px a 447 px entre 0,05 y
+  0,3 s (zoom) y la luma media del fondo baja de 39,2 a 32,6 por el velo. Archivo:
+  `artifacts/phase27-intro-hook.webm` y sus PNG.
+- **Fase 28**: en Chromium, la Biblioteca mostró las 5 categorías y las 10 pistas; «Escuchar» solicitó el
+  MP3 real de `/music/epica-amanecer.mp3` y «Usar como música» guardó un blob de 193 141 bytes en IndexedDB
+  con licencia CC0, lo asignó a `musicAssetId` y la cabecera mostró «Música: Amanecer heroico.mp3». La
+  reproducción audible no se pudo confirmar en el navegador headless (el elemento quedó en `readyState` 0).
+  Captura: `artifacts/phase28-musica-libre.png`.
+
 ## [Sin publicar] — 23 de noviembre de 2026 (fases 21–24)
 
 ### Añadido

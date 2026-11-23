@@ -44,6 +44,16 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Imágenes automáticas con Pexels a partir de la intención visual, al generar el guion o por escena.
 - [x] Ritmo visual: cortes cada 3 s entre imagen principal y secundaria, desactivables por escena.
 
+## 2d. Hecho en las fases 25–28
+
+- [x] Música adaptativa por timestamp: intro al 80 % subiendo, ducking al 30 % con voz y cierre al 100 %
+  con fundido de salida (fase 25).
+- [x] Animaciones de subtítulo por línea: fundido de 0,3 s, máquina de escribir y deslizamiento (fase 26).
+- [x] Gancho visual superpuesto en los primeros 3 s, con zoom 110 % → 100 %, velo y opción de desactivarlo
+  (fase 27).
+- [x] Biblioteca de 10 pistas CC0 por categoría, con vista previa y asignación como música de fondo
+  (fase 28).
+
 ## 3. Edición de audio
 
 - [x] Narración por escena con voz TTS (fase 22).
@@ -54,15 +64,18 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Subtítulos editables por escena, independientes de la narración (fase 15).
 - [x] Tiempos individuales por subtítulo (fase 18).
 - [x] Exportación de subtítulos a `.srt` (fase 19).
-- [ ] Exportación a `.vtt` y estilos configurables.
+- [x] Animaciones de subtítulo por línea: fundido, máquina de escribir y deslizamiento (fase 26).
+- [ ] Exportación a `.vtt`.
 - Recorte y ajuste de inicio de la narración desde la UI.
-- Puntos de entrada/salida y fundido propio de la música.
+- Curva adaptativa global de la música (intro, ducking y cierre, fase 25); falta un fundido propio por pista y
+  puntos de entrada/salida configurables por el usuario.
 
 ## 4. Recursos
 
 - [x] Imágenes automáticas de Pexels por intención visual (fase 23).
 - [ ] Elegir entre varias fotos candidatas y editar la consulta antes de descargar.
-- Miniaturas y previsualización de audio con reproducción.
+- [x] Biblioteca de música libre CC0 incluida, con vista previa y asignación (fase 28).
+- Miniaturas y previsualización de audio importado con reproducción.
 - Límites y aviso de cuota antes de quedarse sin espacio en IndexedDB.
 
 ## 5. Persistencia y nube (prioridad media)

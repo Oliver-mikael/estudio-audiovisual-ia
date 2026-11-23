@@ -177,6 +177,47 @@ imagen. Límite: no se llamó a la API real de Pexels y no se evaluó la relevan
 | `phase24-cortes-desactivados.webm` | El mismo proyecto con «Cortes automáticos cada 3 s» desactivado. | Los píxeles en t = 1, 4 y 7 s son rojos: la escena usa solo la imagen principal. |
 | `phase24-t1.png`, `phase24-t4.png`, `phase24-t7.png` | Cuadros extraídos del primer video. | Rojo, azul y rojo en los instantes esperados. |
 
+## Fase 25 — música adaptativa
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase25-music-adaptive.webm` | Export real de 9,00 s (VP9 640×360@30 + Opus 48 kHz) generado desde la app. Música de 200 Hz en bucle y voz de 1 kHz entre 4 y 6 s. | La ganancia de la música sigue una curva: 80,8 % al inicio, 100 % en la intro alta, 29,7 % con voz, 97 % al recuperarse y 29 % durante el fundido final. |
+
+Medición (ffmpeg + Goertzel sobre PCM de 48 kHz, ventanas de 0,3 s):
+
+| t | 0,2 s | 2,0 s | 4,5 s | 6,5 s | 8,5 s |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| 200 Hz (música) | 0,0300 | 0,0372 | 0,0110 | 0,0361 | 0,0108 |
+| 1 kHz (voz) | 0,00001 | 0,00009 | 0,12579 | 0,00000 | 0,00002 |
+
+## Fase 26 — animaciones de texto
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase26-text-animations.webm` | Export real de 6,00 s (VP9 640×360@30, sin audio) con tres subtítulos: Fundido (0,2–2,0 s), Máquina de escribir (2,2–4,0 s) y Deslizamiento (4,2–5,8 s). | Las tres animaciones se dibujan en la exportación, no solo en la vista previa. |
+| `phase26-fade-025.png` / `phase26-fade-060.png` | Cuadros en t = 0,25 y 0,6 s. | El subtítulo «FUNDIDO» gana opacidad durante los primeros 0,3 s. |
+| `phase26-type-230.png` / `phase26-type-290.png` / `phase26-type-370.png` | Cuadros en t = 2,3, 2,9 y 3,7 s. | La máquina de escribir muestra «MA», luego «MAQUINA DE E» y por último «MAQUINA DE ESCRIBIR». |
+| `phase26-slide-425.png` / `phase26-slide-460.png` | Cuadros en t = 4,25 y 4,6 s. | «DESLIZAMIENTO» entra más abajo y tenue, y termina centrado en su caja. |
+
+## Fase 27 — gancho visual
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase27-intro-hook.webm` | Export real de 5,00 s (VP9 640×360@30) de una escena con el gancho «EL GANCHO EN GRANDE». | El texto se superpone en la intro y desaparece a los 3 s. |
+| `phase27-hook-005.png` / `phase27-hook-030.png` / `phase27-hook-150.png` | Cuadros en t = 0,05, 0,3 y 1,5 s. | El gancho está visible y hace zoom: el ancho del texto medido baja de 470 px a 447 px. |
+| `phase27-sin-gancho-310.png` | Cuadro en t = 3,1 s. | Ya no hay gancho. La luma media del fondo (39,2) es mayor que con el velo (32,6). |
+
+## Fase 28 — biblioteca de música libre
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase28-musica-libre.png` | Captura de la Biblioteca en Chromium (viewport estrecho 360×712). | Se ven la sección «Música libre incluida», las 5 categorías, las pistas y los botones «Escuchar» / «Usar como música». |
+
+En la misma sesión, «Usar como música» guardó un blob MP3 de 193 141 bytes en IndexedDB con licencia
+«CC0 1.0 (dominio público)» y procedencia «Biblioteca incluida · Épica · 96 BPM»; `musicAssetId` quedó
+apuntando a ese recurso. El navegador headless no confirmó reproducción audible (`readyState` 0), aunque
+`play()` se invocó con la URL real de la pista.
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |
@@ -210,7 +251,9 @@ verificaciones.
 - El audio propio de un clip de video se ignora: la pista de audio del archivo exportado es la mezcla de
   los archivos importados (narración, música de fondo y efectos de escena).
 - Las capturas se tomaron con un viewport estrecho (360×712), por eso el texto aparece partido; el contenido
-  es el real de la app. Las capturas de las fases 21–24 usan 390×844.
+  es el real de la app. Las capturas de las fases 21–24 usan 390×844 y la de la fase 28, 360×712.
+- Las pistas de `public/music` son composiciones sintetizadas por `scripts/generate-music.mjs`, sin samples
+  de terceros, y se publican como CC0. No se comparó su calidad subjetiva con música comercial.
 - Las APIs de Gemini, Google Cloud TTS y Pexels se simularon con respuestas del mismo formato; no se llamó a
   los servicios reales porque el entorno no tenía claves. La voz de la fase 22 sí es habla española real
   (generada con `edge-tts`) y las imágenes de la fase 23 son PNG reales descargados por la app.
