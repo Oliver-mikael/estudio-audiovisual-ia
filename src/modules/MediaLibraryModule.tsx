@@ -1,9 +1,28 @@
 // Media Library Module Component for Estudio Audiovisual Inteligente
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Project, MediaAsset } from '../types';
 import { deleteMediaAssetBlob, getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
-import { FolderOpen, Upload, Trash2, Image, Music, Film, Mic, AudioLines } from 'lucide-react';
+import {
+  FolderOpen,
+  Upload,
+  Trash2,
+  Image,
+  Music,
+  Film,
+  Mic,
+  AudioLines,
+  Play,
+  Pause,
+  Check,
+  ListMusic,
+} from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
+import {
+  MUSIC_CATEGORIES,
+  MUSIC_LIBRARY,
+  MusicCategory,
+  MusicLibraryTrack,
+} from '../data/musicLibrary';
 
 interface MediaLibraryProps {
   project: Project;
@@ -14,6 +33,13 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
   const [assets, setAssets] = useState<MediaAsset[]>(project.mediaAssets || []);
   const [filter, setFilter] = useState<'all' | 'image' | 'audio' | 'video'>('all');
   const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
+
+  // Biblioteca de música libre incluida (fase 28).
+  const [musicCategory, setMusicCategory] = useState<MusicCategory>('Épica');
+  const [previewingTrackId, setPreviewingTrackId] = useState<string | null>(null);
+  const [libraryBusyId, setLibraryBusyId] = useState<string | null>(null);
+  const [libraryMessage, setLibraryMessage] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Los object URLs no sobreviven a una recarga: se reconstruyen desde IndexedDB.
   useEffect(() => {
@@ -105,6 +131,78 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
 
   const musicAsset = assets.find((a) => a.id === project.musicAssetId && a.type === 'audio') ?? null;
 
+  // La vista previa se detiene al cambiar de sección o desmontar el módulo.
+  useEffect(() => {
+    return () => {
+      previewAudioRef.current?.pause();
+      previewAudioRef.current = null;
+    };
+  }, []);
+
+  const stopPreview = () => {
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    setPreviewingTrackId(null);
+  };
+
+  const handlePreviewTrack = (track: MusicLibraryTrack) => {
+    if (previewingTrackId === track.id) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+    const audio = new Audio(track.url);
+    audio.loop = true;
+    audio.volume = 0.7;
+    previewAudioRef.current = audio;
+    setPreviewingTrackId(track.id);
+    setLibraryMessage(null);
+    void audio.play().catch(() => {
+      // Si la pista ya se detuvo o se asignó, el rechazo es tarde: no se muestra error.
+      if (previewAudioRef.current !== audio) return;
+      setPreviewingTrackId(null);
+      previewAudioRef.current = null;
+      setLibraryMessage('El navegador bloqueó la reproducción. Vuelve a pulsar «Escuchar».');
+    });
+  };
+
+  /** Descarga la pista incluida, la guarda como recurso del proyecto y la asigna como música. */
+  const handleUseLibraryTrack = async (track: MusicLibraryTrack) => {
+    setLibraryBusyId(track.id);
+    setLibraryMessage(null);
+    try {
+      const response = await fetch(track.url);
+      if (!response.ok) throw new Error('No se pudo cargar la pista incluida.');
+      const blob = await response.blob();
+      const asset: MediaAsset = {
+        id: `asset-music-${track.id}`,
+        name: `${track.title}.mp3`,
+        type: 'audio',
+        url: URL.createObjectURL(blob),
+        fileBlob: blob,
+        mimeType: 'audio/mpeg',
+        sizeBytes: blob.size,
+        license: 'CC0 1.0 (dominio público)',
+        provenance: `Biblioteca incluida · ${track.category} · ${track.bpm} BPM`,
+        createdAt: Date.now(),
+      };
+      await saveMediaAssetBlob(asset);
+      const updated = [asset, ...assets.filter((item) => item.id !== asset.id)];
+      setAssets(updated);
+      onUpdateProject({ ...project, mediaAssets: updated, musicAssetId: asset.id });
+      stopPreview();
+      setLibraryMessage(`«${track.title}» se guardó en la Biblioteca y es la música de fondo del proyecto.`);
+    } catch (error) {
+      setLibraryMessage(
+        error instanceof Error ? error.message : 'No se pudo asignar la pista de música.'
+      );
+    } finally {
+      setLibraryBusyId(null);
+    }
+  };
+
+  const visibleTracks = MUSIC_LIBRARY.filter((track) => track.category === musicCategory);
+
   const formatSize = (bytes: number) => {
     const mb = bytes / (1024 * 1024);
     if (mb >= 1) return `${mb.toFixed(1)} MB`;
@@ -143,6 +241,110 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
             className="hidden"
           />
         </label>
+      </div>
+
+      {/* Biblioteca de música libre incluida (CC0) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4" data-testid="music-library">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-indigo-400 titulo-seccion">
+              <ListMusic className="w-5 h-5" />
+              <span>Música libre incluida</span>
+            </div>
+            <p className="text-sm text-slate-400 mt-1">
+              10 pistas CC0 incluidas en la app, sin claves ni descargas externas. Escúchalas y asigna la
+              que quieras como música de fondo del proyecto; queda en la Biblioteca como un audio más.
+            </p>
+          </div>
+          {musicAsset && (
+            <span className="text-xs text-sky-300 font-mono">Música actual: {musicAsset.name}</span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {MUSIC_CATEGORIES.map((category) => (
+            <button
+              key={category}
+              onClick={() => {
+                setMusicCategory(category);
+                stopPreview();
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                musicCategory === category
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {visibleTracks.map((track) => {
+            const assigned = musicAsset?.provenance?.includes(track.title);
+            return (
+              <li
+                key={track.id}
+                className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex flex-col gap-2"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-slate-100">{track.title}</h4>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {track.bpm} BPM · {track.durationSeconds}s · CC0
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">{track.description}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePreviewTrack(track)}
+                    className="btn-secondary text-xs"
+                    data-testid={`music-preview-${track.id}`}
+                    aria-label={
+                      previewingTrackId === track.id
+                        ? `Detener la vista previa de ${track.title}`
+                        : `Escuchar ${track.title}`
+                    }
+                  >
+                    {previewingTrackId === track.id ? (
+                      <Pause className="w-3.5 h-3.5" />
+                    ) : (
+                      <Play className="w-3.5 h-3.5" />
+                    )}
+                    <span>{previewingTrackId === track.id ? 'Detener' : 'Escuchar'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      void handleUseLibraryTrack(track);
+                    }}
+                    disabled={libraryBusyId !== null}
+                    className="btn-primary text-xs disabled:opacity-50"
+                    data-testid={`music-use-${track.id}`}
+                  >
+                    {assigned ? <Check className="w-3.5 h-3.5" /> : <Music className="w-3.5 h-3.5" />}
+                    <span>
+                      {libraryBusyId === track.id
+                        ? 'Añadiendo...'
+                        : assigned
+                          ? 'Asignada'
+                          : 'Usar como música'}
+                    </span>
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        {libraryMessage && (
+          <p className="text-sm text-emerald-300" data-testid="music-library-status">
+            {libraryMessage}
+          </p>
+        )}
       </div>
 
       {/* Filter Bar */}
