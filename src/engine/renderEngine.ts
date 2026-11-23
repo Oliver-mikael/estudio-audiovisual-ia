@@ -9,6 +9,7 @@ import { Scene, Project, SubtitleAnimation, SubtitleEntry } from '../types';
 import { visualSlotAt } from './visualRhythm';
 import { normalizeSubtitleAnimation, subtitleAnimationFrame } from './textAnimation';
 import { introHookFrame } from './introHook';
+import { colorGradeFor } from './colorGrade';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -489,11 +490,14 @@ export class CanvasRenderEngine {
 
     ctx.clearRect(0, 0, width, height);
 
-    // 1. Draw Background & Image (con cortes automáticos si toca)
+    // 1 y 2. Fondo, imagen/clip y superposiciones de la escena, con la
+    // corrección de color de la escena aplicada por el canvas.
+    const colorFilter = colorGradeFor(scene);
+    ctx.save();
+    if (colorFilter !== 'none') ctx.filter = colorFilter;
     this.drawBackground(ctx, width, height, scene, sceneProgress, sceneLocalTime);
-
-    // 2. Draw Camera Motion / Overlays
     this.drawSceneVisuals(ctx, width, height, scene, sceneProgress);
+    ctx.restore();
 
     // 3. Draw Kinetic Typography / Animated Subtitles
     this.drawSubtitlesAndText(ctx, width, height, scene, sceneLocalTime);

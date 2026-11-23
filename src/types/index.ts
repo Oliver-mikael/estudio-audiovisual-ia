@@ -39,6 +39,13 @@ export interface SubtitleCue {
 /** Compatibilidad: las escenas antiguas guardan solo el texto y usan el reparto automático. */
 export type SubtitleEntry = string | SubtitleCue;
 
+/** Corrección de color de una escena; 1.0 es el valor neutro de cada control. */
+export interface SceneColorGrade {
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+}
+
 export interface Scene {
   id: string;
   title: string;
@@ -65,6 +72,8 @@ export interface Scene {
   sfxAssetId?: string;
   /** Audio de narración propio de la escena (voz TTS o audio importado). */
   narrationAssetId?: string;
+  /** Brillo, contraste y saturación aplicados al dibujar la escena. */
+  colorGrade?: SceneColorGrade;
   /** Subtítulos editables de la escena, en orden. */
   subtitles?: SubtitleEntry[];
   notes?: string;

@@ -4,6 +4,12 @@ import { Project, Scene, SubtitleAnimation, SubtitleEntry, MediaAsset } from '..
 import { getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
 import { subtitleSlotDefaults, subtitleText } from '../engine/renderEngine';
 import { SUBTITLE_ANIMATIONS, normalizeSubtitleAnimation } from '../engine/textAnimation';
+import {
+  COLOR_GRADE_MAX,
+  COLOR_GRADE_MIN,
+  normalizeColorGrade,
+  isNeutralColorGrade,
+} from '../engine/colorGrade';
 import { createPexelsImageAsset } from '../engine/pexels';
 import {
   DEFAULT_TTS_VOICE,
@@ -34,6 +40,7 @@ import {
   Volume2,
   Search as SearchIcon,
   Scissors,
+  Palette,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
@@ -97,6 +104,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     imageAssets.find((asset) => asset.url === activeScene?.secondaryImageUrl)?.id ??
     '';
   const subtitleDefaults = activeScene ? subtitleSlotDefaults(activeScene) : [];
+  const colorGrade = activeScene ? normalizeColorGrade(activeScene.colorGrade) : null;
 
   const handleUpdateActiveScene = (
     updatedFields: Partial<Scene>,
@@ -1098,6 +1106,79 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   </div>
                 </div>
               </div>
+              {/* Corrección de color por escena (fase 29) */}
+              <div
+                className="space-y-3 border-t border-slate-800 pt-4"
+                data-testid="scene-color-grade"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <label className="etiqueta flex items-center gap-1.5">
+                    <Palette className="w-4 h-4 text-indigo-400" />
+                    <span>Corrección de color</span>
+                  </label>
+                  <button
+                    onClick={() => handleUpdateActiveScene({ colorGrade: undefined })}
+                    disabled={!colorGrade || isNeutralColorGrade(activeScene.colorGrade)}
+                    className="btn-secondary text-xs disabled:opacity-40"
+                    title="Volver a los valores neutros (1.0)"
+                  >
+                    Restablecer
+                  </button>
+                </div>
+
+                {colorGrade &&
+                  (
+                    [
+                      { key: 'brightness', label: 'Brillo' },
+                      { key: 'contrast', label: 'Contraste' },
+                      { key: 'saturation', label: 'Saturación' },
+                    ] as const
+                  ).map((control) => (
+                    <div key={control.key} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <label
+                          htmlFor={`scene-color-${control.key}`}
+                          className="text-slate-300"
+                        >
+                          {control.label}
+                        </label>
+                        <span className="font-mono text-xs text-indigo-300">
+                          {colorGrade[control.key].toFixed(2)}
+                        </span>
+                      </div>
+                      <input
+                        id={`scene-color-${control.key}`}
+                        data-testid={`scene-color-${control.key}`}
+                        type="range"
+                        min={COLOR_GRADE_MIN}
+                        max={COLOR_GRADE_MAX}
+                        step="0.05"
+                        value={colorGrade[control.key]}
+                        onChange={(event) =>
+                          handleUpdateActiveScene(
+                            {
+                              colorGrade: {
+                                ...colorGrade,
+                                [control.key]: Number(event.target.value),
+                              },
+                            },
+                            { coalesceKey: `scene:${activeScene.id}:color` }
+                          )
+                        }
+                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      />
+                    </div>
+                  ))}
+
+                <p className="text-sm text-slate-500">
+                  Se aplica en el canvas antes de exportar con{' '}
+                  <code className="text-slate-400">brightness()</code>,{' '}
+                  <code className="text-slate-400">contrast()</code> y{' '}
+                  <code className="text-slate-400">saturate()</code>. 1.00 es neutro: la escena se ve
+                  como antes de esta opción.
+                </p>
+              </div>
+
               {/* Imagen de escena tomada de la biblioteca */}
               <div className="space-y-2 border-t border-slate-800 pt-4">
                 <label htmlFor="scene-image" className="etiqueta flex items-center gap-1.5">
