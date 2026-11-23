@@ -15,6 +15,7 @@ import { VideoPlayer } from './components/VideoPlayer';
 import { HomeScreen } from './components/HomeScreen';
 import { Modal } from './components/Modal';
 import { StoryboardPreview } from './components/StoryboardPreview';
+import { ProjectStats } from './components/ProjectStats';
 import {
   ExportContainer,
   ExportFormatInfo,
@@ -91,13 +92,8 @@ interface ExportedVideo {
 interface ExportDialogData {
   container: ExportContainer;
   format: ExportFormatInfo;
-  narrationName: string | null;
-  sceneNarrationCount: number;
-  musicName: string | null;
-  sfxCount: number;
   subtitleCount: number;
   durationSeconds: number;
-  totalFrames: number;
 }
 
 function describeSaveError(error: unknown): string {
@@ -451,24 +447,13 @@ export const App: React.FC = () => {
   const buildExportDialog = useCallback(
     async (container: ExportContainer): Promise<ExportDialogData | null> => {
       if (!project) return null;
-      const narrationAsset = findNarrationAsset(project);
-      const musicAsset = findMusicAsset(project);
-      const sfxCount = project.script.scenes.filter((scene) => scene.sfxAssetId).length;
       const durationSeconds = projectDurationSeconds(project);
-      const sceneNarrationCount = project.script.scenes.filter((scene) =>
-        Boolean(scene.narrationAssetId)
-      ).length;
       const format = await describeExportFormat(project, projectHasAudio(project), container);
       return {
         container,
         format,
-        narrationName: narrationAsset ? narrationAsset.name : null,
-        sceneNarrationCount,
-        musicName: musicAsset ? musicAsset.name : null,
-        sfxCount,
         subtitleCount: collectSrtCues(project).length,
         durationSeconds,
-        totalFrames: Math.round(durationSeconds * format.fps),
       };
     },
     [project]
@@ -848,6 +833,9 @@ export const App: React.FC = () => {
             </>
           }
         >
+          {/* Resumen calculado con los datos reales del proyecto (fase 35) */}
+          <ProjectStats project={project} format={exportDialog.format} />
+
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between items-center gap-4">
               <dt className="text-slate-400">Contenedor</dt>
@@ -868,12 +856,6 @@ export const App: React.FC = () => {
               </dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-400">Resolución real</dt>
-              <dd className="text-slate-100 font-mono">
-                {exportDialog.format.width} × {exportDialog.format.height} px
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Formato real</dt>
               <dd className="text-slate-100 font-mono text-right">
                 {exportDialog.format.container} · {exportDialog.format.videoCodec}
@@ -887,44 +869,11 @@ export const App: React.FC = () => {
               <dd className="text-slate-100 text-right">{exportDialog.format.mode}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-400">Narración</dt>
-              <dd className="text-slate-100 text-right">
-                {exportDialog.narrationName ? exportDialog.narrationName : 'Sin narración'}
-              </dd>
-            </div>
-            {exportDialog.sceneNarrationCount > 0 && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-400">Voces por escena</dt>
-                <dd className="text-slate-100 text-right">
-                  {exportDialog.sceneNarrationCount} escena(s) con voz propia
-                </dd>
-              </div>
-            )}
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-400">Música de fondo</dt>
-              <dd className="text-slate-100 text-right">
-                {exportDialog.musicName ? exportDialog.musicName : 'Sin música'}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-400">Efectos por escena</dt>
-              <dd className="text-slate-100 text-right">
-                {exportDialog.sfxCount > 0 ? `${exportDialog.sfxCount} asignado(s)` : 'Ninguno'}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Subtítulos</dt>
               <dd className="text-slate-100 text-right">
                 {exportDialog.subtitleCount > 0
                   ? `${exportDialog.subtitleCount} línea(s) · ${buildSrtFileName(project)}`
                   : 'Ninguno'}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-400">Duración</dt>
-              <dd className="text-slate-100 font-mono">
-                {exportDialog.durationSeconds} s · {exportDialog.totalFrames} cuadros · {exportDialog.format.fps}{' '}
-                fps
               </dd>
             </div>
             <div className="flex justify-between gap-4">
