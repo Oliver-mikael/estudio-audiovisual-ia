@@ -16,6 +16,7 @@ import { HomeScreen } from './components/HomeScreen';
 import { Modal } from './components/Modal';
 import { StoryboardPreview } from './components/StoryboardPreview';
 import {
+  ExportContainer,
   ExportFormatInfo,
   VideoExporter,
   buildExportFileName,
@@ -88,6 +89,7 @@ interface ExportedVideo {
 }
 
 interface ExportDialogData {
+  container: ExportContainer;
   format: ExportFormatInfo;
   narrationName: string | null;
   sceneNarrationCount: number;
@@ -146,6 +148,7 @@ export const App: React.FC = () => {
   const [exportMessage, setExportMessage] = useState('');
   const [exportedVideo, setExportedVideo] = useState<ExportedVideo | null>(null);
   const [exportDialog, setExportDialog] = useState<ExportDialogData | null>(null);
+  const [exportContainer, setExportContainer] = useState<ExportContainer>('webm');
   const [isPreparingExport, setIsPreparingExport] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -444,10 +447,10 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
-  const openExportDialog = useCallback(async () => {
-    if (!project) return;
-    setIsPreparingExport(true);
-    try {
+  /** Datos reales del proyecto + el formato que producirá este navegador. */
+  const buildExportDialog = useCallback(
+    async (container: ExportContainer): Promise<ExportDialogData | null> => {
+      if (!project) return null;
       const narrationAsset = findNarrationAsset(project);
       const musicAsset = findMusicAsset(project);
       const sfxCount = project.script.scenes.filter((scene) => scene.sfxAssetId).length;
@@ -455,8 +458,9 @@ export const App: React.FC = () => {
       const sceneNarrationCount = project.script.scenes.filter((scene) =>
         Boolean(scene.narrationAssetId)
       ).length;
-      const format = await describeExportFormat(project, projectHasAudio(project));
-      setExportDialog({
+      const format = await describeExportFormat(project, projectHasAudio(project), container);
+      return {
+        container,
         format,
         narrationName: narrationAsset ? narrationAsset.name : null,
         sceneNarrationCount,
@@ -465,11 +469,34 @@ export const App: React.FC = () => {
         subtitleCount: collectSrtCues(project).length,
         durationSeconds,
         totalFrames: Math.round(durationSeconds * format.fps),
-      });
+      };
+    },
+    [project]
+  );
+
+  const openExportDialog = useCallback(async () => {
+    if (!project) return;
+    setIsPreparingExport(true);
+    try {
+      setExportDialog(await buildExportDialog(exportContainer));
     } finally {
       setIsPreparingExport(false);
     }
-  }, [project]);
+  }, [buildExportDialog, exportContainer, project]);
+
+  /** Cambia WebM/MP4 y vuelve a preguntar al navegador qué formato real puede hacer. */
+  const changeExportContainer = useCallback(
+    async (container: ExportContainer) => {
+      setExportContainer(container);
+      setIsPreparingExport(true);
+      try {
+        setExportDialog(await buildExportDialog(container));
+      } finally {
+        setIsPreparingExport(false);
+      }
+    },
+    [buildExportDialog]
+  );
 
   const handleExportVideo = useCallback(async () => {
     if (!project) return;
@@ -482,10 +509,14 @@ export const App: React.FC = () => {
       setExportProgress(0);
       setExportMessage('Preparando exportación...');
 
-      const result = await VideoExporter.exportProjectVideo(project, (progress, message) => {
-        setExportProgress(progress);
-        setExportMessage(message);
-      });
+      const result = await VideoExporter.exportProjectVideo(
+        project,
+        (progress, message) => {
+          setExportProgress(progress);
+          setExportMessage(message);
+        },
+        { container: exportContainer }
+      );
 
       setExportedVideo({
         url: URL.createObjectURL(result.blob),
@@ -503,7 +534,7 @@ export const App: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [project]);
+  }, [exportContainer, project]);
 
   /** Descarga los subtítulos de todo el proyecto como .srt con tiempos absolutos. */
   const handleDownloadSrt = useCallback(() => {
@@ -808,7 +839,7 @@ export const App: React.FC = () => {
                   setExportDialog(null);
                   setIsPreviewOpen(true);
                 }}
-                disabled={exportDialog.durationSeconds <= 0}
+                disabled={exportDialog.durationSeconds <= 0 || !exportDialog.format.supported}
                 className="btn-primary"
               >
                 <MonitorPlay className="w-4 h-4" />
@@ -818,6 +849,24 @@ export const App: React.FC = () => {
           }
         >
           <dl className="space-y-2 text-sm">
+            <div className="flex justify-between items-center gap-4">
+              <dt className="text-slate-400">Contenedor</dt>
+              <dd>
+                <select
+                  data-testid="export-container"
+                  aria-label="Contenedor del archivo exportado"
+                  value={exportDialog.container}
+                  disabled={isPreparingExport}
+                  onChange={(event) => {
+                    void changeExportContainer(event.target.value as ExportContainer);
+                  }}
+                  className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="webm">WebM · VP9</option>
+                  <option value="mp4">MP4 · H.264</option>
+                </select>
+              </dd>
+            </div>
             <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Resolución real</dt>
               <dd className="text-slate-100 font-mono">
@@ -881,7 +930,7 @@ export const App: React.FC = () => {
             <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Nombre del archivo</dt>
               <dd className="text-slate-100 font-mono text-right break-all">
-                {buildExportFileName(project, 'webm')}
+                {buildExportFileName(project, exportDialog.container)}
               </dd>
             </div>
           </dl>
@@ -899,7 +948,13 @@ export const App: React.FC = () => {
             </p>
           )}
 
-          {!exportDialog.format.usedWebCodecs && (
+          {exportDialog.format.message && (
+            <p data-testid="export-format-message" className="text-sm text-rose-300">
+              {exportDialog.format.message}
+            </p>
+          )}
+
+          {!exportDialog.format.usedWebCodecs && exportDialog.format.supported && (
             <p className="text-sm text-amber-300">
               Este navegador no soporta WebCodecs para estos ajustes: la exportación usará MediaRecorder en tiempo
               real y puede tardar lo mismo que la duración del video.

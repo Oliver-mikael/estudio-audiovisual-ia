@@ -5,7 +5,8 @@
 // Si WebCodecs no está disponible, se usa MediaRecorder con captureStream(0) + requestFrame
 // como respaldo, manteniendo esa misma mezcla real.
 
-import { ArrayBufferTarget, Muxer } from 'webm-muxer';
+import { ArrayBufferTarget as WebmArrayBufferTarget, Muxer as WebmMuxer } from 'webm-muxer';
+import { ArrayBufferTarget as Mp4ArrayBufferTarget, Muxer as Mp4Muxer } from 'mp4-muxer';
 import { Project } from '../types';
 import { CanvasRenderEngine } from './renderEngine';
 import {
@@ -43,10 +44,17 @@ export interface VideoExportResult {
   fps: number;
 }
 
+/** Contenedor de salida elegido para la exportación. */
+export type ExportContainer = 'webm' | 'mp4';
+
 interface VideoCodecPlan {
   encoderCodec: string;
-  muxerCodec: 'V_VP9' | 'V_VP8';
+  muxerCodec: 'V_VP9' | 'V_VP8' | 'avc';
+  container: ExportContainer;
 }
+
+/** Perfil H.264 baseline nivel 3.0, el que admite WebCodecs con más frecuencia. */
+export const MP4_VIDEO_CODEC = 'avc1.42E01E';
 
 const VIDEO_BITRATE = 2_500_000;
 const AUDIO_BITRATE = 128_000;
@@ -79,12 +87,35 @@ export function buildExportFileName(project: Project, extension: 'webm' | 'mp4')
   return `${slug}-${project.settings.resolution.height}p.${extension}`;
 }
 
-async function planVideoCodec(width: number, height: number, fps: number): Promise<VideoCodecPlan | null> {
+async function planVideoCodec(
+  width: number,
+  height: number,
+  fps: number,
+  container: ExportContainer = 'webm'
+): Promise<VideoCodecPlan | null> {
   if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
 
+  if (container === 'mp4') {
+    try {
+      const support = await VideoEncoder.isConfigSupported({
+        codec: MP4_VIDEO_CODEC,
+        width,
+        height,
+        bitrate: VIDEO_BITRATE,
+        framerate: fps,
+        avc: { format: 'avc' },
+      });
+      return support.supported
+        ? { encoderCodec: MP4_VIDEO_CODEC, muxerCodec: 'avc', container: 'mp4' }
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
   const candidates: VideoCodecPlan[] = [
-    { encoderCodec: 'vp09.00.10.08', muxerCodec: 'V_VP9' },
-    { encoderCodec: 'vp8', muxerCodec: 'V_VP8' },
+    { encoderCodec: 'vp09.00.10.08', muxerCodec: 'V_VP9', container: 'webm' },
+    { encoderCodec: 'vp8', muxerCodec: 'V_VP8', container: 'webm' },
   ];
 
   for (const candidate of candidates) {
@@ -102,6 +133,74 @@ async function planVideoCodec(width: number, height: number, fps: number): Promi
     }
   }
   return null;
+}
+
+interface MuxerSink {
+  addVideoChunk(chunk: EncodedVideoChunk, meta?: EncodedVideoChunkMetadata): void;
+  addAudioChunk(chunk: EncodedAudioChunk, meta?: EncodedAudioChunkMetadata): void;
+}
+
+interface CreatedMuxer {
+  sink: MuxerSink;
+  finalize: () => { buffer: ArrayBuffer; mimeType: string; container: ExportContainer };
+}
+
+/** Crea el empaquetador del contenedor pedido (WebM/VP9 o MP4/H.264). */
+function createMuxer(
+  plan: VideoCodecPlan,
+  width: number,
+  height: number,
+  fps: number,
+  withAudio: boolean
+): CreatedMuxer {
+  if (plan.container === 'mp4') {
+    const target = new Mp4ArrayBufferTarget();
+    const muxer = new Mp4Muxer({
+      target,
+      video: { codec: 'avc', width, height, frameRate: fps },
+      ...(withAudio
+        ? {
+            audio: {
+              codec: 'opus' as const,
+              numberOfChannels: NARRATION_CHANNELS,
+              sampleRate: NARRATION_SAMPLE_RATE,
+            },
+          }
+        : {}),
+      fastStart: 'in-memory',
+      firstTimestampBehavior: 'offset',
+    });
+    return {
+      sink: muxer as unknown as MuxerSink,
+      finalize: () => {
+        muxer.finalize();
+        return { buffer: target.buffer, mimeType: 'video/mp4', container: 'mp4' as const };
+      },
+    };
+  }
+
+  const target = new WebmArrayBufferTarget();
+  const muxer = new WebmMuxer({
+    target,
+    video: { codec: plan.muxerCodec as 'V_VP9' | 'V_VP8', width, height, frameRate: fps },
+    ...(withAudio
+      ? {
+          audio: {
+            codec: 'A_OPUS' as const,
+            numberOfChannels: NARRATION_CHANNELS,
+            sampleRate: NARRATION_SAMPLE_RATE,
+          },
+        }
+      : {}),
+    firstTimestampBehavior: 'offset',
+  });
+  return {
+    sink: muxer as unknown as MuxerSink,
+    finalize: () => {
+      muxer.finalize();
+      return { buffer: target.buffer, mimeType: 'video/webm', container: 'webm' as const };
+    },
+  };
 }
 
 async function supportsOpusAudio(): Promise<boolean> {
@@ -130,7 +229,18 @@ export interface ExportFormatInfo {
   fps: number;
   /** true si el dispositivo es móvil y se han recortado los ajustes. */
   mobileLimited: boolean;
+  /** Contenedor pedido por el usuario. */
+  requestedContainer: ExportContainer;
+  /** false cuando este navegador no puede producir el contenedor pedido. */
+  supported: boolean;
+  /** Explicación del motivo cuando `supported` es false. */
+  message: string | null;
 }
+
+const MP4_UNSUPPORTED_MESSAGE =
+  'Este navegador no soporta la codificación H.264 en WebCodecs, así que no puede exportar MP4. Elige WebM o usa Chrome/Edge de escritorio actualizado.';
+const MP4_AUDIO_UNSUPPORTED_MESSAGE =
+  'Este navegador no puede codificar audio Opus para el MP4. Elige WebM o usa Chrome/Edge de escritorio actualizado.';
 
 /**
  * Describe el formato que producirá realmente la exportación en este navegador,
@@ -138,7 +248,8 @@ export interface ExportFormatInfo {
  */
 export async function describeExportFormat(
   project: Project,
-  hasAudio: boolean
+  hasAudio: boolean,
+  container: ExportContainer = 'webm'
 ): Promise<ExportFormatInfo> {
   const settings = effectiveSettings(project);
   const fps = settings.fps || 30;
@@ -146,8 +257,57 @@ export async function describeExportFormat(
   const height = Math.max(2, Math.round(settings.resolution.height / 2) * 2);
   const mobileLimited = isLimitedForMobile(project.settings);
 
-  const plan = await planVideoCodec(width, height, fps);
+  const plan = await planVideoCodec(width, height, fps, container);
   const audioOk = hasAudio ? await supportsOpusAudio() : true;
+
+  if (container === 'mp4') {
+    if (!plan) {
+      return {
+        container: 'MP4',
+        videoCodec: 'H.264',
+        audioCodec: hasAudio ? 'Opus' : 'sin audio',
+        mode: 'no disponible',
+        usedWebCodecs: false,
+        width,
+        height,
+        fps,
+        mobileLimited,
+        requestedContainer: 'mp4',
+        supported: false,
+        message: MP4_UNSUPPORTED_MESSAGE,
+      };
+    }
+    if (!audioOk) {
+      return {
+        container: 'MP4',
+        videoCodec: 'H.264',
+        audioCodec: 'sin audio',
+        mode: 'no disponible',
+        usedWebCodecs: false,
+        width,
+        height,
+        fps,
+        mobileLimited,
+        requestedContainer: 'mp4',
+        supported: false,
+        message: MP4_AUDIO_UNSUPPORTED_MESSAGE,
+      };
+    }
+    return {
+      container: 'MP4',
+      videoCodec: 'H.264 (avc1.42E01E)',
+      audioCodec: hasAudio ? 'Opus' : 'sin audio',
+      mode: 'cuadro por cuadro (WebCodecs)',
+      usedWebCodecs: true,
+      width,
+      height,
+      fps,
+      mobileLimited,
+      requestedContainer: 'mp4',
+      supported: true,
+      message: null,
+    };
+  }
 
   if (plan && audioOk) {
     return {
@@ -160,6 +320,9 @@ export async function describeExportFormat(
       height,
       fps,
       mobileLimited,
+      requestedContainer: 'webm',
+      supported: true,
+      message: null,
     };
   }
 
@@ -173,6 +336,9 @@ export async function describeExportFormat(
     height,
     fps,
     mobileLimited,
+    requestedContainer: 'webm',
+    supported: true,
+    message: null,
   };
 }
 
@@ -189,7 +355,8 @@ interface ExportContext {
 export class VideoExporter {
   public static async exportProjectVideo(
     project: Project,
-    onProgress: ExportProgressCallback
+    onProgress: ExportProgressCallback,
+    options: { container?: ExportContainer } = {}
   ): Promise<VideoExportResult> {
     const durationSeconds = projectDurationSeconds(project);
     if (durationSeconds <= 0) {
@@ -222,8 +389,16 @@ export class VideoExporter {
     onProgress(5, 'Mezclando narración, música y efectos de sonido...');
     const audio = await prepareProjectAudio(exportProject, durationSeconds);
 
-    const codecPlan = await planVideoCodec(width, height, fps);
+    const container = options.container ?? 'webm';
+    const codecPlan = await planVideoCodec(width, height, fps, container);
     const canEncodeAudio = audio ? await supportsOpusAudio() : true;
+
+    if (container === 'mp4' && !codecPlan) {
+      throw new Error(MP4_UNSUPPORTED_MESSAGE);
+    }
+    if (container === 'mp4' && !canEncodeAudio) {
+      throw new Error(MP4_AUDIO_UNSUPPORTED_MESSAGE);
+    }
 
     const context: ExportContext = {
       project: exportProject,
@@ -251,36 +426,18 @@ export class VideoExporter {
     const { label: audioLabel, ...audioNames } = VideoExporter.describeMixedAudio(audio);
     const { project, canvas, renderEngine, durationSeconds, totalFrames, fps, onProgress } = context;
 
-    const muxer = new Muxer({
-      target: new ArrayBufferTarget(),
-      video: {
-        codec: codecPlan.muxerCodec,
-        width: canvas.width,
-        height: canvas.height,
-        frameRate: fps,
-      },
-      ...(audio
-        ? {
-            audio: {
-              codec: 'A_OPUS',
-              numberOfChannels: NARRATION_CHANNELS,
-              sampleRate: NARRATION_SAMPLE_RATE,
-            },
-          }
-        : {}),
-      firstTimestampBehavior: 'offset',
-    });
+    const muxer = createMuxer(codecPlan, canvas.width, canvas.height, fps, Boolean(audio));
 
     // 1. Mezcla real de audio (sin tonos sintéticos), codificada en Opus.
     if (audio) {
       onProgress(10, `Codificando audio: ${audioLabel}...`);
-      await VideoExporter.encodeAudioBuffer(muxer, audio.buffer);
+      await VideoExporter.encodeAudioBuffer(muxer.sink, audio.buffer);
     }
 
     // 2. Video cuadro por cuadro: el tiempo de cada cuadro es i / fps, no el reloj de pared.
     let encoderError: Error | null = null;
     const videoEncoder = new VideoEncoder({
-      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      output: (chunk, meta) => muxer.sink.addVideoChunk(chunk, meta),
       error: (error) => {
         encoderError = error;
       },
@@ -293,6 +450,8 @@ export class VideoExporter {
       bitrate: VIDEO_BITRATE,
       framerate: fps,
       latencyMode: 'quality',
+      // En MP4 los chunks se piden en formato AVCC (longitud por NAL), no Annex B.
+      ...(codecPlan.container === 'mp4' ? { avc: { format: 'avc' as const } } : {}),
     });
 
     const keyFrameInterval = Math.max(1, Math.round(fps * 2));
@@ -326,15 +485,13 @@ export class VideoExporter {
     videoEncoder.close();
     if (encoderError) throw encoderError;
 
-    onProgress(98, 'Empaquetando archivo WebM...');
-    muxer.finalize();
-
-    const { buffer } = muxer.target as ArrayBufferTarget;
-    const mimeType = 'video/webm';
+    onProgress(98, `Empaquetando archivo ${codecPlan.container === 'mp4' ? 'MP4' : 'WebM'}...`);
+    const output = muxer.finalize();
+    const mimeType = output.mimeType;
     return {
-      blob: new Blob([buffer], { type: mimeType }),
+      blob: new Blob([output.buffer], { type: mimeType }),
       mimeType,
-      extension: extensionForMimeType(mimeType),
+      extension: output.container,
       durationSeconds,
       totalFrames,
       usedWebCodecs: true,
@@ -385,7 +542,7 @@ export class VideoExporter {
   }
 
   private static async encodeAudioBuffer(
-    muxer: Muxer<ArrayBufferTarget>,
+    muxer: MuxerSink,
     buffer: AudioBuffer
   ): Promise<void> {
     let encoderError: Error | null = null;
