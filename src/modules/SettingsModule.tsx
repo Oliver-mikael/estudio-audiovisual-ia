@@ -259,7 +259,32 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ project, onUpdat
         </div>
 
         <div className="space-y-2 border-t border-slate-800 pt-4">
-          <label htmlFor="tts-key" className="etiqueta flex items-center gap-1.5">
+          <label htmlFor="elevenlabs-key" className="etiqueta flex items-center gap-1.5">
+            <Mic className="w-4 h-4 text-indigo-400" />
+            <span>Clave de ElevenLabs (opcional)</span>
+          </label>
+          <input
+            id="elevenlabs-key"
+            data-testid="elevenlabs-key"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={project.settings.elevenlabsApiKey ?? ''}
+            onChange={(event) =>
+              onUpdateProject({
+                ...project,
+                settings: { ...project.settings, elevenlabsApiKey: event.target.value.trim() },
+              })
+            }
+            placeholder="sk_..."
+            className="campo font-mono"
+          />
+          <p className="text-sm text-slate-500">
+            Si hay clave, «Generar voz» usa ElevenLabs con la voz Rachel (modelo eleven_monolingual_v1);
+            si no, sigue usando Google Cloud TTS. La clave se guarda solo en este proyecto.
+          </p>
+
+          <label htmlFor="tts-key" className="etiqueta mt-3 flex items-center gap-1.5">
             <Mic className="w-4 h-4 text-indigo-400" />
             <span>Clave de Google Cloud Text-to-Speech</span>
           </label>

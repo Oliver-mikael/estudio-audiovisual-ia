@@ -13,11 +13,13 @@ import {
 import { createPexelsImageAsset } from '../engine/pexels';
 import {
   DEFAULT_TTS_VOICE,
+  ELEVENLABS_VOICE_ID,
+  ELEVENLABS_VOICE_NAME,
   TTS_VOICES,
   buildSpeechFileName,
   speakTextPreview,
   stopSpeechPreview,
-  synthesizeWithGoogle,
+  synthesizeSpeech,
   voiceById,
 } from '../engine/tts';
 import {
@@ -380,8 +382,9 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     (project.mediaAssets ?? []).find((asset) => asset.id === activeScene?.narrationAssetId) ?? null;
 
   /**
-   * Convierte la narración de la escena activa en un MP3 con Google Cloud TTS,
-   * lo guarda en la Biblioteca y lo asigna como narración de esa escena.
+   * Convierte la narración de la escena activa en un MP3 y lo guarda en la
+   * Biblioteca como narración de esa escena. Usa ElevenLabs (voz Rachel) si hay
+   * clave configurada y, si no, Google Cloud TTS con la voz elegida.
    */
   const handleGenerateVoice = async (force = false) => {
     if (!activeScene) return;
@@ -391,11 +394,12 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       return;
     }
 
-    const apiKey = (project.settings.ttsApiKey ?? '').trim();
-    if (!apiKey) {
+    const googleApiKey = (project.settings.ttsApiKey ?? '').trim();
+    const elevenlabsApiKey = (project.settings.elevenlabsApiKey ?? '').trim();
+    if (!googleApiKey && !elevenlabsApiKey) {
       setTtsMessage({
         kind: 'error',
-        text: 'Falta la clave de Google Cloud TTS. Configúrala en Ajustes del proyecto (o usa «Escuchar» para oír la voz del navegador).',
+        text: 'Falta una clave de voz. Configura ElevenLabs o Google Cloud TTS en Ajustes del proyecto (o usa «Escuchar» para oír la voz del navegador).',
       });
       return;
     }
@@ -408,18 +412,26 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     setTtsBusy(true);
     setTtsMessage(null);
     try {
-      const result = await synthesizeWithGoogle(text, { apiKey, voiceId: ttsVoice });
+      const result = await synthesizeSpeech(text, {
+        googleApiKey,
+        elevenlabsApiKey,
+        googleVoiceId: ttsVoice,
+      });
       const index = scenes.findIndex((scene) => scene.id === activeScene.id);
+      const providerLabel =
+        result.provider === 'elevenlabs'
+          ? `ElevenLabs · ${ELEVENLABS_VOICE_NAME} (${ELEVENLABS_VOICE_ID})`
+          : `Google Cloud TTS · ${voiceById(ttsVoice).label}`;
       const asset: MediaAsset = {
         id: `asset-tts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: buildSpeechFileName(activeScene.title, ttsVoice, index),
+        name: buildSpeechFileName(activeScene.title, ttsVoice, index, result.provider),
         type: 'audio',
         url: URL.createObjectURL(result.blob),
         fileBlob: result.blob,
         mimeType: result.mimeType,
         sizeBytes: result.blob.size,
         license: 'Voz sintética generada',
-        provenance: `Google Cloud TTS · ${voiceById(ttsVoice).label}`,
+        provenance: providerLabel,
         createdAt: Date.now(),
       };
 
@@ -441,7 +453,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
         result.durationSeconds > 0 ? ` · ${result.durationSeconds.toFixed(2)} s` : '';
       setTtsMessage({
         kind: 'ok',
-        text: `Voz generada y guardada en la Biblioteca como «${asset.name}»${duration}. Se asigna a esta escena.`,
+        text: `Voz generada con ${result.provider === 'elevenlabs' ? 'ElevenLabs' : 'Google Cloud TTS'} y guardada en la Biblioteca como «${asset.name}»${duration}. Se asigna a esta escena.`,
       });
     } catch (error) {
       setTtsMessage({
@@ -758,7 +770,8 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                 <p className="text-[11px] text-slate-500">
                   La voz generada se guarda en la Biblioteca y suena al inicio de esta escena, recortada a
                   sus {activeScene.durationSeconds} s. «Escuchar» usa la voz del navegador y no crea archivo;
-                  para exportar audio hace falta la clave de Google Cloud TTS en Ajustes.
+                  para exportar audio hace falta una clave en Ajustes: con ElevenLabs se usa la voz Rachel y,
+                  si no hay clave de ElevenLabs, Google Cloud TTS con la voz elegida arriba.
                 </p>
 
                 {sceneVoiceAsset && (

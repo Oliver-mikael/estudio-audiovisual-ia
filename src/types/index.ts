@@ -129,6 +129,8 @@ export interface Project {
     geminiModel?: string;
     /** Clave de Google Cloud Text-to-Speech para generar voces. */
     ttsApiKey?: string;
+    /** Clave de ElevenLabs; si está, sustituye a Google Cloud TTS (voz Rachel). */
+    elevenlabsApiKey?: string;
     /** Voz de Google Cloud TTS elegida (femenina o masculina). */
     ttsVoice?: string;
     /** Clave de la API de Pexels para buscar imágenes de escena. */
