@@ -14,6 +14,7 @@ import {
 import { VideoPlayer } from './components/VideoPlayer';
 import { HomeScreen } from './components/HomeScreen';
 import { Modal } from './components/Modal';
+import { StoryboardPreview } from './components/StoryboardPreview';
 import {
   ExportFormatInfo,
   VideoExporter,
@@ -146,6 +147,7 @@ export const App: React.FC = () => {
   const [exportedVideo, setExportedVideo] = useState<ExportedVideo | null>(null);
   const [exportDialog, setExportDialog] = useState<ExportDialogData | null>(null);
   const [isPreparingExport, setIsPreparingExport] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -472,6 +474,7 @@ export const App: React.FC = () => {
   const handleExportVideo = useCallback(async () => {
     if (!project) return;
     setExportDialog(null);
+    setIsPreviewOpen(false);
 
     try {
       setIsExporting(true);
@@ -760,6 +763,27 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* Previsualización del storyboard antes de exportar (fase 31) */}
+      {isPreviewOpen && project && (
+        <Modal
+          title="Previsualización antes de exportar"
+          widthClass="max-w-3xl"
+          onClose={() => setIsPreviewOpen(false)}
+          footer={
+            <button onClick={() => setIsPreviewOpen(false)} className="btn-secondary">
+              Cancelar
+            </button>
+          }
+        >
+          <StoryboardPreview
+            project={project}
+            onExport={() => {
+              void handleExportVideo();
+            }}
+          />
+        </Modal>
+      )}
+
       {/* Modal previo a la exportación con los datos reales */}
       {exportDialog && (
         <Modal
@@ -781,13 +805,14 @@ export const App: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  void handleExportVideo();
+                  setExportDialog(null);
+                  setIsPreviewOpen(true);
                 }}
                 disabled={exportDialog.durationSeconds <= 0}
                 className="btn-primary"
               >
-                <Download className="w-4 h-4" />
-                <span>Exportar</span>
+                <MonitorPlay className="w-4 h-4" />
+                <span>Ver preview y exportar</span>
               </button>
             </>
           }
