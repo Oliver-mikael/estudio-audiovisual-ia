@@ -218,13 +218,31 @@ En la misma sesión, «Usar como música» guardó un blob MP3 de 193 141 bytes 
 apuntando a ese recurso. El navegador headless no confirmó reproducción audible (`readyState` 0), aunque
 `play()` se invocó con la URL real de la pista.
 
+## Fase 34 — exportación MP4/H.264
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase34-export.mp4` | Salida directa de `VideoExporter` con `{ container: 'mp4' }`: 2 escenas de 1 s, 640 × 360 a 24 fps, con narración WAV. 151 877 bytes. | ffprobe: `h264` 640×360@24 + `opus` 48 kHz estéreo; duración 2,02 s. El contenedor es MP4 (`ftyp isom`). |
+| `phase34-ui-export.mp4` | El archivo descargado pulsando el flujo completo de la UI: «Exportar video» → contenedor MP4 · H.264 → «Ver preview y exportar» → «Descargar .mp4». El navegador propuso `prueba-mp4-ui-fase-34-360p.mp4`. 130 703 bytes. | ffprobe: `h264` 640×360, duración 3,00 s (3 escenas de 1 s), sin pista de audio porque el proyecto no tenía audio. El modal mostró «MP4 · H.264 (avc1.42E01E)» y deshabilitó la exportación cuando el navegador no soporta el códec. |
+
+## Fase 36 — exportar solo audio (WAV)
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase36-audio.wav` | WAV descargado con el botón «Exportar audio» de un proyecto de 3 s con narración de 1 kHz y música de 200 Hz. 576 044 bytes. | ffprobe: `pcm_s16le`, 48 000 Hz, 2 canales, 16 bits, duración 3,000000 s (0,000 s de diferencia con el proyecto). `volumedetect`: media −15,7 dB y pico −8,2 dB, así que la mezcla no está en silencio. La interfaz mostró «prueba-audio-ui-fase-36-mezcla.wav · 3.00 s · 48000 Hz · 2 canales». |
+
+No hay archivo para las fases 33 y 35: la fase 33 se comprobó con la petición real que salió del navegador
+(URL de ElevenLabs, cabeceras y cuerpo) y el MP3 resultante asignado a la escena, y la fase 35 leyendo los
+`data-value` del panel y comparándolos con el proyecto guardado en IndexedDB. Los detalles están en
+`PROJECT_STATUS.md`.
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |
 | :--- | :--- | :--- |
 | `phase11-export-after-refactor.webm` | La misma exportación de la fase 10 repetida después de extraer `fitNarrationChannels` para las pruebas. | El camino nuevo de narración (decodificar y recortar/rellenar muestras) produce el mismo audio: 5,00 s, RMS 0,0945 y correlación 0,9992 con el WAV, desfase 0. |
 
-Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (74 pruebas en 14 archivos).
+Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (127 pruebas en 24 archivos).
 
 ## Cómo reproducirlo
 
@@ -254,6 +272,7 @@ verificaciones.
   es el real de la app. Las capturas de las fases 21–24 usan 390×844 y la de la fase 28, 360×712.
 - Las pistas de `public/music` son composiciones sintetizadas por `scripts/generate-music.mjs`, sin samples
   de terceros, y se publican como CC0. No se comparó su calidad subjetiva con música comercial.
-- Las APIs de Gemini, Google Cloud TTS y Pexels se simularon con respuestas del mismo formato; no se llamó a
-  los servicios reales porque el entorno no tenía claves. La voz de la fase 22 sí es habla española real
+- Las APIs de Gemini, Google Cloud TTS, ElevenLabs y Pexels se simularon con respuestas del mismo formato; no
+  se llamó a los servicios reales porque el entorno no tenía claves. En ElevenLabs la respuesta fue un MP3
+  real del propio proyecto para poder medir su duración desde los bytes. La voz de la fase 22 sí es habla española real
   (generada con `edge-tts`) y las imágenes de la fase 23 son PNG reales descargados por la app.

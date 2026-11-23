@@ -2,8 +2,10 @@
 
 Lista priorizada de lo que falta, empezando por lo que más limita el uso real. Nada de esta lista está
 implementado salvo que se indique lo contrario. Las fases 21–24 (guion con Gemini, voz TTS por escena,
-imágenes de Pexels y cortes automáticos) están implementadas con claves opcionales del usuario y verificadas
-con respuestas simuladas; quedan las pruebas contra los servicios reales.
+imágenes de Pexels y cortes automáticos) y las fases 33–36 (ElevenLabs opcional, MP4/H.264, resumen previo
+y exportación solo de audio) están implementadas con claves opcionales del usuario y verificadas en Chromium;
+la voz y las imágenes se probaron con respuestas simuladas, así que quedan las pruebas contra los servicios
+reales.
 
 ## 1. IA real (prioridad alta)
 
@@ -20,8 +22,12 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Reproducción de audio en la vista previa del Monitor, con el mismo ducking que la exportación
   (fase 17).
 - Verificar Safari y Firefox; allí WebCodecs no existe y la exportación cae al respaldo en tiempo real.
-- Añadir exportación MP4/H.264 (hoy la única salida es WebM).
+- [x] Exportación MP4/H.264 con `avc1.42E01E` y `mp4-muxer` (fase 34). Aviso claro si el navegador no
+  soporta H.264 en WebCodecs; falta un respaldo MP4 sin WebCodecs y una pista AAC.
 - Arreglar la duración del WebM del respaldo `MediaRecorder` (hoy no declara duración).
+- [x] Exportar solo audio como WAV de 48 kHz, sin video (fase 36).
+- [x] Resumen del proyecto antes de exportar: duración, escenas, palabras, pistas de audio y resolución
+  (fase 35).
 - Probar clips con audio propio (hoy el clip se reproduce mudo) y códecs MP4 distintos de H.264.
 - Interfaz para la relación de aspecto 9:16 y 1:1 (hoy solo 16:9 en la UI).
 - Probar el límite móvil en un dispositivo real, no solo simulando el user agent.
@@ -54,9 +60,27 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Biblioteca de 10 pistas CC0 por categoría, con vista previa y asignación como música de fondo
   (fase 28).
 
+## 2e. Hecho en las fases 29–32
+
+- [x] Brillo, contraste y saturación por escena con `ctx.filter`, neutral 1,0 (fase 29).
+- [x] Cuatro plantillas de estilo (YouTube Educativo, TikTok Viral, Corporativo, Cinematic) que fijan
+  tipografía, color de subtítulos, gancho, categoría de música y transición (fase 30).
+- [x] Preview del storyboard con audio antes de exportar, un cuadro de 1 s por escena (fase 31).
+- [x] Título animado del proyecto en el tercio inferior de la escena 1, 0,4 s de deslizamiento (fase 32).
+
+## 2f. Hecho en las fases 33–36
+
+- [x] ElevenLabs como alternativa opcional a Google Cloud TTS: voz Rachel, modelo `eleven_monolingual_v1`
+  y rechazo de audios de menos de 0,5 s medidos en los bytes del MP3 (fase 33). Probado con una respuesta
+  simulada; falta probarlo con una clave real.
+- [x] Exportación MP4/H.264 (fase 34), con aviso cuando el navegador no expone H.264 en WebCodecs.
+- [x] Panel de estadísticas del proyecto antes de exportar (fase 35).
+- [x] Exportación de solo audio en WAV a 48 kHz con `OfflineAudioContext` (fase 36).
+
 ## 3. Edición de audio
 
-- [x] Narración por escena con voz TTS (fase 22).
+- [x] Narración por escena con voz TTS (fase 22) y alternativa ElevenLabs opcional (fase 33).
+- [ ] Probar ElevenLabs con una clave real y elegir entre varias voces suyas (hoy Rachel fija).
 - [ ] Asignar a una escena un audio importado de la Biblioteca (hoy la voz por escena solo se genera con TTS).
 - [ ] Ajustar la duración de la escena a la voz generada o recortar la voz con una interfaz de ondas.
 - [x] Música de fondo global con mezcla y ducking (fase 13).
@@ -101,6 +125,6 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 8. Calidad
 
-- Pruebas de la UI y de la exportación de punta a punta (hoy hay 74 pruebas de lógica pura y persistencia, sin navegador).
+- Pruebas de la UI y de la exportación de punta a punta (hoy hay 127 pruebas de lógica pura y persistencia, sin navegador).
 - Accesibilidad del editor (foco, teclado, anuncios de estado).
 - Idiomas: hoy toda la interfaz está en español.
