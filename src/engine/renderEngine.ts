@@ -10,6 +10,7 @@ import { visualSlotAt } from './visualRhythm';
 import { normalizeSubtitleAnimation, subtitleAnimationFrame } from './textAnimation';
 import { introHookFrame } from './introHook';
 import { colorGradeFor } from './colorGrade';
+import { sceneTitleFrame } from './sceneTitle';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -507,6 +508,52 @@ export class CanvasRenderEngine {
 
     // 5. Gancho visual de la intro (solo en los primeros 3 s del primer escena)
     this.drawIntroHook(ctx, width, height, project, scene, absoluteTime);
+
+    // 6. Título del proyecto en el tercio inferior de la primera escena.
+    this.drawSceneTitle(ctx, width, height, project, scene, absoluteTime);
+  }
+
+  /** Título animado de la escena 1, con fondo semitransparente (fase 32). */
+  private drawSceneTitle(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    project: Project,
+    scene: Scene,
+    absoluteTime: number
+  ): void {
+    const frame = sceneTitleFrame(project, scene, absoluteTime);
+    if (!frame || frame.opacity <= 0) return;
+
+    const fontSize = Math.max(24, Math.round(width * 0.042));
+    const lineHeight = Math.round(fontSize * 1.22);
+
+    ctx.save();
+    ctx.globalAlpha = frame.opacity;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `800 ${fontSize}px system-ui, -apple-system, sans-serif`;
+
+    const lines = this.wrapTextLines(ctx, frame.text, width * 0.8);
+    const textWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    const paddingX = Math.round(fontSize * 0.6);
+    const paddingY = Math.round(fontSize * 0.42);
+    const boxWidth = Math.min(width - 80, textWidth + paddingX * 2);
+    const boxHeight = lines.length * lineHeight + paddingY * 2;
+
+    // Tercio inferior: el centro del bloque queda en el 76 % de la altura.
+    ctx.translate(width / 2, height * 0.76 + frame.translateY);
+
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+    ctx.beginPath();
+    ctx.roundRect(-boxWidth / 2, -boxHeight / 2, boxWidth, boxHeight, 14);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    const startY = -((lines.length - 1) * lineHeight) / 2;
+    lines.forEach((line, index) => ctx.fillText(line, 0, startY + index * lineHeight));
+
+    ctx.restore();
   }
 
   private drawEmptyState(width: number, height: number): void {
