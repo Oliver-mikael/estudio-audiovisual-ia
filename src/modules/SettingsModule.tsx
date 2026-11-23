@@ -9,9 +9,10 @@ import {
   isLimitedForMobile,
   isMobileLike,
 } from '../engine/capabilities';
-import { AlertTriangle, AudioLines, KeyRound, Settings, Sliders, Sparkles } from 'lucide-react';
+import { AlertTriangle, AudioLines, KeyRound, Mic, Settings, Sliders, Sparkles } from 'lucide-react';
 import { MUSIC_DUCK_LEVEL, musicVolumeFor } from '../engine/audioTrack';
 import { DEFAULT_GEMINI_MODEL } from '../engine/gemini';
+import { DEFAULT_TTS_VOICE, TTS_VOICES } from '../engine/tts';
 
 interface SettingsModuleProps {
   project: Project;
@@ -255,6 +256,64 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ project, onUpdat
             Por defecto {DEFAULT_GEMINI_MODEL}. Si el modelo deja de estar disponible, escribe otro nombre de
             modelo de la API de Gemini.
           </p>
+        </div>
+
+        <div className="space-y-2 border-t border-slate-800 pt-4">
+          <label htmlFor="tts-key" className="etiqueta flex items-center gap-1.5">
+            <Mic className="w-4 h-4 text-indigo-400" />
+            <span>Clave de Google Cloud Text-to-Speech</span>
+          </label>
+          <input
+            id="tts-key"
+            data-testid="tts-key"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={project.settings.ttsApiKey ?? ''}
+            onChange={(event) =>
+              onUpdateProject({
+                ...project,
+                settings: { ...project.settings, ttsApiKey: event.target.value.trim() },
+              })
+            }
+            placeholder="AIza..."
+            className="campo font-mono"
+          />
+          <p className="text-sm text-slate-500">
+            Habilita la API «Cloud Text-to-Speech» en{' '}
+            <a
+              href="https://console.cloud.google.com/apis/library/texttospeech.googleapis.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 underline underline-offset-2"
+            >
+              Google Cloud Console
+            </a>{' '}
+            y pega aquí una clave de API. Sin clave puedes escuchar la narración con la voz del navegador,
+            pero no guardarla para el video.
+          </p>
+
+          <label htmlFor="tts-voice" className="etiqueta mt-3 block">
+            Voz por defecto
+          </label>
+          <select
+            id="tts-voice"
+            data-testid="tts-voice-default"
+            value={project.settings.ttsVoice ?? DEFAULT_TTS_VOICE}
+            onChange={(event) =>
+              onUpdateProject({
+                ...project,
+                settings: { ...project.settings, ttsVoice: event.target.value },
+              })
+            }
+            className="campo"
+          >
+            {TTS_VOICES.map((voice) => (
+              <option key={voice.id} value={voice.id}>
+                {voice.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </div>

@@ -21,6 +21,9 @@ function describePreparedAudio(prepared: PreparedAudio | null): string {
   if (!prepared) return 'Sin audio asignado';
   const parts: string[] = [];
   if (prepared.narrationAsset) parts.push('narración');
+  if (prepared.sceneNarrationAssets.length > 0) {
+    parts.push(`${prepared.sceneNarrationAssets.length} voz(es) por escena`);
+  }
   if (prepared.musicAsset) parts.push('música con ducking');
   if (prepared.sfxAssets.length > 0) parts.push(`${prepared.sfxAssets.length} efecto(s)`);
   return parts.length > 0 ? parts.join(' + ') : 'Sin audio asignado';
@@ -70,7 +73,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
     music: project.musicAssetId ?? null,
     volume: project.settings.musicVolume ?? null,
     scenes: project.script.scenes.map(
-      (scene) => `${scene.id}:${scene.durationSeconds}:${scene.sfxAssetId ?? ''}`
+      (scene) =>
+        `${scene.id}:${scene.durationSeconds}:${scene.sfxAssetId ?? ''}:${scene.narrationAssetId ?? ''}`
     ),
     assets: (project.mediaAssets ?? [])
       .filter((asset) => asset.type === 'audio')

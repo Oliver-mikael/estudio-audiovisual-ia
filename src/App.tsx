@@ -21,7 +21,7 @@ import {
   describeExportFormat,
   projectDurationSeconds,
 } from './engine/exporter';
-import { findMusicAsset, findNarrationAsset } from './engine/audioTrack';
+import { findMusicAsset, findNarrationAsset, projectHasAudio } from './engine/audioTrack';
 import { buildSrt, buildSrtFileName, collectSrtCues } from './engine/srt';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import {
@@ -80,6 +80,7 @@ interface ExportedVideo {
   url: string;
   extension: 'webm' | 'mp4';
   narrationAssetName: string | null;
+  sceneNarrationCount: number;
   musicAssetName: string | null;
   sfxAssetNames: string[];
   usedWebCodecs: boolean;
@@ -88,6 +89,7 @@ interface ExportedVideo {
 interface ExportDialogData {
   format: ExportFormatInfo;
   narrationName: string | null;
+  sceneNarrationCount: number;
   musicName: string | null;
   sfxCount: number;
   subtitleCount: number;
@@ -448,13 +450,14 @@ export const App: React.FC = () => {
       const musicAsset = findMusicAsset(project);
       const sfxCount = project.script.scenes.filter((scene) => scene.sfxAssetId).length;
       const durationSeconds = projectDurationSeconds(project);
-      const format = await describeExportFormat(
-        project,
-        Boolean(narrationAsset || musicAsset || sfxCount > 0)
-      );
+      const sceneNarrationCount = project.script.scenes.filter((scene) =>
+        Boolean(scene.narrationAssetId)
+      ).length;
+      const format = await describeExportFormat(project, projectHasAudio(project));
       setExportDialog({
         format,
         narrationName: narrationAsset ? narrationAsset.name : null,
+        sceneNarrationCount,
         musicName: musicAsset ? musicAsset.name : null,
         sfxCount,
         subtitleCount: collectSrtCues(project).length,
@@ -485,6 +488,7 @@ export const App: React.FC = () => {
         url: URL.createObjectURL(result.blob),
         extension: result.extension,
         narrationAssetName: result.narrationAssetName,
+        sceneNarrationCount: result.sceneNarrationCount,
         musicAssetName: result.musicAssetName,
         sfxAssetNames: result.sfxAssetNames,
         usedWebCodecs: result.usedWebCodecs,
@@ -721,6 +725,9 @@ export const App: React.FC = () => {
                   {exportedVideo.narrationAssetName
                     ? `narración: ${exportedVideo.narrationAssetName}`
                     : 'sin narración'}
+                  {exportedVideo.sceneNarrationCount > 0
+                    ? ` · ${exportedVideo.sceneNarrationCount} voz(es) por escena`
+                    : ''}
                   {exportedVideo.musicAssetName ? ` · música: ${exportedVideo.musicAssetName}` : ''}
                   {exportedVideo.sfxAssetNames.length > 0
                     ? ` · ${exportedVideo.sfxAssetNames.length} efecto(s)`
@@ -811,6 +818,14 @@ export const App: React.FC = () => {
                 {exportDialog.narrationName ? exportDialog.narrationName : 'Sin narración'}
               </dd>
             </div>
+            {exportDialog.sceneNarrationCount > 0 && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-400">Voces por escena</dt>
+                <dd className="text-slate-100 text-right">
+                  {exportDialog.sceneNarrationCount} escena(s) con voz propia
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between gap-4">
               <dt className="text-slate-400">Música de fondo</dt>
               <dd className="text-slate-100 text-right">

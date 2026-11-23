@@ -31,6 +31,8 @@ export interface VideoExportResult {
   /** true = exportación cuadro por cuadro con WebCodecs; false = respaldo MediaRecorder. */
   usedWebCodecs: boolean;
   narrationAssetName: string | null;
+  /** Cuántas escenas tienen su propia voz de narración. */
+  sceneNarrationCount: number;
   /** Nombre de la música de fondo mezclada, o null si no hay. */
   musicAssetName: string | null;
   /** Nombres de los efectos de sonido mezclados (uno por escena). */
@@ -346,21 +348,36 @@ export class VideoExporter {
   /** Nombres de los recursos que forman la pista de audio exportada. */
   private static describeMixedAudio(audio: PreparedAudio | null): {
     narrationAssetName: string | null;
+    sceneNarrationCount: number;
     musicAssetName: string | null;
     sfxAssetNames: string[];
     label: string;
   } {
     if (!audio) {
-      return { narrationAssetName: null, musicAssetName: null, sfxAssetNames: [], label: 'sin audio' };
+      return {
+        narrationAssetName: null,
+        sceneNarrationCount: 0,
+        musicAssetName: null,
+        sfxAssetNames: [],
+        label: 'sin audio',
+      };
     }
     const parts: string[] = [];
     if (audio.narrationAsset) parts.push(`narración "${audio.narrationAsset.name}"`);
+    if (audio.sceneNarrationAssets.length > 0) {
+      parts.push(
+        `${audio.sceneNarrationAssets.length} voz(es) por escena: ${audio.sceneNarrationAssets
+          .map((asset) => asset.name)
+          .join(', ')}`
+      );
+    }
     if (audio.musicAsset) parts.push(`música "${audio.musicAsset.name}"`);
     if (audio.sfxAssets.length > 0) {
       parts.push(`${audio.sfxAssets.length} efecto(s): ${audio.sfxAssets.map((a) => a.name).join(', ')}`);
     }
     return {
       narrationAssetName: audio.narrationAsset ? audio.narrationAsset.name : null,
+      sceneNarrationCount: audio.sceneNarrationAssets.length,
       musicAssetName: audio.musicAsset ? audio.musicAsset.name : null,
       sfxAssetNames: audio.sfxAssets.map((asset) => asset.name),
       label: parts.length > 0 ? parts.join(' + ') : 'sin audio',

@@ -31,6 +31,8 @@ const DUCK_WINDOW_SECONDS = 0.01;
 export interface PreparedAudio {
   buffer: AudioBuffer;
   narrationAsset: MediaAsset | null;
+  /** Voces TTS/importadas asignadas a escenas concretas. */
+  sceneNarrationAssets: MediaAsset[];
   musicAsset: MediaAsset | null;
   sfxAssets: MediaAsset[];
 }
@@ -45,9 +47,18 @@ export function findNarrationAsset(project: Project): MediaAsset | null {
   if (project.narrationAssetId) {
     return assets.find((asset) => asset.id === project.narrationAssetId && asset.type === 'audio') ?? null;
   }
+  // Una voz generada para una escena no es la narración global del proyecto.
+  const sceneNarrationIds = new Set(
+    project.script.scenes
+      .map((scene) => scene.narrationAssetId)
+      .filter((id): id is string => Boolean(id))
+  );
   return (
     assets.find(
-      (asset) => asset.type === 'audio' && asset.id !== project.musicAssetId
+      (asset) =>
+        asset.type === 'audio' &&
+        asset.id !== project.musicAssetId &&
+        !sceneNarrationIds.has(asset.id)
     ) ?? null
   );
 }
@@ -60,6 +71,45 @@ export function findMusicAsset(project: Project): MediaAsset | null {
 }
 
 /** Devuelve el efecto de sonido asignado a una escena, si lo hay. */
+export interface SceneNarrationSlot {
+  sceneId: string;
+  asset: MediaAsset;
+  /** Segundo absoluto del proyecto en el que empieza la escena. */
+  start: number;
+  /** Duración de la escena: la voz se recorta a esta ventana. */
+  duration: number;
+}
+
+/** Audio de narración asignado a una escena concreta, si lo hay. */
+export function findSceneNarrationAsset(project: Project, sceneId: string): MediaAsset | null {
+  const scene = project.script.scenes.find((item) => item.id === sceneId);
+  if (!scene?.narrationAssetId) return null;
+  return (
+    (project.mediaAssets ?? []).find(
+      (asset) => asset.id === scene.narrationAssetId && asset.type === 'audio'
+    ) ?? null
+  );
+}
+
+/**
+ * Narraciones por escena con su posición exacta en la línea de tiempo. La voz
+ * de cada escena empieza al inicio de la escena y no invade la siguiente.
+ */
+export function sceneNarrationSlots(project: Project): SceneNarrationSlot[] {
+  return buildTimeline(project).flatMap((entry) => {
+    const asset = findSceneNarrationAsset(project, entry.scene.id);
+    if (!asset) return [];
+    return [{ sceneId: entry.scene.id, asset, start: entry.start, duration: entry.duration }];
+  });
+}
+
+/** true si el proyecto tiene cualquier audio (global, por escena, música o SFX). */
+export function projectHasAudio(project: Project): boolean {
+  if (findNarrationAsset(project) || findMusicAsset(project)) return true;
+  if (sceneNarrationSlots(project).length > 0) return true;
+  return project.script.scenes.some((scene) => Boolean(scene.sfxAssetId));
+}
+
 export function findSfxAsset(project: Project, sceneId: string): MediaAsset | null {
   const scene = project.script.scenes.find((item) => item.id === sceneId);
   if (!scene?.sfxAssetId) return null;
@@ -243,13 +293,16 @@ export async function prepareProjectAudio(
   durationSeconds: number
 ): Promise<PreparedAudio | null> {
   const narrationAsset = findNarrationAsset(project);
+  const sceneNarrations = sceneNarrationSlots(project);
   const musicAsset = findMusicAsset(project);
   const timeline = buildTimeline(project);
   const sfxEntries = timeline
     .map((entry) => ({ start: entry.start, asset: findSfxAsset(project, entry.scene.id) }))
     .filter((entry): entry is { start: number; asset: MediaAsset } => Boolean(entry.asset));
 
-  if (!narrationAsset && !musicAsset && sfxEntries.length === 0) return null;
+  if (!narrationAsset && sceneNarrations.length === 0 && !musicAsset && sfxEntries.length === 0) {
+    return null;
+  }
 
   const frames = Math.max(1, Math.ceil(durationSeconds * AUDIO_SAMPLE_RATE));
   const mix: Float32Array[] = [
@@ -257,10 +310,44 @@ export async function prepareProjectAudio(
     new Float32Array(frames),
   ];
 
-  let narrationChannels: Float32Array[] | null = null;
-  if (narrationAsset) {
-    narrationChannels = fitNarrationChannels(await decodeAsset(narrationAsset), frames);
-    narrationChannels.forEach((data, channel) => {
+  // La narración puede ser una pista global o una voz por escena. Si hay voces
+  // por escena, cada una suena al inicio de su escena y se recorta a su duración
+  // (no se solapan ni duplican la pista global).
+  let voiceChannels: Float32Array[] | null = null;
+  if (sceneNarrations.length > 0) {
+    voiceChannels = [new Float32Array(frames), new Float32Array(frames)];
+    const decodedByAsset = new Map<string, AudioBuffer>();
+
+    for (const slot of sceneNarrations) {
+      let decoded = decodedByAsset.get(slot.asset.id);
+      if (!decoded) {
+        decoded = await decodeAsset(slot.asset);
+        decodedByAsset.set(slot.asset.id, decoded);
+      }
+
+      const startFrame = Math.max(0, Math.round(slot.start * AUDIO_SAMPLE_RATE));
+      const slotFrames = Math.max(
+        0,
+        Math.min(Math.round(slot.duration * AUDIO_SAMPLE_RATE), frames - startFrame)
+      );
+      if (slotFrames === 0) continue;
+
+      for (let channel = 0; channel < AUDIO_CHANNELS; channel++) {
+        const source = decoded.getChannelData(Math.min(channel, decoded.numberOfChannels - 1));
+        voiceChannels[channel].set(
+          source.subarray(0, Math.min(source.length, slotFrames)),
+          startFrame
+        );
+      }
+    }
+
+    voiceChannels.forEach((data, channel) => {
+      const target = mix[channel];
+      for (let index = 0; index < frames; index++) target[index] += data[index];
+    });
+  } else if (narrationAsset) {
+    voiceChannels = fitNarrationChannels(await decodeAsset(narrationAsset), frames);
+    voiceChannels.forEach((data, channel) => {
       const target = mix[channel];
       for (let index = 0; index < frames; index++) target[index] += data[index];
     });
@@ -269,7 +356,7 @@ export async function prepareProjectAudio(
   if (musicAsset) {
     const volume = musicVolumeFor(project);
     const musicChannels = loopChannels(await decodeAsset(musicAsset), frames);
-    const voice = narrationChannels ? monoMix(narrationChannels, frames) : null;
+    const voice = voiceChannels ? monoMix(voiceChannels, frames) : null;
     const duck = duckGainEnvelope(voice, frames);
     musicChannels.forEach((data, channel) => {
       const target = mix[channel];
@@ -307,9 +394,14 @@ export async function prepareProjectAudio(
   const buffer = offlineCtx.createBuffer(AUDIO_CHANNELS, frames, AUDIO_SAMPLE_RATE);
   mix.forEach((data, channel) => buffer.getChannelData(channel).set(data));
 
+  const sceneNarrationAssets = Array.from(
+    new Map(sceneNarrations.map((slot) => [slot.asset.id, slot.asset])).values()
+  );
+
   return {
     buffer,
     narrationAsset,
+    sceneNarrationAssets,
     musicAsset,
     sfxAssets: sfxEntries.map((entry) => entry.asset),
   };

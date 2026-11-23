@@ -53,6 +53,8 @@ export interface Scene {
   audioUrl?: string;
   /** Efecto de sonido (audio corto de la biblioteca) que suena al iniciar la escena. */
   sfxAssetId?: string;
+  /** Audio de narración propio de la escena (voz TTS o audio importado). */
+  narrationAssetId?: string;
   /** Subtítulos editables de la escena, en orden. */
   subtitles?: SubtitleEntry[];
   notes?: string;
@@ -106,5 +108,9 @@ export interface Project {
     geminiApiKey?: string;
     /** Modelo de Gemini a usar (por defecto gemini-2.5-flash). */
     geminiModel?: string;
+    /** Clave de Google Cloud Text-to-Speech para generar voces. */
+    ttsApiKey?: string;
+    /** Voz de Google Cloud TTS elegida (femenina o masculina). */
+    ttsVoice?: string;
   };
 }

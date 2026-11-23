@@ -1,9 +1,19 @@
 // Script Workshop Component for Estudio Audiovisual Inteligente
 import React, { useEffect, useState } from 'react';
-import { Project, Scene, SubtitleEntry } from '../types';
-import { getMediaAssetBlob } from '../services/storage/db';
+import { Project, Scene, SubtitleEntry, MediaAsset } from '../types';
+import { getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
 import { subtitleSlotDefaults, subtitleText } from '../engine/renderEngine';
 import {
+  DEFAULT_TTS_VOICE,
+  TTS_VOICES,
+  buildSpeechFileName,
+  speakTextPreview,
+  stopSpeechPreview,
+  synthesizeWithGoogle,
+  voiceById,
+} from '../engine/tts';
+import {
+  CheckCircle2,
   FileText,
   Plus,
   Trash2,
@@ -17,6 +27,9 @@ import {
   AudioLines,
   Captions,
   PlusCircle,
+  Mic,
+  Loader2,
+  Volume2,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
@@ -38,6 +51,11 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const [assigningImage, setAssigningImage] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [assigningVideo, setAssigningVideo] = useState(false);
+
+  // Voz generada con Google Cloud TTS.
+  const [ttsBusy, setTtsBusy] = useState(false);
+  const [ttsMessage, setTtsMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [pendingVoiceOverwrite, setPendingVoiceOverwrite] = useState(false);
 
   // Deshacer/rehacer puede restaurar otra versión del proyecto: la lista local se
   // sincroniza y la selección se mantiene solo si la escena sigue existiendo.
@@ -242,6 +260,85 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     }
   };
 
+  const ttsVoice = project.settings.ttsVoice ?? DEFAULT_TTS_VOICE;
+  const sceneVoiceAsset: MediaAsset | null =
+    (project.mediaAssets ?? []).find((asset) => asset.id === activeScene?.narrationAssetId) ?? null;
+
+  /**
+   * Convierte la narración de la escena activa en un MP3 con Google Cloud TTS,
+   * lo guarda en la Biblioteca y lo asigna como narración de esa escena.
+   */
+  const handleGenerateVoice = async (force = false) => {
+    if (!activeScene) return;
+    const text = activeScene.narrationText.trim();
+    if (!text) {
+      setTtsMessage({ kind: 'error', text: 'La escena no tiene texto de narración.' });
+      return;
+    }
+
+    const apiKey = (project.settings.ttsApiKey ?? '').trim();
+    if (!apiKey) {
+      setTtsMessage({
+        kind: 'error',
+        text: 'Falta la clave de Google Cloud TTS. Configúrala en Ajustes del proyecto (o usa «Escuchar» para oír la voz del navegador).',
+      });
+      return;
+    }
+
+    if (activeScene.narrationAssetId && !force) {
+      setPendingVoiceOverwrite(true);
+      return;
+    }
+
+    setTtsBusy(true);
+    setTtsMessage(null);
+    try {
+      const result = await synthesizeWithGoogle(text, { apiKey, voiceId: ttsVoice });
+      const index = scenes.findIndex((scene) => scene.id === activeScene.id);
+      const asset: MediaAsset = {
+        id: `asset-tts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: buildSpeechFileName(activeScene.title, ttsVoice, index),
+        type: 'audio',
+        url: URL.createObjectURL(result.blob),
+        fileBlob: result.blob,
+        mimeType: result.mimeType,
+        sizeBytes: result.blob.size,
+        license: 'Voz sintética generada',
+        provenance: `Google Cloud TTS · ${voiceById(ttsVoice).label}`,
+        createdAt: Date.now(),
+      };
+
+      await saveMediaAssetBlob(asset);
+
+      const updatedScenes = scenes.map((scene) =>
+        scene.id === activeScene.id
+          ? { ...scene, narrationAssetId: asset.id, audioUrl: asset.url }
+          : scene
+      );
+      setScenes(updatedScenes);
+      onUpdateProject({
+        ...project,
+        mediaAssets: [asset, ...(project.mediaAssets ?? [])],
+        script: { ...project.script, scenes: updatedScenes },
+      });
+
+      const duration =
+        result.durationSeconds > 0 ? ` · ${result.durationSeconds.toFixed(2)} s` : '';
+      setTtsMessage({
+        kind: 'ok',
+        text: `Voz generada y guardada en la Biblioteca como «${asset.name}»${duration}. Se asigna a esta escena.`,
+      });
+    } catch (error) {
+      setTtsMessage({
+        kind: 'error',
+        text: error instanceof Error ? error.message : 'No se pudo generar la voz.',
+      });
+    } finally {
+      setTtsBusy(false);
+      setPendingVoiceOverwrite(false);
+    }
+  };
+
   const handleDeleteScene = (id: string) => {
     const updatedScenes = scenes.filter((s) => s.id !== id);
     setScenes(updatedScenes);
@@ -421,6 +518,8 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   <div>
                     <label className="block text-xs text-slate-400 mb-1 font-mono">Duración (seg)</label>
                     <input
+                      data-testid="scene-duration"
+                      aria-label="Duración de la escena en segundos"
                       type="number"
                       min="2"
                       max="60"
@@ -446,6 +545,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   </span>
                 </label>
                 <textarea
+                  data-testid="scene-narration"
                   rows={4}
                   value={activeScene.narrationText}
                   onChange={(e) =>
@@ -457,6 +557,116 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500"
                   placeholder="Escribe la narración que leerá la voz..."
                 />
+              </div>
+
+              {/* Voz generada para esta escena (Google Cloud TTS) */}
+              <div
+                className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 space-y-2"
+                data-testid="scene-voice-panel"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="etiqueta flex items-center gap-1.5">
+                    <Mic className="w-4 h-4 text-indigo-400" />
+                    <span>Voz de esta escena</span>
+                  </span>
+                  <select
+                    data-testid="scene-voice-select"
+                    aria-label="Voz para generar la narración"
+                    value={ttsVoice}
+                    onChange={(event) =>
+                      onUpdateProject({
+                        ...project,
+                        settings: { ...project.settings, ttsVoice: event.target.value },
+                      })
+                    }
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    {TTS_VOICES.map((voice) => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      void handleGenerateVoice();
+                    }}
+                    disabled={ttsBusy}
+                    data-testid="scene-generate-voice"
+                    className="btn-primary text-xs disabled:opacity-50"
+                  >
+                    {ttsBusy ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Mic className="w-3.5 h-3.5" />
+                    )}
+                    <span>{ttsBusy ? 'Generando voz...' : 'Generar voz'}</span>
+                  </button>
+                  <button
+                    onClick={() => speakTextPreview(activeScene.narrationText)}
+                    className="btn-secondary text-xs"
+                    title="Escuchar con la voz del navegador (no genera un archivo)"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Escuchar</span>
+                  </button>
+                  {ttsBusy && (
+                    <button
+                      onClick={stopSpeechPreview}
+                      className="btn-secondary text-xs"
+                      title="Detener la escucha del navegador"
+                    >
+                      Detener
+                    </button>
+                  )}
+                  {sceneVoiceAsset && (
+                    <button
+                      onClick={() => {
+                        setTtsMessage(null);
+                        handleUpdateActiveScene({
+                          narrationAssetId: undefined,
+                          audioUrl: undefined,
+                        });
+                      }}
+                      className="btn-secondary text-xs text-rose-300"
+                      data-testid="scene-voice-remove"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Quitar voz</span>
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  La voz generada se guarda en la Biblioteca y suena al inicio de esta escena, recortada a
+                  sus {activeScene.durationSeconds} s. «Escuchar» usa la voz del navegador y no crea archivo;
+                  para exportar audio hace falta la clave de Google Cloud TTS en Ajustes.
+                </p>
+
+                {sceneVoiceAsset && (
+                  <p
+                    data-testid="scene-voice-assigned"
+                    className="text-xs text-emerald-300/90 flex items-start gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>Voz asignada: {sceneVoiceAsset.name}</span>
+                  </p>
+                )}
+
+                {ttsMessage && (
+                  <p
+                    data-testid="scene-voice-status"
+                    data-tts-status={ttsMessage.kind}
+                    className={`text-xs ${
+                      ttsMessage.kind === 'error' ? 'text-rose-300' : 'text-emerald-300'
+                    }`}
+                  >
+                    {ttsMessage.text}
+                  </p>
+                )}
               </div>
 
               {/* Subtítulos editables, independientes del texto de narración */}
@@ -840,6 +1050,18 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
           )}
         </div>
       </div>
+
+      {pendingVoiceOverwrite && activeScene && (
+        <ConfirmDialog
+          title="Reemplazar la voz de la escena"
+          message={`Esta escena ya tiene una narración («${sceneVoiceAsset?.name ?? activeScene.narrationAssetId}»). Si generas otra voz, la nueva se asignará a la escena y la anterior seguirá en la Biblioteca.`}
+          confirmLabel="Generar y reemplazar"
+          onCancel={() => setPendingVoiceOverwrite(false)}
+          onConfirm={() => {
+            void handleGenerateVoice(true);
+          }}
+        />
+      )}
 
       {sceneToDelete && (
         <ConfirmDialog
