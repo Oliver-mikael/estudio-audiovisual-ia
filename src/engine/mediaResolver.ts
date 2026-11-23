@@ -30,7 +30,7 @@ async function assetObjectUrl(project: Project, assetId: string): Promise<string
 }
 
 function needsResolution(scene: Scene): boolean {
-  return Boolean(scene.imageAssetId || scene.videoAssetId);
+  return Boolean(scene.imageAssetId || scene.secondaryImageAssetId || scene.videoAssetId);
 }
 
 /** Devuelve una copia del proyecto con las URLs de imagen/video de las escenas al día. */
@@ -47,6 +47,14 @@ export async function resolveSceneMediaUrls(project: Project): Promise<Project> 
         const url = await assetObjectUrl(project, scene.imageAssetId);
         if (url && url !== scene.imageUrl) {
           next = { ...next, imageUrl: url };
+          changed = true;
+        }
+      }
+
+      if (scene.secondaryImageAssetId) {
+        const url = await assetObjectUrl(project, scene.secondaryImageAssetId);
+        if (url && url !== scene.secondaryImageUrl) {
+          next = { ...next, secondaryImageUrl: url };
           changed = true;
         }
       }

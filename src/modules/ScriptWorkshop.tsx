@@ -32,6 +32,7 @@ import {
   Loader2,
   Volume2,
   Search as SearchIcon,
+  Scissors,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
@@ -60,6 +61,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const [pendingVoiceOverwrite, setPendingVoiceOverwrite] = useState(false);
 
   // Búsqueda automática de imagen en Pexels.
+  const [assigningSecondaryImage, setAssigningSecondaryImage] = useState(false);
   const [imageSearchBusy, setImageSearchBusy] = useState(false);
   const [imageSearchMessage, setImageSearchMessage] = useState<string | null>(null);
   const [pendingImageSearch, setPendingImageSearch] = useState(false);
@@ -88,6 +90,10 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const activeVideoAssetId =
     activeScene?.videoAssetId ??
     videoAssets.find((asset) => asset.url === activeScene?.videoUrl)?.id ??
+    '';
+  const activeSecondaryImageAssetId =
+    activeScene?.secondaryImageAssetId ??
+    imageAssets.find((asset) => asset.url === activeScene?.secondaryImageUrl)?.id ??
     '';
   const subtitleDefaults = activeScene ? subtitleSlotDefaults(activeScene) : [];
 
@@ -232,6 +238,40 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       setImageError(error instanceof Error ? error.message : 'No se pudo asignar la imagen.');
     } finally {
       setAssigningImage(false);
+    }
+  };
+
+  /** Asigna la imagen secundaria que se alterna en los cortes automáticos. */
+  const handleAssignSecondaryImage = async (assetId: string) => {
+    setImageError(null);
+    if (!assetId) {
+      handleUpdateActiveScene({ secondaryImageUrl: undefined, secondaryImageAssetId: undefined });
+      return;
+    }
+
+    const asset = (project.mediaAssets || []).find((item) => item.id === assetId);
+    if (!asset) {
+      setImageError('No se encontró la imagen secundaria en la biblioteca del proyecto.');
+      return;
+    }
+
+    try {
+      setAssigningSecondaryImage(true);
+      let blob = asset.fileBlob ?? null;
+      if (!blob) {
+        const stored = await getMediaAssetBlob(asset.id);
+        blob = stored?.fileBlob ?? null;
+      }
+      if (!blob) throw new Error('La imagen secundaria no está guardada en el almacenamiento local.');
+
+      const secondaryImageUrl = URL.createObjectURL(blob);
+      handleUpdateActiveScene({ secondaryImageUrl, secondaryImageAssetId: assetId });
+    } catch (error) {
+      setImageError(
+        error instanceof Error ? error.message : 'No se pudo asignar la imagen secundaria.'
+      );
+    } finally {
+      setAssigningSecondaryImage(false);
     }
   };
 
@@ -1021,6 +1061,62 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                 )}
                 {assigningImage && <p className="text-sm text-slate-400">Cargando imagen...</p>}
                 {imageError && <p className="text-sm text-rose-300">{imageError}</p>}
+              </div>
+
+              {/* Ritmo visual: imagen secundaria y cortes automáticos */}
+              <div className="space-y-2 border-t border-slate-800 pt-4">
+                <label htmlFor="scene-secondary-image" className="etiqueta flex items-center gap-1.5">
+                  <Scissors className="w-4 h-4 text-indigo-400" />
+                  <span>Ritmo visual (B-roll)</span>
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    id="scene-secondary-image"
+                    data-testid="scene-secondary-image"
+                    value={activeSecondaryImageAssetId}
+                    disabled={assigningSecondaryImage}
+                    onChange={(event) => {
+                      void handleAssignSecondaryImage(event.target.value);
+                    }}
+                    className="campo"
+                  >
+                    <option value="">Sin imagen secundaria</option>
+                    {imageAssets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label
+                    htmlFor="scene-auto-cuts"
+                    className="flex items-center gap-2 text-sm text-slate-300 shrink-0"
+                  >
+                    <input
+                      id="scene-auto-cuts"
+                      data-testid="scene-auto-cuts"
+                      type="checkbox"
+                      checked={activeScene.autoCuts !== false}
+                      onChange={(event) =>
+                        handleUpdateActiveScene({ autoCuts: event.target.checked })
+                      }
+                      className="accent-indigo-500"
+                    />
+                    <span>Cortes automáticos cada 3 s</span>
+                  </label>
+                </div>
+
+                <p className="text-sm text-slate-500">
+                  {activeScene.durationSeconds > 4
+                    ? `La escena dura ${activeScene.durationSeconds} s: con imagen secundaria, el video alterna principal → secundaria cada 3 s.`
+                    : 'La escena dura 4 s o menos: los cortes automáticos empiezan a partir de 4 s.'}
+                  {!activeScene.secondaryImageUrl &&
+                    ' Elige una segunda imagen de la Biblioteca para activar el B-roll.'}
+                </p>
+                {assigningSecondaryImage && (
+                  <p className="text-sm text-slate-400">Cargando imagen secundaria...</p>
+                )}
               </div>
 
               {/* Clip de video tomado de la biblioteca */}

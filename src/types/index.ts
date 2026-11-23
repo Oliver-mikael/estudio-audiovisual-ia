@@ -47,6 +47,11 @@ export interface Scene {
   imageUrl?: string;
   /** Id del recurso de imagen de la biblioteca (permite reconstruir la URL). */
   imageAssetId?: string;
+  /** Imagen secundaria para los cortes automáticos (B-roll). */
+  secondaryImageUrl?: string;
+  secondaryImageAssetId?: string;
+  /** Cortes automáticos cada 3 s entre imagen principal y secundaria. */
+  autoCuts?: boolean;
   /** Clip de video de la biblioteca que se usa como fondo animado. */
   videoUrl?: string;
   videoAssetId?: string;

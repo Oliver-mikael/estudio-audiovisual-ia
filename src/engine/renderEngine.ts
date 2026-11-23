@@ -6,6 +6,7 @@
 // dibujos de una y otra.
 
 import { Scene, Project, SubtitleEntry } from '../types';
+import { visualSlotAt } from './visualRhythm';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -219,26 +220,33 @@ export class CanvasRenderEngine {
   }
 
   public async preloadImages(scenes: Scene[]): Promise<void> {
-    const promises = scenes.map((scene) => {
-      if (scene.imageUrl && !this.imageCache.has(scene.imageUrl)) {
-        return new Promise<void>((resolve) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            this.imageCache.set(scene.imageUrl!, img);
-            resolve();
-          };
-          img.onerror = () => {
-            // Silently fallback if image fails to load
-            resolve();
-          };
-          img.src = scene.imageUrl!;
-        });
-      }
-      return Promise.resolve();
+    // Se cargan la imagen principal y la secundaria de cada escena (B-roll).
+    const urls = new Set<string>();
+    scenes.forEach((scene) => {
+      if (scene.imageUrl) urls.add(scene.imageUrl);
+      if (scene.secondaryImageUrl) urls.add(scene.secondaryImageUrl);
     });
 
-    await Promise.all(promises);
+    await Promise.all(
+      Array.from(urls)
+        .filter((url) => !this.imageCache.has(url))
+        .map(
+          (url) =>
+            new Promise<void>((resolve) => {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.onload = () => {
+                this.imageCache.set(url, img);
+                resolve();
+              };
+              img.onerror = () => {
+                // Si una imagen falla se sigue con el fondo generado.
+                resolve();
+              };
+              img.src = url;
+            })
+        )
+    );
   }
 
   /** Carga los clips de video de las escenas que los usan. */
@@ -457,8 +465,8 @@ export class CanvasRenderEngine {
 
     ctx.clearRect(0, 0, width, height);
 
-    // 1. Draw Background & Image
-    this.drawBackground(ctx, width, height, scene, sceneProgress);
+    // 1. Draw Background & Image (con cortes automáticos si toca)
+    this.drawBackground(ctx, width, height, scene, sceneProgress, sceneLocalTime);
 
     // 2. Draw Camera Motion / Overlays
     this.drawSceneVisuals(ctx, width, height, scene, sceneProgress);
@@ -484,9 +492,18 @@ export class CanvasRenderEngine {
     width: number,
     height: number,
     scene: Scene,
-    progress: number
+    progress: number,
+    sceneLocalTime: number
   ): void {
-    const img = scene.imageUrl ? this.imageCache.get(scene.imageUrl) : null;
+    const primaryImg = scene.imageUrl ? this.imageCache.get(scene.imageUrl) ?? null : null;
+    const secondaryImg = scene.secondaryImageUrl
+      ? this.imageCache.get(scene.secondaryImageUrl) ?? null
+      : null;
+    // Ritmo visual: si la escena dura más de 4 s y tiene secundaria, la imagen
+    // cambia cada 3 s. Sin secundaria (o con los cortes desactivados) se usa la
+    // principal toda la escena.
+    const img =
+      visualSlotAt(scene, sceneLocalTime) === 'secondary' ? secondaryImg ?? primaryImg : primaryImg;
     const video = scene.videoUrl ? this.videoCache.get(scene.videoUrl) : null;
     const videoReady = Boolean(video && video.readyState >= 2 && video.videoWidth > 0);
 
