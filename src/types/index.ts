@@ -22,6 +22,9 @@ export interface NarrativeAngle {
   alternativeApproach: string;
 }
 
+/** Animación de entrada y salida de un subtítulo. */
+export type SubtitleAnimation = 'Fade' | 'Typewriter' | 'SlideUp';
+
 /** Línea de subtítulo con tiempos explícitos dentro de la escena (segundos). */
 export interface SubtitleCue {
   text: string;
@@ -29,6 +32,8 @@ export interface SubtitleCue {
   startSeconds?: number;
   /** Duración visible. Si falta, se reparte automáticamente. */
   durationSeconds?: number;
+  /** Animación de entrada/salida propia de esta línea (por defecto, fundido). */
+  animation?: SubtitleAnimation;
 }
 
 /** Compatibilidad: las escenas antiguas guardan solo el texto y usan el reparto automático. */

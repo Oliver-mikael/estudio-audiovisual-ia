@@ -1,8 +1,9 @@
 // Script Workshop Component for Estudio Audiovisual Inteligente
 import React, { useEffect, useState } from 'react';
-import { Project, Scene, SubtitleEntry, MediaAsset } from '../types';
+import { Project, Scene, SubtitleAnimation, SubtitleEntry, MediaAsset } from '../types';
 import { getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
 import { subtitleSlotDefaults, subtitleText } from '../engine/renderEngine';
+import { SUBTITLE_ANIMATIONS, normalizeSubtitleAnimation } from '../engine/textAnimation';
 import { createPexelsImageAsset } from '../engine/pexels';
 import {
   DEFAULT_TTS_VOICE,
@@ -152,6 +153,24 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       { subtitles: entries },
       { coalesceKey: `scene:${activeScene.id}:subtitle-time:${index}` }
     );
+  };
+
+  /** Cambia la animación de una línea conservando su texto y sus tiempos. */
+  const handleSubtitleAnimationChange = (index: number, animation: SubtitleAnimation) => {
+    if (!activeScene) return;
+    const entries = [...(activeScene.subtitles ?? [])];
+    const current = entries[index];
+    const defaults = subtitleSlotDefaults(activeScene)[index] ?? { start: 0, duration: 0 };
+    const base =
+      typeof current === 'string'
+        ? { text: current, startSeconds: defaults.start, durationSeconds: defaults.duration }
+        : {
+            ...current,
+            startSeconds: current.startSeconds ?? defaults.start,
+            durationSeconds: current.durationSeconds ?? defaults.duration,
+          };
+    entries[index] = { ...base, animation };
+    handleUpdateActiveScene({ subtitles: entries });
   };
 
   /** Vuelve al reparto automático en partes iguales. */
@@ -881,6 +900,38 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                                 Automático
                               </button>
                             )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 pl-8">
+                            <label
+                              htmlFor={`subtitle-animation-${index}`}
+                              className="text-[11px] text-slate-400"
+                            >
+                              Animación
+                            </label>
+                            <select
+                              id={`subtitle-animation-${index}`}
+                              data-testid={`subtitle-animation-${index}`}
+                              value={
+                                isAuto ? 'Fade' : normalizeSubtitleAnimation(entry.animation)
+                              }
+                              onChange={(e) =>
+                                handleSubtitleAnimationChange(
+                                  index,
+                                  e.target.value as SubtitleAnimation
+                                )
+                              }
+                              className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                            >
+                              {SUBTITLE_ANIMATIONS.map((animation) => (
+                                <option key={animation.id} value={animation.id}>
+                                  {animation.label}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="text-[11px] text-slate-500">
+                              Entrada y salida de 0,3 s; la máquina de escribir revela letra a letra.
+                            </span>
                           </div>
                         </li>
                       );

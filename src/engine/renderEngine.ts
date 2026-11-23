@@ -5,8 +5,9 @@
 // anterior y la entrante (Fundido, Deslizamiento y Zoom) sin que se pisen los
 // dibujos de una y otra.
 
-import { Scene, Project, SubtitleEntry } from '../types';
+import { Scene, Project, SubtitleAnimation, SubtitleEntry } from '../types';
 import { visualSlotAt } from './visualRhythm';
+import { normalizeSubtitleAnimation, subtitleAnimationFrame } from './textAnimation';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -105,6 +106,8 @@ export interface SubtitleFrame {
   start: number;
   /** Segundo (relativo a la escena) en el que deja de mostrarse. */
   end: number;
+  /** Animación de entrada/salida elegida para esta línea (por defecto, fundido). */
+  animation?: SubtitleAnimation;
 }
 
 /** Texto de una entrada de subtítulo, sea cadena (automática) u objeto con tiempos. */
@@ -175,7 +178,16 @@ export function subtitleCues(scene: Scene): SubtitleFrame[] {
     const durationValue = Math.max(0, explicit.durationSeconds ?? fallback.duration);
     const end = clampSeconds(start + durationValue, 0, duration);
 
-    cues.push({ index: cues.length, text, start, end });
+    // El campo solo aparece si la línea tiene una animación explícita: las
+    // escenas antiguas mantienen exactamente la misma forma de datos.
+    const animation = typeof entry === 'string' ? undefined : entry.animation;
+    cues.push({
+      index: cues.length,
+      text,
+      start,
+      end,
+      ...(animation ? { animation: normalizeSubtitleAnimation(animation) } : {}),
+    });
   });
 
   return cues;
@@ -609,19 +621,19 @@ export class CanvasRenderEngine {
     // Sin subtítulos editables no se dibuja nada: ya no se derivan del texto de narración.
     if (!subtitle) return;
 
-    const currentText = subtitle.text;
+    // Animación por subtítulo (fundido 0,3 s, máquina de escribir o deslizamiento).
+    const frame = subtitleAnimationFrame(
+      subtitle.text,
+      sceneLocalTime,
+      subtitle.start,
+      subtitle.end,
+      subtitle.animation
+    );
+    if (frame.opacity <= 0) return;
 
-    // Draw main narration kinetic typography
     ctx.save();
-
-    // Kinetic entry effect (fade in & slide up)
-    const subLocalTime = Math.max(0, sceneLocalTime - subtitle.start);
-    const entryProgress = Math.min(1, subLocalTime * 3); // 0.33s fade in
-    const opacity = entryProgress;
-    const translateY = (1 - entryProgress) * 15;
-
-    ctx.globalAlpha = opacity;
-    ctx.translate(0, translateY);
+    ctx.globalAlpha = frame.opacity;
+    ctx.translate(0, frame.translateY);
 
     // Text Container Box
     const boxPaddingHorizontal = 40;
@@ -643,19 +655,25 @@ export class CanvasRenderEngine {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    this.wrapAndRenderText(ctx, currentText, width / 2, boxY + boxHeight / 2, width - 120 - boxPaddingHorizontal * 2, 36);
+    const lines = this.wrapTextLines(ctx, subtitle.text, width - 120 - boxPaddingHorizontal * 2);
+    this.renderTextLines(
+      ctx,
+      lines,
+      width / 2,
+      boxY + boxHeight / 2,
+      36,
+      frame.visibleText.length
+    );
 
     ctx.restore();
   }
 
-  private wrapAndRenderText(
+  /** Parte el texto en líneas sin dibujarlo (mantiene estable el efecto máquina de escribir). */
+  private wrapTextLines(
     ctx: CanvasRenderingContext2D,
     text: string,
-    x: number,
-    y: number,
-    maxWidth: number,
-    lineHeight: number
-  ): void {
+    maxWidth: number
+  ): string[] {
     const words = text.split(' ');
     const lines: string[] = [];
     let currentLine = words[0] || '';
@@ -671,10 +689,25 @@ export class CanvasRenderEngine {
       }
     }
     lines.push(currentLine);
+    return lines;
+  }
 
+  /** Dibuja las líneas ya maquetadas, opcionalmente solo los primeros caracteres. */
+  private renderTextLines(
+    ctx: CanvasRenderingContext2D,
+    lines: string[],
+    x: number,
+    y: number,
+    lineHeight: number,
+    visibleCharacters?: number
+  ): void {
     const startY = y - ((lines.length - 1) * lineHeight) / 2;
+    let remaining = visibleCharacters ?? Number.POSITIVE_INFINITY;
     lines.forEach((line, index) => {
-      ctx.fillText(line, x, startY + index * lineHeight);
+      if (remaining <= 0) return;
+      const slice = line.length <= remaining ? line : line.slice(0, remaining);
+      remaining -= line.length + (index < lines.length - 1 ? 1 : 0);
+      ctx.fillText(slice, x, startY + index * lineHeight);
     });
   }
 
