@@ -1,16 +1,19 @@
 # Roadmap
 
 Lista priorizada de lo que falta, empezando por lo que más limita el uso real. Nada de esta lista está
-implementado salvo que se indique lo contrario.
+implementado salvo que se indique lo contrario. Las fases 21–24 (guion con Gemini, voz TTS por escena,
+imágenes de Pexels y cortes automáticos) están implementadas con claves opcionales del usuario y verificadas
+con respuestas simuladas; quedan las pruebas contra los servicios reales.
 
 ## 1. IA real (prioridad alta)
 
 Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
-- Conectar un modelo real para generar ángulos narrativos y críticas de guion.
-- Definir dónde corre: API en la nube con clave del usuario, o modelo local (WebGPU/ONNX).
-- Presupuesto y límites de uso por proyecto.
-- Mostrar claramente cuándo un texto lo ha generado un modelo y cuándo es una plantilla.
+- [x] Conectar un modelo real para generar el guion completo (Gemini, fase 21).
+- [x] Definir dónde corre: API en la nube con la clave del usuario, guardada en los ajustes del proyecto.
+- [ ] Generar también ángulos narrativos y críticas con el modelo (hoy siguen siendo fijos/heurísticas).
+- [ ] Probar con una clave real, medir calidad del guion y añadir límites de uso por proyecto.
+- [x] Mostrar que el guion viene de un modelo (panel «Generar guion completo con IA» y estado con la clave).
 
 ## 2. Reproducción y exportación más robustas
 
@@ -33,9 +36,19 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Exportación completa desde el botón de la UI, con nombre y extensión reales y voz audible (`phase10`).
 - [x] 17 pruebas de comportamiento: persistencia en IndexedDB, nombre de archivo, límite móvil, opacidad del Fundido y recorte/relleno de narración.
 
+## 2c. Hecho en las fases 21–24
+
+- [x] Guion completo con Gemini (gancho, 4–6 escenas, cierre con llamada a la acción) cargado al Taller.
+- [x] Voz TTS por escena con Google Cloud TTS (femenina/masculina), guardada en la Biblioteca y mezclada en
+  su escena. Escucha previa con Web Speech API sin clave.
+- [x] Imágenes automáticas con Pexels a partir de la intención visual, al generar el guion o por escena.
+- [x] Ritmo visual: cortes cada 3 s entre imagen principal y secundaria, desactivables por escena.
+
 ## 3. Edición de audio
 
-- Narración por escena en lugar de una sola pista para todo el proyecto.
+- [x] Narración por escena con voz TTS (fase 22).
+- [ ] Asignar a una escena un audio importado de la Biblioteca (hoy la voz por escena solo se genera con TTS).
+- [ ] Ajustar la duración de la escena a la voz generada o recortar la voz con una interfaz de ondas.
 - [x] Música de fondo global con mezcla y ducking (fase 13).
 - [x] Efecto de sonido por escena al inicio de la escena (fase 14).
 - [x] Subtítulos editables por escena, independientes de la narración (fase 15).
@@ -47,6 +60,8 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 4. Recursos
 
+- [x] Imágenes automáticas de Pexels por intención visual (fase 23).
+- [ ] Elegir entre varias fotos candidatas y editar la consulta antes de descargar.
 - Miniaturas y previsualización de audio con reproducción.
 - Límites y aviso de cuota antes de quedarse sin espacio en IndexedDB.
 
@@ -73,6 +88,6 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 8. Calidad
 
-- Pruebas de la UI y de la exportación de punta a punta (hoy hay 43 pruebas de lógica pura y persistencia, sin navegador).
+- Pruebas de la UI y de la exportación de punta a punta (hoy hay 74 pruebas de lógica pura y persistencia, sin navegador).
 - Accesibilidad del editor (foco, teclado, anuncios de estado).
 - Idiomas: hoy toda la interfaz está en español.

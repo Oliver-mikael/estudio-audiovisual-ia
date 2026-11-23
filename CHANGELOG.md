@@ -3,6 +3,55 @@
 Los cambios de las dos últimas sesiones de trabajo. Las versiones anteriores (1.2.0 a 2.1.0) están en
 [docs/CHANGELOG.md](docs/CHANGELOG.md) y describen documentación de diseño, no funcionalidad verificada.
 
+## [Sin publicar] — 23 de noviembre de 2026 (fases 21–24)
+
+### Añadido
+
+- **Guion completo con Gemini** (fase 21): en Ideas hay un campo «Tema del video», un selector de tono
+  (Educativo, Documental, Entretenimiento, Historia) y «Generar guion». La petición pide un JSON con gancho
+  de 15 palabras o menos, 4–6 escenas (título, narración de 2–4 oraciones, intención visual y duración) y
+  un cierre con llamada a la acción. La respuesta se normaliza (acepta bloques de código y nombres de campo
+  alternativos) y se carga en el Taller como escenas editables: gancho, cuerpo y cierre. Si el proyecto ya
+  tenía escenas, se pide confirmación. La clave de Gemini y el modelo se configuran en Ajustes del proyecto.
+- **Voz TTS por escena** (fase 22): «Generar voz» usa Google Cloud TTS con voz femenina o masculina, guarda
+  el MP3 en la Biblioteca y lo asigna a la escena (`scene.narrationAssetId`). La mezcla coloca cada voz al
+  inicio de su escena y la recorta a su duración; la narración global anterior sigue funcionando. Si la
+  escena ya tenía voz se pide confirmación. «Escuchar» reproduce la narración con la Web Speech API sin
+  clave, pero no genera archivo (el navegador no expone sus muestras).
+- **Imágenes automáticas con Pexels** (fase 23): la clave de Pexels se configura en Ajustes. «Buscar imagen»
+  extrae palabras clave de la intención visual, busca una foto horizontal, la descarga como blob, la guarda
+  en la Biblioteca y la asigna a la escena. Al generar un guion con clave de Pexels se busca una imagen para
+  cada escena generada (6 búsquedas en la prueba) y se pueden reemplazar a mano.
+- **Ritmo visual con cortes automáticos** (fase 24): en escenas de más de 4 segundos con imagen secundaria,
+  el renderer alterna imagen principal → secundaria cada 3 segundos (0–3 s principal, 3–6 s secundaria,
+  6–9 s principal). Hay un selector de imagen secundaria y una casilla «Cortes automáticos cada 3 s» por
+  escena; con la casilla desactivada se usa solo la principal. Funciona igual en el Monitor y en la
+  exportación.
+
+### Verificado con archivos reales
+
+- **Fase 21**: en Chromium, con la respuesta de Gemini simulada (el entorno no tiene clave), la petición real
+  salió a `…/models/gemini-2.5-flash:generateContent` con la cabecera de la clave, el tema y el tono; el
+  proyecto pasó de 0 a 6 escenas (gancho + 4 del guion + cierre), visibles en el Taller, y el diálogo de
+  reemplazo apareció al regenerar. Captura: `artifacts/phase21-guion-generado.png`.
+- **Fase 22**: el stub de Google TTS devolvió dos MP3 de voz española real (generados con `edge-tts`, 3,98 s
+  y 6,76 s) para el texto exacto de cada escena. En la app se pulsó «Generar voz» en las dos escenas; los
+  archivos quedaron en la Biblioteca y asignados a su escena. La exportación real (13 s, VP9 1280×720@30 +
+  Opus 48 kHz) se descargó y se comparó muestra a muestra: la voz A correlaciona 0,9994 en 0,5–2,5 s, la voz
+  B 0,9993 en 5,5–7,5 s, las correlaciones cruzadas son 0,03 y el hueco entre escenas está en silencio
+  (RMS 0). Archivo: `artifacts/phase22-voz-por-escena.webm`.
+- **Fase 23**: con Pexels simulado (dos PNG de color sólido), «Buscar imagen» envió las consultas «coche
+  rojo» y «coche azul» con la cabecera `Authorization`, guardó las dos imágenes con su licencia y procedencia,
+  y las asignó a la escena correcta. La exportación real de 8 s se descargó y se midió el píxel central:
+  (82,24,36) en t = 1 y 3 s (escena roja) y (19,35,98) en t = 5 y 7 s (escena azul). También se verificó la
+  ruta automática al generar un guion: 6 búsquedas → 6 escenas con imagen. Archivos:
+  `artifacts/phase23-imagenes-pexels.webm`, `phase23-t1.png`, `phase23-t5.png`.
+- **Fase 24**: escena de 9 s con imagen principal roja y secundaria azul. La exportación real
+  (`artifacts/phase24-cortes-9s.webm`) muestrea (82,24,36) en t = 1 s, (19,35,98) en t = 4 s y (82,24,36) en
+  t = 7 s: dos cambios visuales, en 3 s y 6 s. Con la casilla desactivada
+  (`phase24-cortes-desactivados.webm`) los tres instantes son rojos. Cuadros: `phase24-t1.png`,
+  `phase24-t4.png`, `phase24-t7.png`.
+
 ## [Sin publicar] — 22 de noviembre de 2026 (fases 17–20)
 
 ### Añadido

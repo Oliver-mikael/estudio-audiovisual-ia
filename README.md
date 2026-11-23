@@ -1,8 +1,9 @@
 # Estudio Audiovisual Inteligente
 
-Editor de video documental que corre **entero en el navegador**: escribes el guion por escenas, asignas
-imágenes, importas una narración y exportas un WebM real con voz. No hay servidor, no hay cuentas y no hay
-claves de API: los proyectos y los archivos viven en IndexedDB.
+Editor de video documental que corre **entero en el navegador**: generas el guion, la voz y las imágenes
+con APIs opcionales, ajustas las escenas y exportas un WebM real. No hay servidor ni cuentas: los proyectos
+y los archivos viven en IndexedDB. Las claves de Gemini, Google Cloud TTS y Pexels son opcionales, se pegan
+en Ajustes del proyecto y se guardan junto a él (nunca en el código).
 
 ## Cómo correrlo localmente
 
@@ -19,8 +20,24 @@ Otros comandos:
 
 ```bash
 npm run build     # tsc + vite build
-npm test          # Vitest (43 pruebas de lógica y persistencia)
+npm test          # Vitest (74 pruebas de lógica y persistencia)
 ```
+
+## Claves de API (opcionales)
+
+Las tres integraciones se configuran en **Ajustes del proyecto → Claves de API del proyecto**. Se guardan en
+IndexedDB junto al proyecto y solo se envían al servicio correspondiente cuando usas la función. Al ser una
+app sin backend, la clave viaja desde tu navegador: usa claves propias y con límites de cuota.
+
+| Servicio | Para qué | Dónde se obtiene |
+| :--- | :--- | :--- |
+| Gemini (`geminiApiKey`) | Generar el guion completo en Ideas. Modelo configurable (por defecto `gemini-2.5-flash`). | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| Google Cloud TTS (`ttsApiKey`) | Convertir la narración de una escena en un MP3 y exportarlo. | Habilita «Cloud Text-to-Speech» en Google Cloud Console y crea una clave de API. |
+| Pexels (`pexelsApiKey`) | Buscar y descargar una imagen por escena. | [pexels.com/api](https://www.pexels.com/api/) |
+
+Sin claves puedes seguir usando el editor, el guion manual, la Biblioteca, los subtítulos, el historial y la
+exportación. Las pruebas de las fases 21–24 usaron respuestas simuladas de estas APIs porque el entorno de
+desarrollo no tenía claves; los flujos se verificaron con archivos reales (ver [artifacts/](artifacts/README.md)).
 
 ## Qué funciona hoy
 
@@ -28,6 +45,10 @@ npm test          # Vitest (43 pruebas de lógica y persistencia)
   eliminar proyectos (con confirmación).
 - **Editor con barra lateral**: Guion, Storyboard, Biblioteca, Ideas, Investigación y Monitor. Se ve una sola
   sección a la vez.
+- **Guion completo con Gemini**: en Ideas se escribe el tema, se elige tono (Educativo, Documental,
+  Entretenimiento, Historia) y «Generar guion» pide a Gemini un gancho de 15 palabras o menos, 4–6 escenas
+  con narración e intención visual, y un cierre con llamada a la acción. El resultado se carga como escenas
+  editables (gancho, cuerpo y cierre) en el Taller de guion, con confirmación si ya había escenas.
 - **Taller de guion**: crear, editar y eliminar escenas (con confirmación), duración por escena, texto de
   narración, **subtítulos editables**, movimiento de cámara, transición y **reordenar escenas arrastrando**.
 - **Subtítulos editables**: cada escena tiene su propia lista de subtítulos, independiente de la narración.
@@ -37,6 +58,15 @@ npm test          # Vitest (43 pruebas de lógica y persistencia)
   subtítulos del proyecto y sus timestamps absolutos.
 - **Imágenes por escena**: se elige una imagen subida a la Biblioteca (se guarda `imageAssetId`, y la URL se
   reconstruye desde el blob al recargar).
+- **Imágenes automáticas con Pexels**: con clave de Pexels, «Buscar imagen» en una escena usa las palabras
+  clave de su intención visual, descarga la foto, la guarda en la Biblioteca y la asigna. Al generar un guion
+  también se busca una imagen para cada escena generada (y se pueden reemplazar a mano).
+- **Ritmo visual (B-roll)**: en escenas de más de 4 segundos, el renderer alterna la imagen principal y una
+  secundaria cada 3 segundos para que el cuadro no quede estático. Se puede desactivar por escena.
+- **Voz TTS por escena**: «Generar voz» convierte la narración de una escena en un MP3 con Google Cloud TTS
+  (voz femenina o masculina), lo guarda en la Biblioteca y lo asigna a esa escena; suena al inicio de la
+  escena y no invade la siguiente. Si la escena ya tenía voz, pide confirmación. «Escuchar» reproduce la
+  narración con la voz del navegador (Web Speech API, sin clave, pero no genera archivo).
 - **Clips de video por escena**: un MP4 (H.264) o WebM de la Biblioteca se dibuja cuadro a cuadro con
   `drawImage` en el timestamp exacto. Si el clip dura menos que la escena se repite en bucle; si dura más,
   se recorta. El clip se reproduce mudo.
@@ -69,8 +99,14 @@ npm test          # Vitest (43 pruebas de lógica y persistencia)
 
 ## Qué NO funciona (o no está probado)
 
-- **No hay IA real.** «Sugerir ángulo crítico» inserta uno de dos textos fijos y la crítica de guion son
-  reglas heurísticas (longitud, duración, fórmulas clásicas). No hay modelo ni API.
+- **Las APIs requieren clave del usuario y no se probaron contra los servicios reales.** La generación de
+  guion (Gemini), la voz (Google Cloud TTS) y las imágenes (Pexels) están implementadas de punta a punta,
+  pero las verificaciones usaron respuestas simuladas: en este entorno no había claves. Sin clave, «Sugerir
+  ángulo crítico» sigue insertando textos fijos y la crítica de guion son reglas heurísticas.
+- **La voz del navegador no se puede guardar.** La Web Speech API solo reproduce; el navegador no expone sus
+  muestras. Para exportar voz hace falta la clave de Google Cloud TTS.
+- **Pexels y TTS desde el navegador dependen de CORS.** Si el servicio bloquea la petición directa, hay que
+  subir los archivos a la Biblioteca a mano (el resto del flujo no cambia).
 - **No hay nube, sincronización ni multiusuario.** El antiguo módulo de nube simulado
   (`cloudApi`, `syncEngine`, `jobQueueManager`) se eliminó del código. Los proyectos solo existen en este
   navegador y en este perfil.
@@ -79,19 +115,20 @@ npm test          # Vitest (43 pruebas de lógica y persistencia)
   `MediaRecorder`, cuyo WebM no declara duración en los metadatos.
 - **Subtítulos**: hay tiempos individuales y exportación `.srt`, pero no `.vtt` ni estilos configurables; la
   sincronización se ajusta a mano, sin editor de ondas.
-- **Audio**: MP3 y WAV funcionan como narración, música de fondo y efectos de escena (verificado con
-  ffmpeg). Sigue habiendo una sola pista de narración para todo el proyecto, y la música y los efectos no
-  tienen control de volumen propio (la música sí un volumen global en Ajustes).
+- **Audio**: MP3 y WAV funcionan como narración (global o una voz por escena), música de fondo y efectos de
+  escena (verificado con ffmpeg). La música y los efectos no tienen control de volumen propio (la música sí
+  un volumen global en Ajustes). La narración por escena se recorta a la duración de la escena.
 - **Clips de video**: el soporte depende de lo que el navegador pueda decodificar. Se probaron un WebM
   (VP8) y un MP4 H.264 dentro de escenas en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 no se
   probaron. El audio propio del clip se ignora.
 - **Sin historial de versiones**: el deshacer persiste hasta 50 pasos, pero no hay versiones con nombre ni
   restauración más allá de ese límite.
 - **Probado solo en Chromium.** El resto de navegadores está sin verificar.
-- **Cobertura de pruebas parcial**: 43 pruebas de Vitest cubren persistencia en IndexedDB (proyectos,
+- **Cobertura de pruebas parcial**: 74 pruebas de Vitest cubren persistencia en IndexedDB (proyectos,
   historial y `fake-indexeddb`), nombre de archivo, límite móvil, opacidad del Fundido, recorte/relleno de
-  narración, envolvente de ducking, ventanas de subtítulos y generación de `.srt`. No hay pruebas de la UI ni
-  de una exportación completa.
+  narración, envolvente de ducking, ventanas de subtítulos, generación de `.srt`, análisis del guion de
+  Gemini, peticiones de TTS y Pexels, palabras clave visuales y cortes automáticos. No hay pruebas de la UI
+  ni de una exportación completa dentro de Vitest (esas se hicieron a mano en Chromium).
 
 ## Estructura
 
@@ -99,7 +136,8 @@ npm test          # Vitest (43 pruebas de lógica y persistencia)
 src/
   App.tsx                 # shell: inicio, editor, modal de exportación, autoguardado
   components/             # HomeScreen, Modal/ConfirmDialog, VideoPlayer
-  engine/                 # renderEngine (canvas 2D), exporter (WebCodecs), audioTrack (mezcla), srt
+  engine/                 # renderEngine (canvas 2D), exporter (WebCodecs), audioTrack (mezcla), srt,
+                          # gemini (guion), tts (voz), pexels (imágenes), visualRhythm (cortes)
   modules/                # Guion, Storyboard, Biblioteca, Ideas, Investigación
   services/storage/db.ts  # IndexedDB: proyectos, blobs e historial persistente
   services/history/       # deshacer/rehacer (50 pasos, lógica pura)

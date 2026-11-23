@@ -1,9 +1,10 @@
 # Estado real del proyecto
 
-**Última actualización:** 22 de noviembre de 2026
-**Resumen:** el flujo local «crear proyecto → escenas con imagen → narración → exportar WebM» está
-implementado y probado en Chromium. Lo que rodeaba a ese flujo (IA, nube, Android) no existe o no está
-verificado.
+**Última actualización:** 23 de noviembre de 2026
+**Resumen:** el flujo «crear proyecto → guion generado o manual → voz e imágenes por escena → exportar WebM»
+está implementado y probado en Chromium. Las integraciones de IA (Gemini, Google Cloud TTS y Pexels) son
+opcionales y requieren la clave del usuario; los flujos se verificaron con respuestas simuladas porque el
+entorno de desarrollo no tenía claves. La nube y Android siguen sin existir.
 
 ## Verificado con evidencia
 
@@ -24,6 +25,10 @@ verificado.
 | Límite móvil | **Probado (simulado)** | Con UA de Android, una petición de 1080p/60 se exporta a 1280×720/30 (`mobileLimited=true`). No se probó en un teléfono real. |
 | Clips de video en escenas | **Probado (WebM y MP4)** | WebM VP8 de 1,2 s en escena de 2,5 s: el timecode interno vuelve a ~0,2 s a los 1,4 s (bucle); en escena de 0,8 s se recorta. MP4 H.264 (`avc1`, 640×360, 2 s) en escena de 3 s: píxel (98,14,26) en t=0,5 s, (8,103,26) en t=1,5 s y otra vez (98,14,26) en t=2,5 s (bucle), medido en el canvas y en el WebM exportado. El clip se reproduce mudo: su audio propio se ignora. |
 | Narración WAV | **Probado** | WAV PCM 48 kHz estéreo (voz TTS). Export de 6 s: Opus 48 kHz, pico 0,58, RMS −20,8 dBFS, correlación 0,9992 con la fuente y desfase 0 ms. |
+| Guion generado con Gemini | **Probado con respuesta simulada** | El flujo real de la UI envió la petición a `gemini-2.5-flash:generateContent` con la clave en `x-goog-api-key`, el tema y el tono. La respuesta JSON se normalizó y el proyecto pasó a 6 escenas editables (gancho, 4 del guion y cierre) en el Taller. Regenerar pidió confirmación antes de reemplazar. El entorno no tenía clave de Gemini: no se llamó al servicio real. |
+| Voz TTS por escena | **Probado con respuesta simulada** | «Generar voz» envió el texto exacto de cada escena a `texttospeech.googleapis.com` y el stub devolvió dos MP3 de voz española real (3,98 s y 6,76 s). Los dos quedaron en la Biblioteca y asignados a su escena. Export real de 13 s: la voz A correlaciona 0,9994 en 0,5–2,5 s, la B 0,9993 en 5,5–7,5 s, las cruzadas 0,03 y el hueco entre escenas tiene RMS 0. No se llamó a Google Cloud TTS real (sin clave). |
+| Imágenes de Pexels | **Probado con respuesta simulada** | «Buscar imagen» envió «coche rojo» y «coche azul» con `Authorization`, descargó las dos imágenes, las guardó con licencia/procedencia y las asignó a su escena. Export real de 8 s: píxel central (82,24,36) en t = 1 y 3 s y (19,35,98) en t = 5 y 7 s. Al generar un guion con clave configurada se buscaron 6 imágenes y las 6 escenas quedaron con imagen. No se llamó a la API real de Pexels (sin clave). |
+| Ritmo visual (B-roll) | **Probado** | Escena de 9 s con imagen principal y secundaria, export real: (82,24,36) en t = 1 s, (19,35,98) en t = 4 s y (82,24,36) en t = 7 s; los cambios ocurren exactamente en 3 s y 6 s. Con «Cortes automáticos» desactivado los tres instantes son rojos. En escenas de 4 s o menos no hay cortes. |
 | Subtítulos editables | **Probado** | Cada escena tiene su lista de subtítulos (`scene.subtitles`), independiente del texto de narración. Se añaden, editan y borran en el taller de guion y cada línea puede tener su propio inicio y duración. Export real de 4 s con dos subtítulos en una escena de 2 s: los cuadros en t = 0,5 s y t = 1,5 s muestran «PRIMERA LINEA EDITABLE» y «SEGUNDA LINEA DISTINTA». Antes se derivaban de `text.split('. ')` y no se podían editar; no se genera ninguno si la lista está vacía. |
 | Ventanas por subtítulo | **Probado** | Export real de 6 s con ventanas explícitas de 0,5–1,5 s y 3,0–4,5 s: los cuadros extraídos muestran «PRIMERA VENTANA» en t = 1,0 s, «SEGUNDA VENTANA» en t = 3,5 s y ningún subtítulo en t = 0,3, 2,0 y 5,0 s. Las escenas antiguas con solo texto siguen repartiéndose en partes iguales. |
 | Exportación .srt | **Probado** | Botón «Descargar .srt» en el modal y el panel de exportación. El archivo descargado desde la UI (97 bytes, dos líneas) lo lee ffmpeg y lo reescribe con los mismos timestamps; quemado con el filtro `subtitles` sobre el video de la fase 18 aparece en t = 0,8 s y 3,6 s y no en t = 2,0 s. También se multiplexó como pista `subrip` en un MKV junto al video. |
@@ -32,21 +37,23 @@ verificado.
 | Vista previa con audio | **Probado** | El Monitor reproduce la mezcla completa (`prepareProjectAudio`) con un `AudioContext`. Se capturó su salida real (MediaStreamDestination del `GainNode`) en Chromium: voz 1 kHz a 0,0376 y música 200 Hz a 0,0115 con voz; mute a 0,0000; música a 0,0355 sin voz (31 % con voz, mismo ducking que la exportación); SFX de 4 kHz en la segunda escena. La fuente arranca en el offset pedido, se detiene al pausar y se recoloca al hacer scrub; el botón de silencio lleva la ganancia a 0 y a 1. |
 | Música de fondo con ducking | **Probado** | Un audio se marca aparte como «música» en la Biblioteca; se mezcla en bucle con la narración y baja al 30 % mientras hay voz. Export real por la UI de 4 s (voz 1 kHz de 0 a 2 s + música 200 Hz): la música medida a 200 Hz vale 0,0593 sin voz y 0,0182 con voz (30,7 %, −10,3 dB) y vuelve a subir en el silencio. El volumen general de la música (0–100 %) se guarda en Ajustes del proyecto. |
 | Compilación | **Probado** | `npx tsc --noEmit` sin errores; `npm run build` correcto. |
-| Pruebas unitarias | **Probado** | `npx vitest run`: 43 pruebas en 10 archivos. Persistencia real en IndexedDB (guardar, recargar el módulo y recuperar; historial persistido y restaurado), nombre de archivo ASCII, límite móvil con user agent de Android, opacidad del Fundido cuadro a cuadro, recorte/relleno de la narración, envolvente de ducking y bucle de la música, reparto y ventanas de subtítulos, generación de `.srt` y el historial de deshacer/rehacer (incluido restaurar una escena borrada con su contenido). No cubren la UI ni una exportación completa. |
+| Pruebas unitarias | **Probado** | `npx vitest run`: 74 pruebas en 14 archivos. Persistencia real en IndexedDB (guardar, recargar el módulo y recuperar; historial persistido y restaurado), nombre de archivo ASCII, límite móvil con user agent de Android, opacidad del Fundido cuadro a cuadro, recorte/relleno de la narración, envolvente de ducking y bucle de la música, reparto y ventanas de subtítulos, generación de `.srt`, historial de deshacer/rehacer, normalización de la respuesta de Gemini, peticiones y respuestas de TTS y Pexels, palabras clave visuales y cortes automáticos. No cubren la UI ni una exportación completa. |
 
 ## No implementado o no verificado
 
 | Área | Estado | Detalle |
 | :--- | :--- | :--- |
-| IA real (ideas, crítica, guion) | **No existe** | Sugerencias y críticas son textos fijos y reglas heurísticas. |
+| APIs contra los servicios reales | **Sin verificar** | Gemini, Google Cloud TTS y Pexels están implementados, pero no se llamaron con claves reales en este entorno. La verificación usó respuestas simuladas con la misma forma que las APIs. |
+| IA de ideas y crítica | **No existe** | «Sugerir ángulo crítico» son textos fijos y la crítica de guion son reglas heurísticas; solo el guion completo usa Gemini. |
 | Nube, sync, multiusuario | **Eliminado** | `cloudApi`, `syncEngine` y `jobQueueManager` se borraron; no hay backend conectado. |
 | Android (Capacitor) | **No verificado** | Solo queda la configuración; no hay build ni pruebas en dispositivo. |
 | MP4/H.264 de salida | **No implementado** | La salida es siempre WebM. Un MP4 H.264 sí funciona como clip dentro de una escena (verificado en Chromium). |
 | Clips con audio propio | **No implementado** | El clip de escena se decodifica mudo; la única pista de audio exportada es la narración del proyecto. |
 | Códecs MP4 distintos de H.264 | **No verificado** | Solo se probó `avc1` (H.264) en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 quedan sin probar. |
-| Pruebas de UI y de exportación | **No existen** | Las 43 pruebas cubren lógica pura y persistencia, no clics reales ni el archivo exportado. |
+| Pruebas de UI y de exportación | **No existen** | Las 74 pruebas cubren lógica pura y persistencia, no clics reales ni el archivo exportado. Esas comprobaciones se hicieron a mano en Chromium y quedan en `artifacts/`. |
 | Safari y Firefox | **No verificado** | Sin WebCodecs se usaría el respaldo en tiempo real; no se probó. |
-| Narración por escena | **No implementado** | Una sola pista de narración para todo el proyecto; la música es global y los efectos de sonido sí son por escena. |
+| Narración por escena importada | **No implementado** | La voz por escena se genera con TTS; no hay un selector para asignar un audio importado de la Biblioteca a una escena concreta (sí se puede usar como narración global, música o SFX). |
+| Calidad de las imágenes de Pexels | **Sin verificar** | La búsqueda usa las primeras palabras clave de la intención visual y la primera foto; no hay selección entre varias candidatas ni edición de la consulta desde la UI. |
 | Deshacer / rehacer | **Probado** | Historial de hasta 50 estados del proyecto. Ctrl+Z deshace y Ctrl+Y / Ctrl+Shift+Z rehace; el header muestra botones con el número de pasos disponibles. En Chromium: borrar la segunda escena (2 → 1), Ctrl+Z la restaura con su título, su SFX y su subtítulo, Ctrl+Y la vuelve a quitar y Ctrl+Shift+Z la rehace. Las pulsaciones seguidas en un mismo campo de texto se agrupan en un solo paso. Pruebas automatizadas: `history.test.ts` (5) e `history-persistence.test.ts` (3). |
 | Historial de versiones guardadas | **No implementado** | El deshacer persiste hasta 50 pasos, pero no hay versiones con nombre y fecha ni restauración más allá de ese límite. |
 | Persistencia más allá del navegador | **No existe** | IndexedDB local; borrar datos del sitio borra los proyectos. |

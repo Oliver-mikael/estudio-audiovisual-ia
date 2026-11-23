@@ -132,13 +132,58 @@ Las medidas salen de extraer PCM con ffmpeg (`-f f32le -ac 1 -ar 48000`) y aplic
 | :--- | :--- | :--- |
 | `phase20-history-after-reload.png` | Captura del header tras recargar la página y abrir el proyecto, después de un Ctrl+Z. | El historial sobrevive a la recarga: el botón muestra «Rehacer (1 pasos)» y el proyecto tiene otra vez 2 escenas / 5 s. Antes de deshacer, tras recargar, el header mostraba «Deshacer (1 pasos)»; Ctrl+Z restauró «Escena B original» con su contenido y Ctrl+Y la volvió a quitar. |
 
+## Fase 21 — guion con Gemini
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase21-guion-generado.png` | Captura del Taller de guion (1440×950) con un guion cargado desde Ideas. | La respuesta de Gemini se convirtió en escenas editables: el proyecto muestra 6 escenas (gancho, 4 escenas y cierre) y el editor permite tocar duración, narración, voz y transición. La captura es de una regeneración posterior usada también para probar las imágenes automáticas (27,2 s); la primera generación dio 6 escenas y 36,4 s. |
+| `phase21-ideas-ia.png` | Captura del panel «Generar guion completo con IA». | Muestra el tema, el tono (Documental) y el estado de la clave de Gemini. |
+
+La respuesta de Gemini fue simulada (el entorno no tenía clave). La petición real que salió del navegador se
+comprobó con Playwright: `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
+con `x-goog-api-key`, el tema y el tono en el cuerpo, y el esquema JSON (`visual_intent`, etc.). El diálogo de
+reemplazo apareció al regenerar con escenas existentes. Límite: no se llamó al servicio real, así que no se
+verifica la calidad del guion ni la disponibilidad del modelo.
+
+## Fase 22 — voz TTS por escena
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase22-voz-por-escena.webm` | Export real de 13 s (VP9 1280×720@30 + Opus 48 kHz estéreo), dos escenas de 5 y 8 s con una voz TTS en cada una. | Cada voz suena al inicio de su escena y no invade la otra. Comparado con los MP3 originales: r = 0,9994 (voz A en 0,5–2,5 s) y r = 0,9993 (voz B en 5,5–7,5 s); cruzadas 0,03; RMS 0 en el hueco 4,2–4,9 s. |
+
+Los MP3 de entrada se generaron con `edge-tts` (voz española real) a partir del texto exacto de cada escena,
+y se sirvieron como respuesta simulada de Google Cloud TTS. La app envió cada texto a
+`texttospeech.googleapis.com/v1/text:synthesize`, guardó el MP3 en la Biblioteca y lo asignó a su escena
+(`narrationAssetId`). Límite: no se llamó a Google Cloud TTS real; la «correlación con el texto» es
+acústica (la exportación conserva el audio de la voz generada), no un reconocimiento de voz del texto.
+
+## Fase 23 — imágenes de Pexels
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase23-imagenes-pexels.webm` | Export real de 8 s, dos escenas de 4 s con imagen de Pexels asignada por «Buscar imagen». | Cada imagen aparece en su escena: píxel central (82,24,36) en t = 1 y 3 s (escena 1, imagen roja) y (19,35,98) en t = 5 y 7 s (escena 2, imagen azul). |
+| `phase23-t1.png`, `phase23-t5.png` | Cuadros extraídos en t = 1 s y t = 5 s. | Se ven las imágenes descargadas en el orden correcto. |
+
+La API de Pexels se simuló con dos PNG de color sólido. La app envió las consultas reales «coche rojo» y
+«coche azul» con la cabecera `Authorization`, descargó los blobs, los guardó con licencia y procedencia, y
+los asignó a la escena. También se probó la ruta automática al generar un guion: 6 búsquedas → 6 escenas con
+imagen. Límite: no se llamó a la API real de Pexels y no se evaluó la relevancia de las fotos reales.
+
+## Fase 24 — ritmo visual
+
+| Archivo | Qué es | Qué verifica |
+| :--- | :--- | :--- |
+| `phase24-cortes-9s.webm` | Export real de 9 s (VP9 1280×720@30) con una escena, imagen principal roja y secundaria azul, cortes automáticos activos. | Muestreando con ffmpeg: principal en 0–3 s, secundaria en 3–6 s y principal otra vez en 6–9 s. Cambios exactos en t = 3 y t = 6 (dos cambios visuales). |
+| `phase24-cortes-desactivados.webm` | El mismo proyecto con «Cortes automáticos cada 3 s» desactivado. | Los píxeles en t = 1, 4 y 7 s son rojos: la escena usa solo la imagen principal. |
+| `phase24-t1.png`, `phase24-t4.png`, `phase24-t7.png` | Cuadros extraídos del primer video. | Rojo, azul y rojo en los instantes esperados. |
+
 ## Fase 11 — pruebas de comportamiento
 
 | Archivo | Qué es | Qué verifica |
 | :--- | :--- | :--- |
 | `phase11-export-after-refactor.webm` | La misma exportación de la fase 10 repetida después de extraer `fitNarrationChannels` para las pruebas. | El camino nuevo de narración (decodificar y recortar/rellenar muestras) produce el mismo audio: 5,00 s, RMS 0,0945 y correlación 0,9992 con el WAV, desfase 0. |
 
-Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (43 pruebas en 10 archivos).
+Las pruebas automatizadas no generan archivos: se ejecutan con `npx vitest run` (74 pruebas en 14 archivos).
 
 ## Cómo reproducirlo
 
@@ -165,4 +210,7 @@ verificaciones.
 - El audio propio de un clip de video se ignora: la pista de audio del archivo exportado es la mezcla de
   los archivos importados (narración, música de fondo y efectos de escena).
 - Las capturas se tomaron con un viewport estrecho (360×712), por eso el texto aparece partido; el contenido
-  es el real de la app.
+  es el real de la app. Las capturas de las fases 21–24 usan 390×844.
+- Las APIs de Gemini, Google Cloud TTS y Pexels se simularon con respuestas del mismo formato; no se llamó a
+  los servicios reales porque el entorno no tenía claves. La voz de la fase 22 sí es habla española real
+  (generada con `edge-tts`) y las imágenes de la fase 23 son PNG reales descargados por la app.
