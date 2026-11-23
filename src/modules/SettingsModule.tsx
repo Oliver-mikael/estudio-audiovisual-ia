@@ -9,8 +9,9 @@ import {
   isLimitedForMobile,
   isMobileLike,
 } from '../engine/capabilities';
-import { AlertTriangle, AudioLines, Settings, Sliders } from 'lucide-react';
+import { AlertTriangle, AudioLines, KeyRound, Settings, Sliders, Sparkles } from 'lucide-react';
 import { MUSIC_DUCK_LEVEL, musicVolumeFor } from '../engine/audioTrack';
+import { DEFAULT_GEMINI_MODEL } from '../engine/gemini';
 
 interface SettingsModuleProps {
   project: Project;
@@ -183,6 +184,78 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ project, onUpdat
             </dd>
           </div>
         </dl>
+      </div>
+
+      {/* Claves de API: se guardan en el proyecto, nunca en el código. */}
+      <div className="card space-y-5 max-w-xl" data-testid="api-settings">
+        <div className="space-y-1">
+          <h3 className="etiqueta flex items-center gap-1.5">
+            <KeyRound className="w-4 h-4 text-indigo-400" />
+            <span>Claves de API del proyecto</span>
+          </h3>
+          <p className="text-sm text-slate-500">
+            Se guardan en IndexedDB junto a este proyecto y solo se envían al servicio correspondiente cuando
+            pulsas «Generar guion» o «Generar voz». No están escritas en el código.
+          </p>
+        </div>
+
+        <div className="space-y-2 border-t border-slate-800 pt-4">
+          <label htmlFor="gemini-key" className="etiqueta flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <span>Clave de API de Gemini</span>
+          </label>
+          <input
+            id="gemini-key"
+            data-testid="gemini-key"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={project.settings.geminiApiKey ?? ''}
+            onChange={(event) =>
+              onUpdateProject({
+                ...project,
+                settings: { ...project.settings, geminiApiKey: event.target.value.trim() },
+              })
+            }
+            placeholder="AIza..."
+            className="campo font-mono"
+          />
+          <p className="text-sm text-slate-500">
+            Se obtiene gratis en{' '}
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 underline underline-offset-2"
+            >
+              Google AI Studio
+            </a>
+            . Sin clave, el Laboratorio de ideas sigue funcionando con los ángulos manuales.
+          </p>
+
+          <label htmlFor="gemini-model" className="etiqueta mt-3 block">
+            Modelo de Gemini
+          </label>
+          <input
+            id="gemini-model"
+            data-testid="gemini-model"
+            type="text"
+            spellCheck={false}
+            value={project.settings.geminiModel ?? ''}
+            onChange={(event) =>
+              onUpdateProject({
+                ...project,
+                settings: { ...project.settings, geminiModel: event.target.value.trim() },
+              })
+            }
+            placeholder={DEFAULT_GEMINI_MODEL}
+            className="campo font-mono"
+          />
+          <p className="text-sm text-slate-500">
+            Por defecto {DEFAULT_GEMINI_MODEL}. Si el modelo deja de estar disponible, escribe otro nombre de
+            modelo de la API de Gemini.
+          </p>
+        </div>
       </div>
     </div>
   );

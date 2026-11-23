@@ -664,7 +664,12 @@ export const App: React.FC = () => {
             <MediaLibraryModule project={project} onUpdateProject={handleUpdateProject} />
           )}
           {activeSection === 'ideas' && (
-            <IdeaLab project={project} onUpdateProject={handleUpdateProject} />
+            <IdeaLab
+              project={project}
+              onUpdateProject={handleUpdateProject}
+              onGoToScript={() => setActiveSection('guion')}
+              onOpenSettings={() => setActiveSection('ajustes')}
+            />
           )}
           {activeSection === 'investigacion' && (
             <ResearchModule project={project} onUpdateProject={handleUpdateProject} />

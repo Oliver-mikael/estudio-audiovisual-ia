@@ -102,5 +102,9 @@ export interface Project {
     aspectRatio: '16:9' | '9:16' | '1:1';
     /** Volumen general de la música de fondo, de 0 a 1 (por defecto 0,6). */
     musicVolume?: number;
+    /** Clave de la API de Gemini para generar guiones. Solo se guarda en este proyecto. */
+    geminiApiKey?: string;
+    /** Modelo de Gemini a usar (por defecto gemini-2.5-flash). */
+    geminiModel?: string;
   };
 }

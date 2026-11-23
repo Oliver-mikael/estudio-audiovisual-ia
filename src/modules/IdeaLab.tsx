@@ -1,15 +1,113 @@
 // Idea Lab Module Component
 import React, { useState } from 'react';
 import { Project, NarrativeAngle } from '../types';
-import { Lightbulb, Plus, Trash2, HelpCircle, Sparkles, CheckCircle2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  HelpCircle,
+  KeyRound,
+  Lightbulb,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+  Wand2,
+} from 'lucide-react';
+import {
+  DEFAULT_GEMINI_MODEL,
+  GeneratedScript,
+  SCRIPT_TONES,
+  ScriptTone,
+  generateScriptWithGemini,
+  generatedScriptToScenes,
+} from '../engine/gemini';
+import { ConfirmDialog } from '../components/Modal';
 
 interface IdeaLabProps {
   project: Project;
   onUpdateProject: (updated: Project) => void;
+  /** Abre el Taller de guion con las escenas generadas. */
+  onGoToScript?: () => void;
+  /** Abre los ajustes para configurar la clave de Gemini. */
+  onOpenSettings?: () => void;
 }
 
-export const IdeaLab: React.FC<IdeaLabProps> = ({ project, onUpdateProject }) => {
+const TONE_TO_SCRIPT: Record<ScriptTone, Project['script']['tone']> = {
+  Educativo: 'Divulgativo',
+  Documental: 'Riguroso',
+  Entretenimiento: 'Dramático',
+  Historia: 'Riguroso',
+};
+
+export const IdeaLab: React.FC<IdeaLabProps> = ({
+  project,
+  onUpdateProject,
+  onGoToScript,
+  onOpenSettings,
+}) => {
   const [angles, setAngles] = useState<NarrativeAngle[]>(project.angles || []);
+
+  // Generación del guion completo con Gemini.
+  const [topic, setTopic] = useState('');
+  const [tone, setTone] = useState<ScriptTone>('Educativo');
+  const [generating, setGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [generationNotice, setGenerationNotice] = useState<string | null>(null);
+  const [generatedScript, setGeneratedScript] = useState<GeneratedScript | null>(null);
+  const [pendingScript, setPendingScript] = useState<GeneratedScript | null>(null);
+  const geminiKey = (project.settings.geminiApiKey ?? '').trim();
+
+  const applyGeneratedScript = (script: GeneratedScript) => {
+    const scenes = generatedScriptToScenes(script);
+    onUpdateProject({
+      ...project,
+      script: {
+        ...project.script,
+        title: script.title || project.script.title,
+        summary: script.hook,
+        tone: TONE_TO_SCRIPT[tone],
+        scenes,
+      },
+    });
+    setGeneratedScript(script);
+    setPendingScript(null);
+    setGenerationError(null);
+    setGenerationNotice(`Guion cargado en el Taller: ${scenes.length} escenas editables.`);
+  };
+
+  const handleGenerateScript = async () => {
+    setGenerationError(null);
+    setGenerationNotice(null);
+
+    if (!geminiKey) {
+      setGenerationError('Falta la clave de API de Gemini. Configúrala en Ajustes del proyecto.');
+      return;
+    }
+    if (!topic.trim()) {
+      setGenerationError('Escribe el tema del video antes de generar el guion.');
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const script = await generateScriptWithGemini({
+        apiKey: geminiKey,
+        topic,
+        tone,
+        model: project.settings.geminiModel || DEFAULT_GEMINI_MODEL,
+      });
+      // No se pisa un guion existente sin confirmación.
+      if ((project.script.scenes ?? []).length > 0) setPendingScript(script);
+      else applyGeneratedScript(script);
+    } catch (error) {
+      setGenerationError(
+        error instanceof Error ? error.message : 'No se pudo generar el guion con Gemini.'
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
   const [title, setTitle] = useState('');
   const [hook, setHook] = useState('');
   const [perspective, setPerspective] = useState('');
@@ -101,6 +199,158 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({ project, onUpdateProject }) =>
           <span>Sugerir ángulo crítico</span>
         </button>
       </div>
+
+      {/* Generación del guion completo con Gemini */}
+      <div className="bg-slate-900 border border-indigo-900/50 rounded-xl p-5 space-y-4" data-testid="gemini-panel">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-md font-semibold text-slate-100 flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-indigo-400" />
+              <span>Generar guion completo con IA</span>
+            </h3>
+            <p className="text-sm text-slate-400 mt-1">
+              Gemini escribe un gancho, entre 4 y 6 escenas con narración e intención visual, y un cierre con
+              llamada a la acción. El resultado se carga como escenas editables en el Taller de guion.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono text-slate-500">
+            {project.settings.geminiModel || DEFAULT_GEMINI_MODEL}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div className="md:col-span-8 space-y-1">
+            <label htmlFor="gemini-topic" className="etiqueta">
+              Tema del video
+            </label>
+            <input
+              id="gemini-topic"
+              data-testid="gemini-topic"
+              type="text"
+              value={topic}
+              onChange={(event) => setTopic(event.target.value)}
+              placeholder="Ej. Por qué los minerales de tu celular viajan 40.000 km"
+              className="campo"
+            />
+          </div>
+          <div className="md:col-span-4 space-y-1">
+            <label htmlFor="gemini-tone" className="etiqueta">
+              Tono
+            </label>
+            <select
+              id="gemini-tone"
+              data-testid="gemini-tone"
+              value={tone}
+              onChange={(event) => setTone(event.target.value as ScriptTone)}
+              className="campo"
+            >
+              {SCRIPT_TONES.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {!geminiKey ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-800/60 bg-amber-950/40 p-3">
+            <p className="text-sm text-amber-200 flex items-start gap-2">
+              <KeyRound className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                Configura tu clave de API de Gemini en Ajustes del proyecto para generar guiones. La clave se
+                guarda solo en este proyecto, en el navegador.
+              </span>
+            </p>
+            {onOpenSettings && (
+              <button onClick={onOpenSettings} className="btn-secondary text-xs shrink-0">
+                Abrir Ajustes
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-emerald-300/80 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Clave de Gemini configurada en este proyecto.</span>
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => {
+              void handleGenerateScript();
+            }}
+            disabled={generating || !geminiKey}
+            data-testid="gemini-generate"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-medium rounded-lg text-sm transition-colors"
+          >
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            <span>{generating ? 'Generando guion...' : 'Generar guion'}</span>
+          </button>
+          {generatedScript && onGoToScript && (
+            <button onClick={onGoToScript} data-testid="gemini-open-script" className="btn-secondary">
+              <ArrowRight className="w-4 h-4" />
+              <span>Ver en el Taller de guion</span>
+            </button>
+          )}
+        </div>
+
+        {generationNotice && (
+          <p data-testid="gemini-status" className="text-sm text-emerald-300 flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{generationNotice}</span>
+          </p>
+        )}
+        {generationError && (
+          <p data-testid="gemini-status" className="text-sm text-rose-300 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{generationError}</span>
+          </p>
+        )}
+
+        {generatedScript && (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+            <p className="text-xs uppercase tracking-wider text-slate-500">Último guion generado</p>
+            <div className="rounded-lg border border-indigo-900/60 bg-indigo-950/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400 mb-1">Gancho</p>
+              <p data-testid="generated-hook" className="text-sm text-indigo-100 font-medium">
+                “{generatedScript.hook}”
+              </p>
+            </div>
+            <ol className="space-y-2" data-testid="generated-scenes">
+              {generatedScript.scenes.map((scene, index) => (
+                <li key={`${scene.title}-${index}`} className="text-sm text-slate-300">
+                  <span className="font-mono text-xs text-slate-500 mr-2">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="font-semibold text-slate-100">{scene.title}</span>
+                  <span className="text-xs text-slate-500 font-mono"> · {scene.durationSeconds}s</span>
+                  <p className="text-xs text-slate-400 mt-0.5">{scene.narration}</p>
+                  <p className="text-[11px] text-indigo-300/70 mt-0.5">Visual: {scene.visualIntent}</p>
+                </li>
+              ))}
+            </ol>
+            {generatedScript.closing && (
+              <div className="border-t border-slate-800 pt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-1">
+                  Cierre con llamada a la acción
+                </p>
+                <p className="text-sm text-slate-200">{generatedScript.closing}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {pendingScript && (
+        <ConfirmDialog
+          title="Reemplazar el guion actual"
+          message={`El proyecto ya tiene ${project.script.scenes.length} escena(s). El guion generado las reemplazará por ${pendingScript.scenes.length + 2} escenas nuevas (gancho, cuerpo y cierre). El cambio se puede deshacer con Ctrl+Z.`}
+          confirmLabel="Reemplazar guion"
+          onCancel={() => setPendingScript(null)}
+          onConfirm={() => applyGeneratedScript(pendingScript)}
+        />
+      )}
 
       {/* Grid: Form & List */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
