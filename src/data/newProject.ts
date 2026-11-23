@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: Project['settings'] = {
   resolution: { width: 1280, height: 720 },
   aspectRatio: '16:9',
   musicVolume: 0.6,
+  introHookEnabled: true,
 };
 
 export function createEmptyProject(title: string): Project {

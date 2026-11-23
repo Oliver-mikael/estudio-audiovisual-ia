@@ -124,5 +124,9 @@ export interface Project {
     ttsVoice?: string;
     /** Clave de la API de Pexels para buscar imágenes de escena. */
     pexelsApiKey?: string;
+    /** Gancho visual superpuesto en los primeros 3 s (activado por defecto). */
+    introHookEnabled?: boolean;
+    /** Texto del gancho; si está vacío se usa el título de la primera escena. */
+    introHookText?: string;
   };
 }

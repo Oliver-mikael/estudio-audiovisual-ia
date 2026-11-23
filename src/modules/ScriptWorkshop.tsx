@@ -946,6 +946,64 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                 </p>
               </div>
 
+              {/* Gancho visual superpuesto en los primeros 3 s (solo primera escena) */}
+              {project.script.scenes[0]?.id === activeScene.id && (
+                <div
+                  className="space-y-2 border-t border-slate-800 pt-4"
+                  data-testid="intro-hook-panel"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="etiqueta flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-400" />
+                      <span>Gancho visual de la intro</span>
+                    </span>
+                    <label
+                      htmlFor="intro-hook-enabled"
+                      className="flex items-center gap-2 text-sm text-slate-300"
+                    >
+                      <input
+                        id="intro-hook-enabled"
+                        data-testid="intro-hook-enabled"
+                        type="checkbox"
+                        checked={project.settings.introHookEnabled !== false}
+                        onChange={(event) =>
+                          onUpdateProject({
+                            ...project,
+                            settings: {
+                              ...project.settings,
+                              introHookEnabled: event.target.checked,
+                            },
+                          })
+                        }
+                        className="accent-indigo-500"
+                      />
+                      <span>Mostrar en los primeros 3 s</span>
+                    </label>
+                  </div>
+
+                  <input
+                    id="intro-hook-text"
+                    data-testid="intro-hook-text"
+                    type="text"
+                    value={project.settings.introHookText ?? ''}
+                    placeholder={activeScene.title}
+                    onChange={(event) =>
+                      onUpdateProject({
+                        ...project,
+                        settings: { ...project.settings, introHookText: event.target.value },
+                      })
+                    }
+                    className="campo"
+                    aria-label="Texto del gancho visual"
+                  />
+
+                  <p className="text-sm text-slate-500">
+                    Se superpone en grande sobre la primera escena, con zoom de entrada de 110 % a 100 % y
+                    fondo oscurecido. Si dejas el texto vacío se usa el título: «{activeScene.title}».
+                  </p>
+                </div>
+              )}
+
               {/* Visual Intent & Camera Settings */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

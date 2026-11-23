@@ -8,6 +8,7 @@
 import { Scene, Project, SubtitleAnimation, SubtitleEntry } from '../types';
 import { visualSlotAt } from './visualRhythm';
 import { normalizeSubtitleAnimation, subtitleAnimationFrame } from './textAnimation';
+import { introHookFrame } from './introHook';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -391,7 +392,8 @@ export class CanvasRenderEngine {
         height,
         current.scene,
         localTime,
-        current.start + localTime
+        current.start + localTime,
+        project
       );
       this.drawSceneInto(
         this.bufferCtxs[1],
@@ -399,7 +401,8 @@ export class CanvasRenderEngine {
         height,
         previous.scene,
         previousLocalTime,
-        previous.start + previousLocalTime
+        previous.start + previousLocalTime,
+        project
       );
 
       this.compositeTransition(current.scene.transition, incoming, outgoing, width, height, progress);
@@ -407,7 +410,15 @@ export class CanvasRenderEngine {
     }
 
     // Sin transición: la escena se dibuja directamente en el canvas visible.
-    this.drawSceneInto(this.ctx, width, height, current.scene, localTime, current.start + localTime);
+    this.drawSceneInto(
+      this.ctx,
+      width,
+      height,
+      current.scene,
+      localTime,
+      current.start + localTime,
+      project
+    );
   }
 
   private prepareBuffer(buffer: HTMLCanvasElement, width: number, height: number): void {
@@ -471,7 +482,8 @@ export class CanvasRenderEngine {
     height: number,
     scene: Scene,
     sceneLocalTime: number,
-    absoluteTime: number
+    absoluteTime: number,
+    project: Project
   ): void {
     const sceneProgress = scene.durationSeconds > 0 ? Math.min(1, sceneLocalTime / scene.durationSeconds) : 0;
 
@@ -488,6 +500,9 @@ export class CanvasRenderEngine {
 
     // 4. Draw Studio Watermark & Scene Info
     this.drawWatermark(ctx, width, height, scene.title, absoluteTime);
+
+    // 5. Gancho visual de la intro (solo en los primeros 3 s del primer escena)
+    this.drawIntroHook(ctx, width, height, project, scene, absoluteTime);
   }
 
   private drawEmptyState(width: number, height: number): void {
@@ -664,6 +679,46 @@ export class CanvasRenderEngine {
       36,
       frame.visibleText.length
     );
+
+    ctx.restore();
+  }
+
+  /** Gancho visual superpuesto en los primeros 3 s (fase 27). */
+  private drawIntroHook(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    project: Project,
+    scene: Scene,
+    absoluteTime: number
+  ): void {
+    if (project.script.scenes[0]?.id !== scene.id) return;
+    const hook = introHookFrame(project, absoluteTime);
+    if (!hook || hook.opacity <= 0) return;
+
+    ctx.save();
+
+    // Fondo ligeramente oscurecido para que el texto tenga contraste.
+    ctx.globalAlpha = hook.darken;
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, width, height);
+
+    // Texto grande, centrado y con zoom de entrada 110 % → 100 %.
+    ctx.globalAlpha = hook.opacity;
+    ctx.translate(width / 2, height * 0.44);
+    ctx.scale(hook.scale, hook.scale);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `800 ${Math.round(width * 0.058)}px system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 4;
+
+    const lines = this.wrapTextLines(ctx, hook.text, width * 0.78);
+    const lineHeight = Math.round(width * 0.068);
+    const startY = -((lines.length - 1) * lineHeight) / 2;
+    lines.forEach((line, index) => ctx.fillText(line, 0, startY + index * lineHeight));
 
     ctx.restore();
   }
