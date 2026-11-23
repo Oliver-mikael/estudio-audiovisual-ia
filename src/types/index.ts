@@ -112,5 +112,7 @@ export interface Project {
     ttsApiKey?: string;
     /** Voz de Google Cloud TTS elegida (femenina o masculina). */
     ttsVoice?: string;
+    /** Clave de la API de Pexels para buscar imágenes de escena. */
+    pexelsApiKey?: string;
   };
 }

@@ -23,6 +23,7 @@ import {
   generatedScriptToScenes,
 } from '../engine/gemini';
 import { ConfirmDialog } from '../components/Modal';
+import { assignImageAssetToScene, createPexelsImageAsset } from '../engine/pexels';
 
 interface IdeaLabProps {
   project: Project;
@@ -56,11 +57,13 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
   const [generationNotice, setGenerationNotice] = useState<string | null>(null);
   const [generatedScript, setGeneratedScript] = useState<GeneratedScript | null>(null);
   const [pendingScript, setPendingScript] = useState<GeneratedScript | null>(null);
+  const [imageProgress, setImageProgress] = useState<string | null>(null);
   const geminiKey = (project.settings.geminiApiKey ?? '').trim();
+  const pexelsKey = (project.settings.pexelsApiKey ?? '').trim();
 
-  const applyGeneratedScript = (script: GeneratedScript) => {
+  const applyGeneratedScript = async (script: GeneratedScript) => {
     const scenes = generatedScriptToScenes(script);
-    onUpdateProject({
+    let working: Project = {
       ...project,
       script: {
         ...project.script,
@@ -69,11 +72,45 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
         tone: TONE_TO_SCRIPT[tone],
         scenes,
       },
-    });
+    };
+    onUpdateProject(working);
     setGeneratedScript(script);
     setPendingScript(null);
     setGenerationError(null);
     setGenerationNotice(`Guion cargado en el Taller: ${scenes.length} escenas editables.`);
+
+    // Si hay clave de Pexels, se busca una imagen por escena (secuencialmente
+    // para no saturar la API) y se asignan al guion generado.
+    if (!pexelsKey) {
+      setGenerationNotice(
+        `Guion cargado en el Taller: ${scenes.length} escenas editables. Configura la clave de Pexels en Ajustes para añadir imágenes automáticamente.`
+      );
+      return;
+    }
+
+    let attached = 0;
+    const failed: string[] = [];
+    for (let index = 0; index < scenes.length; index++) {
+      const scene = scenes[index];
+      setImageProgress(`Buscando imagen ${index + 1} de ${scenes.length}: ${scene.title}`);
+      try {
+        const { asset } = await createPexelsImageAsset(scene.visualIntent || scene.title, {
+          apiKey: pexelsKey,
+          sceneTitle: scene.title,
+        });
+        working = assignImageAssetToScene(working, scene.id, asset);
+        attached += 1;
+      } catch {
+        failed.push(scene.title);
+      }
+    }
+    setImageProgress(null);
+
+    if (attached > 0) onUpdateProject(working);
+    const failedNote = failed.length > 0 ? ` Sin imagen: ${failed.join(', ')}.` : '';
+    setGenerationNotice(
+      `Guion cargado en el Taller: ${scenes.length} escenas editables. Imágenes de Pexels asignadas: ${attached}/${scenes.length}.${failedNote}`
+    );
   };
 
   const handleGenerateScript = async () => {
@@ -99,7 +136,7 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
       });
       // No se pisa un guion existente sin confirmación.
       if ((project.script.scenes ?? []).length > 0) setPendingScript(script);
-      else applyGeneratedScript(script);
+      else await applyGeneratedScript(script);
     } catch (error) {
       setGenerationError(
         error instanceof Error ? error.message : 'No se pudo generar el guion con Gemini.'
@@ -295,6 +332,12 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
           )}
         </div>
 
+        {imageProgress && (
+          <p data-testid="gemini-image-progress" className="text-sm text-indigo-300 flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>{imageProgress}</span>
+          </p>
+        )}
         {generationNotice && (
           <p data-testid="gemini-status" className="text-sm text-emerald-300 flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
@@ -348,7 +391,9 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
           message={`El proyecto ya tiene ${project.script.scenes.length} escena(s). El guion generado las reemplazará por ${pendingScript.scenes.length + 2} escenas nuevas (gancho, cuerpo y cierre). El cambio se puede deshacer con Ctrl+Z.`}
           confirmLabel="Reemplazar guion"
           onCancel={() => setPendingScript(null)}
-          onConfirm={() => applyGeneratedScript(pendingScript)}
+          onConfirm={() => {
+            void applyGeneratedScript(pendingScript);
+          }}
         />
       )}
 

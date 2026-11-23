@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Project, Scene, SubtitleEntry, MediaAsset } from '../types';
 import { getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
 import { subtitleSlotDefaults, subtitleText } from '../engine/renderEngine';
+import { createPexelsImageAsset } from '../engine/pexels';
 import {
   DEFAULT_TTS_VOICE,
   TTS_VOICES,
@@ -30,6 +31,7 @@ import {
   Mic,
   Loader2,
   Volume2,
+  Search as SearchIcon,
 } from 'lucide-react';
 import { ConfirmDialog } from '../components/Modal';
 
@@ -56,6 +58,11 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
   const [ttsBusy, setTtsBusy] = useState(false);
   const [ttsMessage, setTtsMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [pendingVoiceOverwrite, setPendingVoiceOverwrite] = useState(false);
+
+  // Búsqueda automática de imagen en Pexels.
+  const [imageSearchBusy, setImageSearchBusy] = useState(false);
+  const [imageSearchMessage, setImageSearchMessage] = useState<string | null>(null);
+  const [pendingImageSearch, setPendingImageSearch] = useState(false);
 
   // Deshacer/rehacer puede restaurar otra versión del proyecto: la lista local se
   // sincroniza y la selección se mantiene solo si la escena sigue existiendo.
@@ -257,6 +264,47 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       setVideoError(error instanceof Error ? error.message : 'No se pudo asignar el clip.');
     } finally {
       setAssigningVideo(false);
+    }
+  };
+
+  /** Busca en Pexels una imagen para la intención visual de la escena activa. */
+  const handleSearchImage = async (force = false) => {
+    if (!activeScene) return;
+    const apiKey = (project.settings.pexelsApiKey ?? '').trim();
+    if (!apiKey) {
+      setImageError('Falta la clave de Pexels. Configúrala en Ajustes del proyecto.');
+      return;
+    }
+    if (activeScene.imageAssetId && !force) {
+      setPendingImageSearch(true);
+      return;
+    }
+
+    setImageSearchBusy(true);
+    setImageError(null);
+    setImageSearchMessage(null);
+    try {
+      const { asset } = await createPexelsImageAsset(
+        activeScene.visualIntent || activeScene.title,
+        { apiKey, sceneTitle: activeScene.title }
+      );
+      const updatedScenes = scenes.map((scene) =>
+        scene.id === activeScene.id
+          ? { ...scene, imageUrl: asset.url, imageAssetId: asset.id }
+          : scene
+      );
+      setScenes(updatedScenes);
+      onUpdateProject({
+        ...project,
+        mediaAssets: [asset, ...(project.mediaAssets ?? []).filter((item) => item.id !== asset.id)],
+        script: { ...project.script, scenes: updatedScenes },
+      });
+      setImageSearchMessage(`Imagen encontrada y guardada en la Biblioteca: ${asset.name}`);
+    } catch (error) {
+      setImageError(error instanceof Error ? error.message : 'No se pudo buscar la imagen.');
+    } finally {
+      setImageSearchBusy(false);
+      setPendingImageSearch(false);
     }
   };
 
@@ -938,6 +986,34 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
                   )}
                 </div>
 
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      void handleSearchImage();
+                    }}
+                    disabled={imageSearchBusy}
+                    data-testid="scene-search-image"
+                    className="btn-secondary text-xs disabled:opacity-50"
+                    title="Buscar en Pexels una imagen para la intención visual de esta escena"
+                  >
+                    {imageSearchBusy ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <SearchIcon className="w-3.5 h-3.5" />
+                    )}
+                    <span>{imageSearchBusy ? 'Buscando imagen...' : 'Buscar imagen'}</span>
+                  </button>
+                  <span className="text-[11px] text-slate-500 font-mono truncate">
+                    {activeScene.visualIntent || 'Sin intención visual'}
+                  </span>
+                </div>
+
+                {imageSearchMessage && (
+                  <p data-testid="scene-image-status" className="text-sm text-emerald-300">
+                    {imageSearchMessage}
+                  </p>
+                )}
+
                 {imageAssets.length === 0 && (
                   <p className="text-sm text-slate-500">
                     No hay imágenes en la biblioteca. Súbelas desde la sección Biblioteca.
@@ -1050,6 +1126,18 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
           )}
         </div>
       </div>
+
+      {pendingImageSearch && activeScene && (
+        <ConfirmDialog
+          title="Reemplazar la imagen de la escena"
+          message={`Esta escena ya tiene una imagen asignada. Si buscas otra en Pexels, se usará la nueva y la anterior seguirá en la Biblioteca.`}
+          confirmLabel="Buscar y reemplazar"
+          onCancel={() => setPendingImageSearch(false)}
+          onConfirm={() => {
+            void handleSearchImage(true);
+          }}
+        />
+      )}
 
       {pendingVoiceOverwrite && activeScene && (
         <ConfirmDialog

@@ -9,7 +9,7 @@ import {
   isLimitedForMobile,
   isMobileLike,
 } from '../engine/capabilities';
-import { AlertTriangle, AudioLines, KeyRound, Mic, Settings, Sliders, Sparkles } from 'lucide-react';
+import { AlertTriangle, AudioLines, Camera, KeyRound, Mic, Settings, Sliders, Sparkles } from 'lucide-react';
 import { MUSIC_DUCK_LEVEL, musicVolumeFor } from '../engine/audioTrack';
 import { DEFAULT_GEMINI_MODEL } from '../engine/gemini';
 import { DEFAULT_TTS_VOICE, TTS_VOICES } from '../engine/tts';
@@ -314,6 +314,42 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ project, onUpdat
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="space-y-2 border-t border-slate-800 pt-4">
+          <label htmlFor="pexels-key" className="etiqueta flex items-center gap-1.5">
+            <Camera className="w-4 h-4 text-indigo-400" />
+            <span>Clave de la API de Pexels</span>
+          </label>
+          <input
+            id="pexels-key"
+            data-testid="pexels-key"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={project.settings.pexelsApiKey ?? ''}
+            onChange={(event) =>
+              onUpdateProject({
+                ...project,
+                settings: { ...project.settings, pexelsApiKey: event.target.value.trim() },
+              })
+            }
+            placeholder="563492ad6f91700001000001..."
+            className="campo font-mono"
+          />
+          <p className="text-sm text-slate-500">
+            Se obtiene gratis en{' '}
+            <a
+              href="https://www.pexels.com/api/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 underline underline-offset-2"
+            >
+              pexels.com/api
+            </a>
+            . Con clave, al generar un guion se busca una imagen por escena y cada escena tiene su botón
+            «Buscar imagen». La foto se descarga en la Biblioteca del proyecto.
+          </p>
         </div>
       </div>
     </div>
