@@ -28,6 +28,7 @@ import { findMusicAsset, findNarrationAsset, projectHasAudio } from './engine/au
 import { buildSrt, buildSrtFileName, collectSrtCues } from './engine/srt';
 import { exportProjectAudio } from './engine/audioExport';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
+import { PLAY_PAUSE_EVENT, matchShortcut } from './engine/shortcuts';
 import {
   Theme,
   applyTheme,
@@ -316,24 +317,6 @@ export const App: React.FC = () => {
     applyProject(restored.present);
   }, [applyProject, scheduleHistorySave, syncHistoryCounts]);
 
-  // Ctrl+Z deshace; Ctrl+Y o Ctrl+Shift+Z rehace.
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (!historyRef.current) return;
-      if (!(event.ctrlKey || event.metaKey)) return;
-      const key = event.key.toLowerCase();
-      if (key === 'z' && !event.shiftKey) {
-        event.preventDefault();
-        handleUndo();
-      } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
-        event.preventDefault();
-        handleRedo();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleUndo, handleRedo]);
-
   const flushPendingSave = useCallback(async () => {
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current);
@@ -504,6 +487,66 @@ export const App: React.FC = () => {
     },
     [buildExportDialog]
   );
+
+  /**
+   * Atajos globales (fase 39): Espacio reproduce/pausa el Monitor, Ctrl+E abre
+   * exportar, Ctrl+Z deshace, Ctrl+Shift+Z (o Ctrl+Y) rehace y Escape cierra el
+   * modal abierto.
+   */
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!project && !exportDialog && !isPreviewOpen) return;
+      const action = matchShortcut(event, event.target);
+      if (!action) return;
+
+      if (action === 'escape') {
+        if (exportDialog) {
+          event.preventDefault();
+          setExportDialog(null);
+        } else if (isPreviewOpen) {
+          event.preventDefault();
+          setIsPreviewOpen(false);
+        }
+        // Los diálogos propios de cada módulo se cierran con el manejador de Modal.
+        return;
+      }
+
+      if (!project) return;
+
+      if (action === 'undo' || action === 'redo') {
+        if (!historyRef.current) return;
+        event.preventDefault();
+        if (action === 'undo') handleUndo();
+        else handleRedo();
+        return;
+      }
+
+      if (action === 'export') {
+        event.preventDefault();
+        if (isExporting || isPreparingExport || exportDialog || isPreviewOpen) return;
+        void openExportDialog();
+        return;
+      }
+
+      if (action === 'play-pause') {
+        if (activeSection !== 'monitor') return;
+        event.preventDefault();
+        window.dispatchEvent(new Event(PLAY_PAUSE_EVENT));
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [
+    activeSection,
+    exportDialog,
+    handleRedo,
+    handleUndo,
+    isExporting,
+    isPreparingExport,
+    isPreviewOpen,
+    openExportDialog,
+    project,
+  ]);
 
   const handleExportVideo = useCallback(async () => {
     if (!project) return;
@@ -697,6 +740,7 @@ export const App: React.FC = () => {
             }}
             disabled={isExporting || isPreparingExport}
             className="btn-primary"
+            title="Exportar video (Ctrl+E)"
           >
             {isExporting || isPreparingExport ? (
               <RefreshCw className="w-4 h-4 animate-spin" />

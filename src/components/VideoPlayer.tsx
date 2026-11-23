@@ -9,6 +9,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Project } from '../types';
 import { CanvasRenderEngine } from '../engine/renderEngine';
 import { PreparedAudio, prepareProjectAudio } from '../engine/audioTrack';
+import { PLAY_PAUSE_EVENT } from '../engine/shortcuts';
 import { Play, Pause, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 
 interface VideoPlayerProps {
@@ -287,7 +288,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
     const ctx = ensureAudioGraph();
     void ctx?.resume().catch(() => undefined);
 
-    if (isPlaying) {
+    if (isPlayingRef.current) {
       setIsPlaying(false);
       stopAudio();
       return;
@@ -300,6 +301,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
     // El efecto de `isPlaying` arranca la fuente de audio una sola vez.
     setIsPlaying(true);
   };
+
+  // Atajo global de la barra espaciadora (fase 39): la app avisa por evento y el
+  // Monitor reproduce o pausa con su estado real, sin duplicar la lógica.
+  const togglePlayRef = useRef(togglePlay);
+  togglePlayRef.current = togglePlay;
+
+  useEffect(() => {
+    const handler = () => togglePlayRef.current();
+    window.addEventListener(PLAY_PAUSE_EVENT, handler);
+    return () => window.removeEventListener(PLAY_PAUSE_EVENT, handler);
+  }, []);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     seekTo(parseFloat(e.target.value));
@@ -359,8 +371,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
           <div className="flex items-center gap-2">
             <button
               onClick={togglePlay}
+              data-testid="play-toggle"
+              data-playing={isPlaying ? 'true' : 'false'}
               className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors flex items-center justify-center"
-              title={isPlaying ? 'Pausar' : 'Reproducir'}
+              title={`${isPlaying ? 'Pausar' : 'Reproducir'} (Espacio)`}
               aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
             >
               {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
