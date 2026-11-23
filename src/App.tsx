@@ -29,6 +29,13 @@ import { buildSrt, buildSrtFileName, collectSrtCues } from './engine/srt';
 import { exportProjectAudio } from './engine/audioExport';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import {
+  Theme,
+  applyTheme,
+  otherTheme,
+  readStoredTheme,
+  saveStoredTheme,
+} from './services/theme';
+import {
   HISTORY_LIMIT,
   HistoryState,
   canRedo,
@@ -55,8 +62,10 @@ import {
   Home,
   Lightbulb,
   Loader2,
+  Moon,
   MonitorPlay,
   RefreshCw,
+  Sun,
   Redo2,
   Search,
   Settings,
@@ -152,6 +161,14 @@ export const App: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isExportingAudio, setIsExportingAudio] = useState(false);
   const [audioNotice, setAudioNotice] = useState<string | null>(null);
+
+  // Tema claro/oscuro persistido en localStorage (fase 38).
+  const [theme, setTheme] = useState<Theme>(() => readStoredTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+    saveStoredTheme(theme);
+  }, [theme]);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -647,6 +664,17 @@ export const App: React.FC = () => {
             </button>
           </div>
           <SaveIndicator status={saveStatus} />
+          <button
+            onClick={() => setTheme((value) => otherTheme(value))}
+            data-testid="theme-toggle"
+            data-theme-current={theme}
+            aria-pressed={theme === 'light'}
+            className="btn-secondary"
+            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            <span>{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
+          </button>
           <button
             onClick={() => {
               void handleExportAudio();

@@ -2,6 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tema claro/oscuro (fase 38).
+   Las tres variables base (fondo, superficie y texto) cambian con
+   `html[data-theme]`; el resto de la paleta se deriva de ellas. */
+:root {
+  --fondo: #090d16;
+  --superficie: #0f172a;
+  --superficie-alta: #1e293b;
+  --borde: #1e293b;
+  --borde-fuerte: #334155;
+  --texto: #f1f5f9;
+  --texto-secundario: #94a3b8;
+  --texto-tenue: #64748b;
+  color-scheme: dark;
+}
+
+html[data-theme='light'] {
+  --fondo: #f1f5f9;
+  --superficie: #ffffff;
+  --superficie-alta: #e2e8f0;
+  --borde: #cbd5e1;
+  --borde-fuerte: #94a3b8;
+  --texto: #0f172a;
+  --texto-secundario: #475569;
+  --texto-tenue: #64748b;
+  color-scheme: light;
+}
+
 /* Tipografía base del estudio: 14px de texto, títulos de sección a 18px y
    etiquetas de formulario a 12px en mayúsculas. */
 body {
@@ -9,8 +36,8 @@ body {
   font-size: 14px;
   line-height: 1.5;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background-color: #090d16;
-  color: #f1f5f9;
+  background-color: var(--fondo);
+  color: var(--texto);
 }
 
 label {
@@ -53,18 +80,93 @@ label {
   }
 }
 
+/* Modo claro: las superficies y los textos de la paleta slate se reasignan a las
+   variables del tema. El modo oscuro no necesita nada de esto porque los valores
+   de slate ya son los suyos. */
+html[data-theme='light'] .bg-slate-950,
+html[data-theme='light'] .bg-slate-950\/60,
+html[data-theme='light'] .bg-slate-950\/80 {
+  background-color: var(--fondo);
+}
+
+html[data-theme='light'] .bg-slate-900,
+html[data-theme='light'] .bg-slate-900\/60 {
+  background-color: var(--superficie);
+}
+
+html[data-theme='light'] .bg-slate-800 {
+  background-color: var(--superficie-alta);
+}
+
+html[data-theme='light'] .border-slate-800 {
+  border-color: var(--borde);
+}
+
+html[data-theme='light'] .border-slate-700 {
+  border-color: var(--borde-fuerte);
+}
+
+html[data-theme='light'] .text-slate-100 {
+  color: var(--texto);
+}
+
+html[data-theme='light'] .text-slate-200 {
+  color: #1e293b;
+}
+
+html[data-theme='light'] .text-slate-300 {
+  color: #334155;
+}
+
+html[data-theme='light'] .text-slate-400 {
+  color: var(--texto-secundario);
+}
+
+html[data-theme='light'] .text-slate-500 {
+  color: var(--texto-tenue);
+}
+
+html[data-theme='light'] .text-slate-700 {
+  color: #334155;
+}
+
+html[data-theme='light'] .card {
+  background-color: var(--superficie);
+  border-color: var(--borde);
+}
+
+html[data-theme='light'] .titulo-seccion {
+  color: var(--texto);
+}
+
+html[data-theme='light'] .etiqueta {
+  color: var(--texto-secundario);
+}
+
+html[data-theme='light'] .btn-secondary {
+  background-color: var(--superficie-alta);
+  border-color: var(--borde-fuerte);
+  color: var(--texto);
+}
+
+html[data-theme='light'] .campo {
+  background-color: #ffffff;
+  border-color: var(--borde);
+  color: var(--texto);
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--superficie);
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--borde-fuerte);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--texto-tenue);
 }
