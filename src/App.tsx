@@ -26,6 +26,7 @@ import {
 } from './engine/exporter';
 import { findMusicAsset, findNarrationAsset, projectHasAudio } from './engine/audioTrack';
 import { buildSrt, buildSrtFileName, collectSrtCues } from './engine/srt';
+import { exportProjectAudio } from './engine/audioExport';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import {
   HISTORY_LIMIT,
@@ -45,6 +46,7 @@ import { MediaLibraryModule } from './modules/MediaLibraryModule';
 import { SettingsModule } from './modules/SettingsModule';
 import {
   AlertCircle,
+  AudioLines,
   CheckCircle2,
   Download,
   FileText,
@@ -147,6 +149,8 @@ export const App: React.FC = () => {
   const [exportContainer, setExportContainer] = useState<ExportContainer>('webm');
   const [isPreparingExport, setIsPreparingExport] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isExportingAudio, setIsExportingAudio] = useState(false);
+  const [audioNotice, setAudioNotice] = useState<string | null>(null);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -521,6 +525,36 @@ export const App: React.FC = () => {
     }
   }, [exportContainer, project]);
 
+  /**
+   * Mezcla narración + música (+ efectos) con OfflineAudioContext y descarga el
+   * resultado como WAV de 48 kHz, sin generar video (fase 36).
+   */
+  const handleExportAudio = useCallback(async () => {
+    if (!project) return;
+    setIsExportingAudio(true);
+    setAudioNotice(null);
+    try {
+      const result = await exportProjectAudio(project);
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setAudioNotice(
+        `Audio exportado: ${result.fileName} · ${result.durationSeconds.toFixed(2)} s · ${result.sampleRate} Hz · ${result.channelCount} canales.`
+      );
+    } catch (error) {
+      setSaveError(
+        `No se pudo exportar el audio: ${error instanceof Error ? error.message : 'error desconocido.'}`
+      );
+    } finally {
+      setIsExportingAudio(false);
+    }
+  }, [project]);
+
   /** Descarga los subtítulos de todo el proyecto como .srt con tiempos absolutos. */
   const handleDownloadSrt = useCallback(() => {
     if (!project) return;
@@ -613,6 +647,22 @@ export const App: React.FC = () => {
           <SaveIndicator status={saveStatus} />
           <button
             onClick={() => {
+              void handleExportAudio();
+            }}
+            disabled={isExportingAudio || isExporting}
+            data-testid="export-audio"
+            className="btn-secondary"
+            title="Mezcla narración, música y efectos en un WAV de 48 kHz, sin video"
+          >
+            {isExportingAudio ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <AudioLines className="w-4 h-4" />
+            )}
+            <span>{isExportingAudio ? 'Mezclando...' : 'Exportar audio'}</span>
+          </button>
+          <button
+            onClick={() => {
               void openExportDialog();
             }}
             disabled={isExporting || isPreparingExport}
@@ -635,6 +685,24 @@ export const App: React.FC = () => {
             <span>{saveError}</span>
           </span>
           <button onClick={() => setSaveError(null)} className="text-rose-300 hover:text-rose-100 text-sm">
+            Cerrar
+          </button>
+        </div>
+      )}
+
+      {audioNotice && (
+        <div className="shrink-0 bg-emerald-950/60 border-b border-emerald-800 px-4 py-2 flex items-start justify-between gap-3">
+          <span
+            className="text-sm text-emerald-200 flex items-start gap-2"
+            data-testid="audio-export-notice"
+          >
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{audioNotice}</span>
+          </span>
+          <button
+            onClick={() => setAudioNotice(null)}
+            className="text-emerald-300 hover:text-emerald-100 text-sm"
+          >
             Cerrar
           </button>
         </div>
