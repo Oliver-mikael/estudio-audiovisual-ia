@@ -16,6 +16,7 @@ import { HomeScreen } from './components/HomeScreen';
 import { Modal } from './components/Modal';
 import { StoryboardPreview } from './components/StoryboardPreview';
 import { ProjectStats } from './components/ProjectStats';
+import { QualityReportPanel } from './components/QualityReport';
 import {
   ExportContainer,
   ExportFormatInfo,
@@ -976,6 +977,9 @@ export const App: React.FC = () => {
             </>
           }
         >
+          {/* Advertencias de calidad antes de exportar (fase 40) */}
+          <QualityReportPanel project={project} />
+
           {/* Resumen calculado con los datos reales del proyecto (fase 35) */}
           <ProjectStats project={project} format={exportDialog.format} />
 
