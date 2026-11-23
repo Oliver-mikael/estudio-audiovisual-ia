@@ -260,6 +260,34 @@ ffmpeg -i archivo.webm -vn -f f32le -ac 1 -ar 48000 audio.f32   # PCM para compa
 `ffmpeg-static` no está en `package.json`; se instaló con `npm i --no-save ffmpeg-static` solo para estas
 verificaciones.
 
+## Fases 37–40
+
+### Fase 37 — audio del MP4
+
+`phase37-mp4.mp4` (245 465 bytes) se exportó desde la app con el proyecto «Prueba AAC fase 37» (2 escenas,
+5 s, narración WAV de 1 kHz, 640×360 a 24 fps). Medido con `ffmpeg -i`:
+
+```
+Duration: 00:00:05.02
+Stream #0:0: Video: h264 (Constrained Baseline) (avc1), 640x360, 24 fps
+Stream #0:1: Audio: opus, 48000 Hz, stereo, fltp, 128 kb/s
+```
+
+La pista es Opus y no AAC porque este Chrome 156 para Linux no incluye el codificador AAC de WebCodecs:
+`AudioEncoder.isConfigSupported({codec:'mp4a.40.2', …})` responde `supported: true`, pero al configurar y
+enviar la primera trama llega `NotSupportedError: Unsupported codec type.` (probado también a 44,1 kHz y en
+mono). La app sondea el codificador con una trama de silencio antes de elegirlo y, al fallar AAC, usa Opus y
+lo avisa en el modal. `mp4-muxer` solo empaqueta AAC u Opus, así que el respaldo no puede ser un PCM/WAV.
+No hay ninguna evidencia de un MP4 con audio AAC generado por la app: queda pendiente en un navegador con
+codificador AAC (Chrome de Windows/macOS).
+
+### Fases 38–40 — tema, atajos y calidad
+
+Se comprobaron en el navegador de la nube, sin capturas: tema claro con cinco variables CSS medidas
+(`--fondo`, `--superficie`, `--texto`, `--borde`, `--texto-secundario`) y persistencia tras recargar; atajos
+Espacio / Ctrl+E / Ctrl+Z / Ctrl+Shift+Z / Escape con su efecto real en el DOM; y el reporte de calidad con
+4 advertencias en un proyecto vacío y 0 en uno completo (2 imágenes, 12 s, voz y música).
+
 ## Límites de esta evidencia
 
 - Todo se ejecutó en Chromium 156 (Linux, x64) dentro del entorno de desarrollo. Safari y Firefox no se

@@ -2,10 +2,10 @@
 
 Lista priorizada de lo que falta, empezando por lo que más limita el uso real. Nada de esta lista está
 implementado salvo que se indique lo contrario. Las fases 21–24 (guion con Gemini, voz TTS por escena,
-imágenes de Pexels y cortes automáticos) y las fases 33–36 (ElevenLabs opcional, MP4/H.264, resumen previo
-y exportación solo de audio) están implementadas con claves opcionales del usuario y verificadas en Chromium;
-la voz y las imágenes se probaron con respuestas simuladas, así que quedan las pruebas contra los servicios
-reales.
+imágenes de Pexels y cortes automáticos), las fases 33–36 (ElevenLabs opcional, MP4/H.264, resumen previo
+y exportación solo de audio) y las fases 37–40 (audio AAC en MP4, modo claro, atajos de teclado y reporte de
+calidad) están implementadas con claves opcionales del usuario y verificadas en Chromium; la voz y las
+imágenes se probaron con respuestas simuladas, así que quedan las pruebas contra los servicios reales.
 
 ## 1. IA real (prioridad alta)
 
@@ -23,7 +23,11 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
   (fase 17).
 - Verificar Safari y Firefox; allí WebCodecs no existe y la exportación cae al respaldo en tiempo real.
 - [x] Exportación MP4/H.264 con `avc1.42E01E` y `mp4-muxer` (fase 34). Aviso claro si el navegador no
-  soporta H.264 en WebCodecs; falta un respaldo MP4 sin WebCodecs y una pista AAC.
+  soporta H.264 en WebCodecs; falta un respaldo MP4 sin WebCodecs.
+- [x] Audio AAC-LC (`mp4a.40.2`) en el MP4, con sondeo real del codificador y respaldo a Opus cuando el
+  navegador no puede codificar AAC (fase 37). Queda verificarlo en un navegador con codificador AAC.
+- [ ] Exportar el MP4 con audio PCM sin comprimir cuando no haya AAC (hoy el respaldo es Opus porque
+  `mp4-muxer` no empaqueta PCM).
 - Arreglar la duración del WebM del respaldo `MediaRecorder` (hoy no declara duración).
 - [x] Exportar solo audio como WAV de 48 kHz, sin video (fase 36).
 - [x] Resumen del proyecto antes de exportar: duración, escenas, palabras, pistas de audio y resolución
@@ -77,6 +81,15 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Panel de estadísticas del proyecto antes de exportar (fase 35).
 - [x] Exportación de solo audio en WAV a 48 kHz con `OfflineAudioContext` (fase 36).
 
+## 2g. Hecho en las fases 37–40
+
+- [x] Audio AAC-LC en el MP4 con comprobación real del codificador y respaldo a Opus (fase 37).
+- [x] Tema claro/oscuro persistido en `localStorage`, con las variables de color cambiando desde
+  `html[data-theme]` (fase 38).
+- [x] Atajos de teclado globales: Espacio, Ctrl+E, Ctrl+Z, Ctrl+Shift+Z y Escape (fase 39).
+- [x] Reporte de calidad antes de exportar con advertencias de imágenes, duración, narración y música, sin
+  bloquear la exportación (fase 40).
+
 ## 3. Edición de audio
 
 - [x] Narración por escena con voz TTS (fase 22) y alternativa ElevenLabs opcional (fase 33).
@@ -125,6 +138,6 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 ## 8. Calidad
 
-- Pruebas de la UI y de la exportación de punta a punta (hoy hay 127 pruebas de lógica pura y persistencia, sin navegador).
+- Pruebas de la UI y de la exportación de punta a punta (hoy hay 145 pruebas de lógica pura y persistencia, sin navegador).
 - Accesibilidad del editor (foco, teclado, anuncios de estado).
 - Idiomas: hoy toda la interfaz está en español.
