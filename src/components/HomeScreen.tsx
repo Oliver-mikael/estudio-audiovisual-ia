@@ -3,11 +3,12 @@
 import React, { useState } from 'react';
 import { Project } from '../types';
 import { ConfirmDialog } from './Modal';
-import { Clock, Film, FolderOpen, Pencil, Plus, Trash2, Check, X } from 'lucide-react';
+import { STYLE_TEMPLATES, StyleTemplateId } from '../data/styleTemplates';
+import { Clock, Film, FolderOpen, Pencil, Plus, Trash2, Check, X, Palette } from 'lucide-react';
 
 interface HomeScreenProps {
   projects: Project[];
-  onCreateProject: (title: string) => void;
+  onCreateProject: (title: string, templateId?: StyleTemplateId | null) => void;
   onOpenProject: (id: string) => void;
   onRenameProject: (id: string, title: string) => void;
   onDeleteProject: (id: string) => void;
@@ -28,6 +29,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [isCreating, setIsCreating] = useState(projects.length === 0);
   const [newTitle, setNewTitle] = useState('');
+  const [templateId, setTemplateId] = useState<StyleTemplateId | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
@@ -35,8 +37,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const submitCreate = (event: React.FormEvent) => {
     event.preventDefault();
     const title = newTitle.trim() || 'Proyecto sin título';
-    onCreateProject(title);
+    onCreateProject(title, templateId);
     setNewTitle('');
+    setTemplateId(null);
     setIsCreating(false);
   };
 
@@ -82,7 +85,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
 
           {isCreating && (
-            <form onSubmit={submitCreate} className="flex flex-col sm:flex-row gap-2 sm:items-end">
+            <form onSubmit={submitCreate} className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
               <div className="flex-1 space-y-1">
                 <label htmlFor="new-project-title" className="block text-slate-400">
                   Nombre del proyecto
@@ -107,6 +111,61 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </button>
                 )}
               </div>
+              </div>
+
+              {/* Plantillas de estilo (fase 30): se aplican al crear el proyecto. */}
+              <fieldset className="border-t border-slate-800 pt-3 space-y-2">
+                <legend className="etiqueta flex items-center gap-1.5 pb-1">
+                  <Palette className="w-4 h-4 text-indigo-400" />
+                  <span>Plantilla de estilo</span>
+                </legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    data-testid="style-template-none"
+                    aria-pressed={templateId === null}
+                    onClick={() => setTemplateId(null)}
+                    className={`text-left p-3 rounded-lg border transition-colors ${
+                      templateId === null
+                        ? 'border-indigo-500 bg-indigo-950/40'
+                        : 'border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold text-slate-100">Sin plantilla</span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      Ajustes por defecto, sin tipografía ni colores predefinidos.
+                    </span>
+                  </button>
+                  {STYLE_TEMPLATES.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      data-testid={`style-template-${template.id}`}
+                      aria-pressed={templateId === template.id}
+                      onClick={() => setTemplateId(template.id)}
+                      className={`text-left p-3 rounded-lg border transition-colors ${
+                        templateId === template.id
+                          ? 'border-indigo-500 bg-indigo-950/40'
+                          : 'border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="block text-sm font-semibold text-slate-100">
+                        {template.name}
+                      </span>
+                      <span className="block text-xs text-slate-400 mt-0.5">
+                        {template.description}
+                      </span>
+                      <span className="block text-[11px] font-mono text-indigo-300 mt-1">
+                        {template.summary}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Configura tipografía, color de subtítulos, gancho, categoría de música y transición.
+                  Puedes cambiar cualquiera después en el proyecto.
+                </p>
+              </fieldset>
             </form>
           )}
         </section>

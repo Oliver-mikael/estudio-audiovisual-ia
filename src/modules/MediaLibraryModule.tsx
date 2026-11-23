@@ -22,6 +22,7 @@ import {
   MUSIC_LIBRARY,
   MusicCategory,
   MusicLibraryTrack,
+  isMusicCategory,
 } from '../data/musicLibrary';
 
 interface MediaLibraryProps {
@@ -35,7 +36,10 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
   const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
 
   // Biblioteca de música libre incluida (fase 28).
-  const [musicCategory, setMusicCategory] = useState<MusicCategory>('Épica');
+  // La plantilla de estilo del proyecto elige la categoría que se abre primero.
+  const [musicCategory, setMusicCategory] = useState<MusicCategory>(() =>
+    isMusicCategory(project.settings.musicCategory) ? project.settings.musicCategory : 'Épica'
+  );
   const [previewingTrackId, setPreviewingTrackId] = useState<string | null>(null);
   const [libraryBusyId, setLibraryBusyId] = useState<string | null>(null);
   const [libraryMessage, setLibraryMessage] = useState<string | null>(null);

@@ -1,6 +1,7 @@
 // Fábrica de proyectos vacíos: cada proyecto nuevo empieza sin escenas,
 // sin recursos y con los ajustes por defecto de exportación.
 import { Project } from '../types';
+import { applyStyleTemplate } from './styleTemplates';
 
 export const DEFAULT_SETTINGS: Project['settings'] = {
   fps: 30,
@@ -10,11 +11,11 @@ export const DEFAULT_SETTINGS: Project['settings'] = {
   introHookEnabled: true,
 };
 
-export function createEmptyProject(title: string): Project {
+export function createEmptyProject(title: string, templateId?: string | null): Project {
   const now = Date.now();
   const cleanTitle = title.trim() || 'Proyecto sin título';
 
-  return {
+  const project: Project = {
     id: `project-${now}-${Math.random().toString(36).slice(2, 8)}`,
     title: cleanTitle,
     description: '',
@@ -35,4 +36,6 @@ export function createEmptyProject(title: string): Project {
       resolution: { ...DEFAULT_SETTINGS.resolution },
     },
   };
+
+  return applyStyleTemplate(project, templateId);
 }

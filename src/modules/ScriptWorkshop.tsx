@@ -198,7 +198,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
       narrationText: 'Escribe aquí la narración explicativa...',
       visualIntent: 'Detalla el concepto visual deseado para la escena',
       cameraMotion: 'Static',
-      transition: 'Fade',
+      transition: project.settings.defaultTransition ?? 'Fade',
       durationSeconds: 10,
       subtitles: [],
     };

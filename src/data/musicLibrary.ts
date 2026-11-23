@@ -27,6 +27,11 @@ export const MUSIC_CATEGORIES: MusicCategory[] = [
   'Motivacional',
 ];
 
+/** true si el texto guardado en los ajustes es una categoría válida. */
+export function isMusicCategory(value: unknown): value is MusicCategory {
+  return typeof value === 'string' && (MUSIC_CATEGORIES as string[]).includes(value);
+}
+
 const TRACK_SECONDS = 16;
 
 export const MUSIC_LIBRARY: MusicLibraryTrack[] = [

@@ -137,5 +137,13 @@ export interface Project {
     introHookEnabled?: boolean;
     /** Texto del gancho; si está vacío se usa el título de la primera escena. */
     introHookText?: string;
+    /** Familia tipográfica de los subtítulos (plantilla de estilo). */
+    subtitleFontFamily?: string;
+    /** Color del texto de los subtítulos (plantilla de estilo). */
+    subtitleColor?: string;
+    /** Categoría de música que abre la Biblioteca incluida. */
+    musicCategory?: string;
+    /** Transición que se asigna a las escenas nuevas y al aplicar una plantilla. */
+    defaultTransition?: Scene['transition'];
   };
 }

@@ -500,7 +500,7 @@ export class CanvasRenderEngine {
     ctx.restore();
 
     // 3. Draw Kinetic Typography / Animated Subtitles
-    this.drawSubtitlesAndText(ctx, width, height, scene, sceneLocalTime);
+    this.drawSubtitlesAndText(ctx, width, height, scene, sceneLocalTime, project);
 
     // 4. Draw Studio Watermark & Scene Info
     this.drawWatermark(ctx, width, height, scene.title, absoluteTime);
@@ -634,7 +634,8 @@ export class CanvasRenderEngine {
     width: number,
     height: number,
     scene: Scene,
-    sceneLocalTime: number
+    sceneLocalTime: number,
+    project: Project
   ): void {
     const subtitle = subtitleAt(scene, sceneLocalTime);
     // Sin subtítulos editables no se dibuja nada: ya no se derivan del texto de narración.
@@ -668,9 +669,9 @@ export class CanvasRenderEngine {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Render Subtitle Text with Wrap
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '600 28px sans-serif';
+    // Render Subtitle Text with Wrap (tipografía y color de la plantilla de estilo)
+    ctx.fillStyle = project.settings.subtitleColor ?? '#ffffff';
+    ctx.font = `600 28px ${project.settings.subtitleFontFamily ?? 'sans-serif'}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 

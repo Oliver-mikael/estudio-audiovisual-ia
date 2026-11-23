@@ -321,8 +321,8 @@ export const App: React.FC = () => {
     if (pending) await persistProject(pending);
   }, [persistProject]);
 
-  const handleCreateProject = useCallback(async (title: string) => {
-    const created = createEmptyProject(title);
+  const handleCreateProject = useCallback(async (title: string, templateId?: string | null) => {
+    const created = createEmptyProject(title, templateId);
     resetHistory(created);
     setProject(created);
     setActiveSection('guion');
@@ -526,8 +526,8 @@ export const App: React.FC = () => {
     return (
       <HomeScreen
         projects={projects}
-        onCreateProject={(title) => {
-          void handleCreateProject(title);
+        onCreateProject={(title, templateId) => {
+          void handleCreateProject(title, templateId);
         }}
         onOpenProject={(id) => {
           void handleOpenProject(id);
