@@ -8,6 +8,7 @@
 
 import { MediaAsset, Project } from '../types';
 import { buildTimeline } from './renderEngine';
+import { musicAdaptiveGain } from './musicDynamics';
 
 export const AUDIO_SAMPLE_RATE = 48000;
 export const AUDIO_CHANNELS = 2;
@@ -357,11 +358,13 @@ export async function prepareProjectAudio(
     const volume = musicVolumeFor(project);
     const musicChannels = loopChannels(await decodeAsset(musicAsset), frames);
     const voice = voiceChannels ? monoMix(voiceChannels, frames) : null;
-    const duck = duckGainEnvelope(voice, frames);
+    // Curva adaptativa por timestamp: intro al 80 % subiendo, ducking con voz y
+    // cierre al 100 % con fundido de salida (fase 25).
+    const musicGain = musicAdaptiveGain(voice, frames, durationSeconds);
     musicChannels.forEach((data, channel) => {
       const target = mix[channel];
       for (let index = 0; index < frames; index++) {
-        target[index] += data[index] * volume * duck[index];
+        target[index] += data[index] * volume * musicGain[index];
       }
     });
   }
