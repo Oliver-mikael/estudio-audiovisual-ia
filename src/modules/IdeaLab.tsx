@@ -1,4 +1,4 @@
-// Idea Lab Module Component
+// Módulo del laboratorio de ideas
 import React, { useState } from 'react';
 import { Project, NarrativeAngle } from '../types';
 import {
@@ -168,7 +168,7 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
     setAngles(updatedAngles);
     onUpdateProject({ ...project, angles: updatedAngles });
 
-    // Reset form
+    // Limpia el formulario
     setTitle('');
     setHook('');
     setPerspective('');

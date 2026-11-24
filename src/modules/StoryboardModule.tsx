@@ -1,4 +1,4 @@
-// Storyboard Module Component
+// Módulo de storyboard: una tarjeta por escena
 import React from 'react';
 import { Project, Scene } from '../types';
 import { Film, Clapperboard, Camera, ArrowRightLeft } from 'lucide-react';

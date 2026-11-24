@@ -5,7 +5,6 @@
 // proyectos (los más recientes). Un proyecto que falle no cancela el lote: sus
 // datos se devuelven en `failures` y el ZIP contiene los que sí se exportaron.
 
-import JSZip from 'jszip';
 import { Project } from '../types';
 import { ExportContainer, buildExportFileName } from './exporter';
 import { resolveSceneMediaUrls } from './mediaResolver';
@@ -109,6 +108,8 @@ export async function exportProjectsToZip(
     throw new Error('No hay proyectos guardados que exportar.');
   }
 
+  // JSZip se carga solo al exportar un lote: no pesa en el arranque de la app.
+  const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   const entries: BatchEntry[] = [];
   const failures: BatchFailure[] = [];

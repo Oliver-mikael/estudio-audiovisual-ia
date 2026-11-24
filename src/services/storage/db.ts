@@ -1,4 +1,4 @@
-// IndexedDB Local Storage Service for Projects and Media Blobs
+// Almacenamiento local en IndexedDB: proyectos, recursos y sus datos asociados
 
 import { Project, MediaAsset } from '../../types';
 

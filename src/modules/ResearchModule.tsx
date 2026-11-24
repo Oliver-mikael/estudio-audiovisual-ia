@@ -1,4 +1,4 @@
-// Research & Fact-Checking Module Component
+// Módulo de investigación y verificación de fuentes
 import React, { useState } from 'react';
 import { Project, SourceReference } from '../types';
 import { Search, Plus, Trash2, ExternalLink, ShieldCheck, ShieldAlert, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -36,7 +36,7 @@ export const ResearchModule: React.FC<ResearchModuleProps> = ({ project, onUpdat
     setSources(updated);
     onUpdateProject({ ...project, sources: updated });
 
-    // Reset Form
+    // Limpia el formulario
     setTitle('');
     setUrl('');
     setAuthor('');

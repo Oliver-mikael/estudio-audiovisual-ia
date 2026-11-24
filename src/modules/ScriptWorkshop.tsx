@@ -1,4 +1,4 @@
-// Script Workshop Component for Estudio Audiovisual Inteligente
+// Taller de guion de Estudio Audiovisual Inteligente
 import React, { useEffect, useState } from 'react';
 import { Project, Scene, SubtitleAnimation, SubtitleEntry, MediaAsset } from '../types';
 import { getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
@@ -481,7 +481,7 @@ export const ScriptWorkshop: React.FC<ScriptWorkshopProps> = ({ project, onUpdat
     });
   };
 
-  // Critical feedback analyzer
+  // Análisis heurístico del guion
   const getCriticalFeedback = () => {
     const feedback: string[] = [];
     if (scenes.length === 0) {

@@ -1,4 +1,4 @@
-// Video Player React Component for Canvas Timeline
+// Reproductor de la vista previa sobre la línea de tiempo del canvas
 //
 // Además de dibujar los cuadros, reproduce en el Monitor la misma mezcla de
 // audio que genera la exportación (`prepareProjectAudio`): narración, música en
@@ -56,7 +56,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioOffset, setAudioOffset] = useState(0);
 
-  // Total project duration
+  // Duración total del proyecto
   const totalDuration = project.script.scenes.reduce(
     (sum, sc) => sum + sc.durationSeconds,
     0
@@ -181,7 +181,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ project }) => {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Solo se recalcula cuando cambia el audio o el punto de inicio.
   }, [audioSignature, startAudioAt]);
 
   // Reproducir/pausar controla la fuente de audio; al pausar se para de verdad.

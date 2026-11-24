@@ -1,4 +1,4 @@
-// Media Library Module Component for Estudio Audiovisual Inteligente
+// Módulo de biblioteca de recursos de Estudio Audiovisual Inteligente
 import React, { useEffect, useRef, useState } from 'react';
 import { Project, MediaAsset } from '../types';
 import { deleteMediaAssetBlob, getMediaAssetBlob, saveMediaAssetBlob } from '../services/storage/db';
@@ -99,7 +99,7 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({ project, onUpd
         createdAt: Date.now(),
       };
 
-      // Save blob to IndexedDB
+      // Guarda el blob en IndexedDB
       await saveMediaAssetBlob(mediaAsset);
       newAssets.push(mediaAsset);
     }

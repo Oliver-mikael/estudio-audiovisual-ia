@@ -1,13 +1,16 @@
 # Estado real del proyecto
 
-**Última actualización:** 23 de noviembre de 2026
+**Última actualización:** 24 de noviembre de 2026
+**Versión:** 1.0.0
 **Resumen:** el flujo «crear proyecto → guion generado o manual → voz e imágenes por escena → resumen →
 exportar WebM o MP4, o solo el audio en WAV» está implementado y probado en Chromium. Las integraciones de IA (Gemini, Google Cloud TTS y Pexels) son
 opcionales y requieren la clave del usuario; los flujos se verificaron con respuestas simuladas porque el
 entorno de desarrollo no tenía claves. Desde la fase 38 la interfaz tiene tema claro y oscuro, atajos de
 tecado globales (fases 39) y un reporte de calidad con advertencias antes de exportar (fase 40). Las fases
 41–44 añaden la bienvenida del primer uso, la interfaz móvil con menú hamburguesa, los enlaces para
-compartir proyectos y el historial de versiones guardado al exportar. La nube y Android siguen sin existir.
+compartir proyectos y el historial de versiones guardado al exportar. Las fases 45–48 cierran la versión
+1.0: tutorial interactivo de 5 pasos, exportación por lotes a un ZIP, métricas de uso local y limpieza de
+código con TypeScript y ESLint sin avisos. La nube y Android siguen sin existir.
 
 ## Verificado con evidencia
 
@@ -55,8 +58,12 @@ compartir proyectos y el historial de versiones guardado al exportar. La nube y 
 | Optimización para móvil | **Probado** | Medido con viewport de 375 × 812 px: el botón de menú mide 87 × 44 px, «Exportar video» 102 × 56 px, «Exportar audio» 104 × 58 px y «Compartir» 115 × 44 px. La barra lateral queda en `display: none` (ancho 0); al abrir el cajón mide 256 px y empieza en y = 72 px, debajo de la cabecera, y cada botón de sección mide 44 px de alto. Los paneles con `panel-secundario` (resumen del lateral y nota del Monitor) están en `display: none`. Al volver a 1280 px la barra lateral reaparece con 224 px y el botón de menú se oculta. |
 | Compartir proyecto como URL | **Probado** | El proyecto se serializa a JSON, se comprime con `deflate-raw`/CompressionStream y se codifica en base64url dentro de `#project=`. Proyecto de 2 escenas y 20 s: URL de 653 caracteres (573 del payload, prefijo `1.` comprimido). Al abrir esa URL tras recargar, el modal «Proyecto compartido» mostró el mismo título, 2 escenas y 20 s; al importar se creó un proyecto nuevo con 2 escenas y el mismo título, y el hash quedó vacío. Los proyectos con recursos binarios se rechazan con un motivo (probado en pruebas unitarias y el botón muestra el aviso). |
 | Historial de versiones | **Probado** | Dos exportaciones reales del mismo proyecto («Versión B», después de «Versión A») dejaron 2 instantáneas en IndexedDB con fechas 11:03:06 y 11:01:31, 20 s y 2 escenas cada una. El panel «Versiones» mostró «2 de 5», la más reciente marcada y fecha/duración por instantánea; al restaurar la segunda el título del proyecto pasó de «Versión B» a «Versión A». La rotación a 5 y la copia profunda están cubiertas con pruebas unitarias. |
-| Compilación | **Probado** | `npx tsc --noEmit` sin errores; `npm run build` correcto (423,90 kB · 120,60 kB gzip). |
-| Pruebas unitarias | **Probado** | `npx vitest run`: 145 pruebas en 27 archivos. Persistencia real en IndexedDB (guardar, recargar el módulo y recuperar; historial persistido y restaurado), nombre de archivo ASCII, límite móvil con user agent de Android, opacidad del Fundido cuadro a cuadro, recorte/relleno de la narración, envolvente de ducking y bucle de la música, curva adaptativa por timestamp, animaciones de subtítulo, gancho de la intro, catálogo de música CC0, reparto y ventanas de subtítulos, generación de `.srt`, historial de deshacer/rehacer, normalización de la respuesta de Gemini, peticiones y respuestas de TTS y Pexels, palabras clave visuales y cortes automáticos. No cubren la UI ni una exportación completa. Las fases 37–40 añadieron pruebas del códec de audio AAC y su sondeo, del tema persistido, de los atajos y del reporte de calidad. Las fases 41–44 añaden 17 pruebas: visibilidad y persistencia de la bienvenida (6), viaje de ida y vuelta del enlace con rechazo de recursos binarios (6) y rotación, copia y persistencia de versiones (5). |
+| Tutorial interactivo | **Probado** | Menú «Ayuda» → «Tutorial interactivo»: 5 pasos con tooltip `position: fixed` y flecha sobre la pestaña Script, el botón «Generar guion» de Ideas, la pestaña Biblioteca, «Exportar video» y el panel Versiones. Medido en Chromium a 1280×900: hueco de 12 px entre el elemento y el tooltip en los cinco pasos y flecha a 1 px del centro del elemento (Script tooltip 219 / borde 207; Ideas 577 / 565; Biblioteca 219 / 207; Exportar 64 / 52; Versiones 351 / 339). Cada paso abre su sección, «Finalizar» y «Saltar tutorial» cierran el tour y quitan el resaltado. |
+| Exportación por lotes | **Probado** | Con más de un proyecto aparece «Exportar todos» y procesa como máximo 5 (los más recientes). Dos proyectos de una escena de 10 s generaron `estudio-audiovisual-20261124-0642.zip` (5 063 341 bytes) con `01-lote-b-720p.webm` y `02-lote-a-720p.webm` (2 542 102 y 2 520 989 bytes), ambos con cabecera EBML `1a45dfa3`. Un proyecto sin escenas no cancela el lote: se informa del fallo y el ZIP conserva los demás. JSZip se carga bajo demanda (97,57 kB aparte) y no engorda el arranque. |
+| Métricas de uso local | **Probado** | Tras dos exportaciones reales de 2 s, el panel «Mi actividad» mostró 2 videos exportados, 4 s de duración total, primer uso 6:47 y último uso 6:52. El primer uso no cambió con el segundo export. Se guarda en el almacén `metrics` de IndexedDB (versión 4) y los videos del lote también suman; las escrituras se encadenan para no perder contadores. |
+| Limpieza y lint | **Probado** | `npx tsc --noEmit` sin errores; `npx eslint src/` sin errores ni avisos (configuración mínima nueva en `eslint.config.js`); sin `console.log` en `src/`; comentarios de cabecera en inglés traducidos al español. |
+| Compilación | **Probado** | `npm run build` correcto: `index.js` 442,25 kB · 126,21 kB gzip, `index.css` 31,28 kB · 6,40 kB gzip y JSZip en un chunk aparte de 97,57 kB · 30,33 kB gzip. |
+| Pruebas unitarias | **Probado** | `npx vitest run`: 180 pruebas en 33 archivos. Persistencia real en IndexedDB (guardar, recargar el módulo y recuperar; historial persistido y restaurado), nombre de archivo ASCII, límite móvil con user agent de Android, opacidad del Fundido cuadro a cuadro, recorte/relleno de la narración, envolvente de ducking y bucle de la música, curva adaptativa por timestamp, animaciones de subtítulo, gancho de la intro, catálogo de música CC0, reparto y ventanas de subtítulos, generación de `.srt`, historial de deshacer/rehacer, normalización de la respuesta de Gemini, peticiones y respuestas de TTS y Pexels, palabras clave visuales y cortes automáticos. No cubren la UI ni una exportación completa. Las fases 37–40 añadieron pruebas del códec de audio AAC y su sondeo, del tema persistido, de los atajos y del reporte de calidad. Las fases 41–44 añaden 17 pruebas: visibilidad y persistencia de la bienvenida (6), viaje de ida y vuelta del enlace con rechazo de recursos binarios (6) y rotación, copia y persistencia de versiones (5). Las fases 45–47 añaden 18 más: pasos y posición del tooltip, incluido el cambio de lado y el recorte a la ventana (6); selección, límite de 5, contenido real del ZIP y fallos parciales del lote (5); y contadores, formato y persistencia de las métricas (7). |
 
 ## No implementado o no verificado
 
@@ -71,7 +78,11 @@ compartir proyectos y el historial de versiones guardado al exportar. La nube y 
 | MP4 con audio PCM (WAV) | **No implementado** | `mp4-muxer` solo empaqueta AAC u Opus; el respaldo cuando no hay AAC usa Opus, no PCM sin comprimir. Para audio sin comprimir está «Exportar audio» (WAV de 48 kHz). |
 | Clips con audio propio | **No implementado** | El clip de escena se decodifica mudo; la única pista de audio exportada es la narración del proyecto. |
 | Códecs MP4 distintos de H.264 | **No verificado** | Solo se probó `avc1` (H.264) en Chromium; HEVC, AV1 y navegadores sin decodificador H.264 quedan sin probar. |
-| Pruebas de UI y de exportación | **No existen** | Las 145 pruebas cubren lógica pura y persistencia, no clics reales ni el archivo exportado. Esas comprobaciones se hicieron a mano en Chromium y quedan en `artifacts/`. |
+| Pruebas de UI y de exportación | **No existen** | Las 180 pruebas cubren lógica pura y persistencia, no clics reales ni el archivo exportado. Esas comprobaciones se hicieron a mano en Chromium y quedan en `artifacts/`. |
+| Tutorial en móvil real | **No verificado** | El tour se midió a 1280×900. Por debajo de 768 px los pasos que apuntan a la barra lateral dependen de abrir el menú «Menú»; si el elemento no está visible, el tooltip se centra y avisa, pero no se probó en un teléfono. |
+| Cancelar un lote | **No implementado** | «Exportar todos» no se puede interrumpir a mitad: al terminar informa de los proyectos que fallaron y descarga el ZIP con los que sí se exportaron. |
+| MP4 en el lote | **No verificado** | El lote exporta en WebM; el contenedor es una opción del servicio, pero la interfaz no ofrece elegir MP4 para el ZIP. |
+| Métricas fuera del navegador | **No existe** | Los contadores viven en IndexedDB: borrar los datos del sitio los reinicia y no se sincronizan entre dispositivos. |
 | Safari y Firefox | **No verificado** | Sin WebCodecs se usaría el respaldo en tiempo real; no se probó. |
 | Narración por escena importada | **No implementado** | La voz por escena se genera con TTS; no hay un selector para asignar un audio importado de la Biblioteca a una escena concreta (sí se puede usar como narración global, música o SFX). |
 | Calidad de las imágenes de Pexels | **Sin verificar** | La búsqueda usa las primeras palabras clave de la intención visual y la primera foto; no hay selección entre varias candidatas ni edición de la consulta desde la UI. |
@@ -79,6 +90,24 @@ compartir proyectos y el historial de versiones guardado al exportar. La nube y 
 | Nombres de versión personalizados | **No implementado** | Las instantáneas se identifican por fecha y título del proyecto; no se pueden renombrar ni fijar para que no roten. |
 | Compartir proyectos con recursos binarios | **No implementado** | Los enlaces excluyen imágenes, audio y video; un proyecto con recursos en la Biblioteca no genera enlace y muestra el motivo. |
 | Persistencia más allá del navegador | **No existe** | IndexedDB local; borrar datos del sitio borra los proyectos. |
+
+## Versión 1.0
+
+La versión 1.0.0 corresponde a las fases 1–48. «Listo para producción» aquí significa que el proyecto
+compila, pasa TypeScript y ESLint sin avisos y sus 180 pruebas pasan, y que los flujos principales
+(crear, editar, importar, exportar video/audio, compartir, versiones, lote, tutorial y métricas) se
+verificaron a mano en Chromium. No significa que esté probado en todos los navegadores ni contra las APIs
+reales de IA, que siguen sin clave en este entorno.
+
+Comprobado antes de cerrar la versión:
+
+- `npx tsc --noEmit` sin errores y `npx eslint src/` sin errores ni avisos.
+- `npx vitest run`: 180 pruebas en 33 archivos.
+- `npm run build` correcto, con JSZip en un chunk aparte.
+- Sin `console.log` ni comentarios de cabecera en inglés en `src/`.
+
+Pendiente fuera del alcance de la 1.0: claves reales de Gemini/Google TTS/ElevenLabs/Pexels, AAC real en el
+MP4, Firefox y Safari, build de Android, prueba en teléfono real y cualquier forma de nube o sincronización.
 
 ## Notas sobre documentación antigua
 

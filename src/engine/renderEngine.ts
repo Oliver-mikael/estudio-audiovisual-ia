@@ -1,4 +1,4 @@
-// Canvas 2D Render Engine for Estudio Audiovisual Inteligente
+// Motor de renderizado 2D en canvas de Estudio Audiovisual Inteligente
 //
 // Cada escena se dibuja primero en un canvas fuera de pantalla y luego se compone
 // en el canvas visible. Eso permite aplicar transiciones reales entre la escena
@@ -368,7 +368,7 @@ export class CanvasRenderEngine {
   public renderFrame(project: Project, timeSeconds: number): void {
     const { width, height } = project.settings.resolution;
 
-    // Ensure canvas dimensions match target resolution
+    // Ajusta el canvas a la resolución de destino
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width;
       this.canvas.height = height;
@@ -500,10 +500,10 @@ export class CanvasRenderEngine {
     this.drawSceneVisuals(ctx, width, height, scene, sceneProgress);
     ctx.restore();
 
-    // 3. Draw Kinetic Typography / Animated Subtitles
+    // 3. Tipografía cinética y subtítulos animados
     this.drawSubtitlesAndText(ctx, width, height, scene, sceneLocalTime, project);
 
-    // 4. Draw Studio Watermark & Scene Info
+    // 4. Marca del estudio e información de la escena
     this.drawWatermark(ctx, width, height, scene.title, absoluteTime);
 
     // 5. Gancho visual de la intro (solo en los primeros 3 s del primer escena)
@@ -594,10 +594,10 @@ export class CanvasRenderEngine {
     if (source && sourceWidth > 0 && sourceHeight > 0) {
       ctx.save();
 
-      // Calculate camera motion transform
+      // Transformación del movimiento de cámara
       let scale = 1.0;
       let dx = 0;
-      let dy = 0;
+      const dy = 0;
 
       if (scene.cameraMotion === 'Zoom In') {
         scale = 1.0 + progress * 0.15;
@@ -612,7 +612,7 @@ export class CanvasRenderEngine {
       ctx.translate(width / 2 + dx, height / 2 + dy);
       ctx.scale(scale, scale);
 
-      // Draw source scaled to cover
+      // Fuente escalada para cubrir el lienzo
       const sourceRatio = sourceWidth / sourceHeight;
       const canvasRatio = width / height;
       let drawW = width;
@@ -627,11 +627,11 @@ export class CanvasRenderEngine {
       ctx.drawImage(source, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
-      // Dark overlay for readability
+      // Velo oscuro para que el texto se lea
       ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
       ctx.fillRect(0, 0, width, height);
     } else {
-      // Procedural artistic gradient background
+      // Fondo degradado procedural
       const grad = ctx.createLinearGradient(0, 0, width, height);
       grad.addColorStop(0, '#090d16');
       grad.addColorStop(0.5, '#1e1b4b');
@@ -640,7 +640,7 @@ export class CanvasRenderEngine {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle animated particle or grid accent
+      // Acento sutil de partículas o rejilla
       ctx.strokeStyle = 'rgba(99, 102, 241, 0.08)';
       ctx.lineWidth = 2;
       const gridSize = 60;
@@ -662,7 +662,7 @@ export class CanvasRenderEngine {
     scene: Scene,
     progress: number
   ): void {
-    // Visual intent indicator banner
+    // Franja con la intención visual
     ctx.fillStyle = 'rgba(99, 102, 241, 0.15)';
     ctx.fillRect(60, 60, width - 120, 6);
 
@@ -702,7 +702,7 @@ export class CanvasRenderEngine {
     ctx.globalAlpha = frame.opacity;
     ctx.translate(0, frame.translateY);
 
-    // Text Container Box
+    // Caja del contenedor de texto
     const boxPaddingHorizontal = 40;
     const boxHeight = 160;
     const boxY = height - boxHeight - 80;
@@ -716,7 +716,7 @@ export class CanvasRenderEngine {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Render Subtitle Text with Wrap (tipografía y color de la plantilla de estilo)
+    // Texto del subtítulo con salto de línea (tipografía y color de la plantilla de estilo)
     ctx.fillStyle = project.settings.subtitleColor ?? '#ffffff';
     ctx.font = `600 28px ${project.settings.subtitleFontFamily ?? 'sans-serif'}`;
     ctx.textAlign = 'center';
@@ -825,7 +825,7 @@ export class CanvasRenderEngine {
     sceneTitle: string,
     totalTime: number
   ): void {
-    // Top right badge
+    // Insignia de la esquina superior derecha
     ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
     ctx.beginPath();
     ctx.roundRect(width - 240, 24, 216, 36, 18);
@@ -836,7 +836,7 @@ export class CanvasRenderEngine {
     ctx.textAlign = 'center';
     ctx.fillText('ESTUDIO AUDIOVISUAL IA', width - 132, 47);
 
-    // Bottom left scene indicator
+    // Indicador de escena en la esquina inferior izquierda
     ctx.fillStyle = '#94a3b8';
     ctx.font = '500 14px sans-serif';
     ctx.textAlign = 'left';

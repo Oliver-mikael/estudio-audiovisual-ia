@@ -1,4 +1,4 @@
-// Domain Core Types for Estudio Audiovisual Inteligente
+// Tipos del dominio de Estudio Audiovisual Inteligente
 
 export type ProjectId = string;
 
