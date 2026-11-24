@@ -155,6 +155,37 @@ html[data-theme='light'] .campo {
   color: var(--texto);
 }
 
+/* Optimización para móvil (fase 42): objetivos táctiles de 44 px, barras de
+   desplazamiento algo más anchas y paneles secundarios ocultos por defecto.
+   La barra lateral se convierte en cajón desde App con el botón de menú. */
+@media (max-width: 767px) {
+  button,
+  [role='button'],
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    min-height: 44px;
+  }
+
+  .campo,
+  select,
+  input[type='text'],
+  input[type='password'],
+  input[type='range'] {
+    min-height: 44px;
+  }
+
+  .panel-secundario {
+    display: none !important;
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 8px;

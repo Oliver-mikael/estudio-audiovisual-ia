@@ -70,6 +70,7 @@ import {
   Home,
   Lightbulb,
   Loader2,
+  Menu,
   Moon,
   MonitorPlay,
   RefreshCw,
@@ -78,6 +79,7 @@ import {
   Search,
   Settings,
   Undo2,
+  X,
 } from 'lucide-react';
 
 /** Opciones de historial: una clave agrupa las pulsaciones seguidas en un solo paso. */
@@ -158,6 +160,9 @@ export const App: React.FC = () => {
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [activeSection, setActiveSection] = useState<SectionId>('guion');
+  // En pantallas < 768px la barra lateral se muestra como menú hamburguesa
+  // (fase 42); en escritorio siempre está visible.
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -702,6 +707,19 @@ export const App: React.FC = () => {
       {/* Header fijo: proyecto, estado de guardado y exportación */}
       <header className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
         <div className="flex items-center gap-3 min-w-0 flex-1">
+          <button
+            onClick={() => setIsSidebarOpen((value) => !value)}
+            data-testid="sidebar-toggle"
+            data-open={isSidebarOpen ? 'true' : 'false'}
+            aria-expanded={isSidebarOpen}
+            aria-controls="app-sidebar"
+            aria-label={isSidebarOpen ? 'Cerrar menú de secciones' : 'Abrir menú de secciones'}
+            className="btn-secondary md:hidden"
+            title="Secciones"
+          >
+            {isSidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            <span>Menú</span>
+          </button>
           <button onClick={handleBackHome} className="btn-secondary" title="Volver al inicio">
             <Home className="w-4 h-4" />
             <span>Inicio</span>
@@ -820,8 +838,22 @@ export const App: React.FC = () => {
       )}
 
       <div className="flex-1 flex min-h-0">
-        {/* Barra lateral de navegación */}
-        <aside className="w-56 shrink-0 bg-slate-900/60 border-r border-slate-800 p-4 space-y-1 overflow-y-auto">
+        {/* Barra lateral de navegación: fija en escritorio, cajón en móvil. */}
+        {isSidebarOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-30 bg-slate-950/70"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+        <aside
+          id="app-sidebar"
+          data-testid="sidebar"
+          data-open={isSidebarOpen ? 'true' : 'false'}
+          className={`${
+            isSidebarOpen ? 'flex' : 'hidden'
+          } md:flex flex-col w-64 md:w-56 shrink-0 bg-slate-900 md:bg-slate-900/60 border-r border-slate-800 p-4 space-y-1 overflow-y-auto fixed md:static inset-y-0 left-0 z-40 md:z-auto h-full md:h-auto`}
+        >
           <p className="etiqueta px-2 pb-2">Secciones</p>
           {SECTIONS.map((section) => {
             const Icon = section.icon;
@@ -829,7 +861,11 @@ export const App: React.FC = () => {
             return (
               <button
                 key={section.id}
-                onClick={() => setActiveSection(section.id)}
+                onClick={() => {
+                  setActiveSection(section.id);
+                  setIsSidebarOpen(false);
+                }}
+                data-testid={`section-${section.id}`}
                 aria-current={isActive ? 'page' : undefined}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
@@ -843,7 +879,7 @@ export const App: React.FC = () => {
             );
           })}
 
-          <div className="pt-4 mt-4 border-t border-slate-800 space-y-1 text-sm text-slate-400">
+          <div className="panel-secundario pt-4 mt-4 border-t border-slate-800 space-y-1 text-sm text-slate-400">
             <p className="px-2">
               {project.script.scenes.length} escena(s) · {projectDurationSeconds(project)} s
             </p>
@@ -883,7 +919,7 @@ export const App: React.FC = () => {
             <div className="max-w-4xl space-y-4">
               <h2 className="titulo-seccion">Monitor de previsualización</h2>
               <VideoPlayer project={project} />
-              <div className="card space-y-1 text-sm text-slate-400">
+              <div className="card panel-secundario space-y-1 text-sm text-slate-400">
                 <p>
                   Resolución: {project.settings.resolution.width} × {project.settings.resolution.height} px a{' '}
                   {project.settings.fps} fps.
