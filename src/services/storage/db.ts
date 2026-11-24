@@ -3,12 +3,14 @@
 import { Project, MediaAsset } from '../../types';
 
 import { HISTORY_LIMIT } from '../history/history';
+import type { ProjectVersion } from '../versions/versions';
 
 const DB_NAME = 'EstudioAudiovisualDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_PROJECTS = 'projects';
 const STORE_ASSETS = 'assets';
 const STORE_HISTORY = 'history';
+const STORE_VERSIONS = 'versions';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -24,6 +26,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_HISTORY)) {
         db.createObjectStore(STORE_HISTORY, { keyPath: 'projectId' });
+      }
+      if (!db.objectStoreNames.contains(STORE_VERSIONS)) {
+        db.createObjectStore(STORE_VERSIONS, { keyPath: 'projectId' });
       }
     };
 
@@ -117,6 +122,54 @@ export async function deleteHistoryFromStorage(projectId: string): Promise<void>
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_HISTORY, 'readwrite');
     const store = tx.objectStore(STORE_HISTORY);
+    const request = store.delete(projectId);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/** Instantáneas de versiones guardadas por proyecto (máximo 5 en la UI). */
+export interface StoredVersions {
+  projectId: string;
+  snapshots: ProjectVersion[];
+  updatedAt: number;
+}
+
+export async function saveProjectVersions(
+  projectId: string,
+  snapshots: ProjectVersion[]
+): Promise<void> {
+  const db = await openDB();
+  const record: StoredVersions = { projectId, snapshots, updatedAt: Date.now() };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_VERSIONS, 'readwrite');
+    const store = tx.objectStore(STORE_VERSIONS);
+    const request = store.put(record);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getProjectVersions(projectId: string): Promise<ProjectVersion[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_VERSIONS, 'readonly');
+    const store = tx.objectStore(STORE_VERSIONS);
+    const request = store.get(projectId);
+    request.onsuccess = () => {
+      const record = request.result as StoredVersions | undefined;
+      resolve(record?.snapshots ?? []);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteProjectVersions(projectId: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_VERSIONS, 'readwrite');
+    const store = tx.objectStore(STORE_VERSIONS);
     const request = store.delete(projectId);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);

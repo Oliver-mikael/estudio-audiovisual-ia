@@ -7,9 +7,12 @@ import {
   deleteProjectFromStorage,
   getAllProjectsFromStorage,
   getHistoryFromStorage,
+  deleteProjectVersions,
   getProjectFromStorage,
+  getProjectVersions,
   saveHistoryToStorage,
   saveProjectToStorage,
+  saveProjectVersions,
 } from './services/storage/db';
 import { VideoPlayer } from './components/VideoPlayer';
 import { HomeScreen } from './components/HomeScreen';
@@ -18,6 +21,7 @@ import { StoryboardPreview } from './components/StoryboardPreview';
 import { Onboarding } from './components/Onboarding';
 import { ProjectStats } from './components/ProjectStats';
 import { QualityReportPanel } from './components/QualityReport';
+import { VersionsPanel } from './components/VersionsPanel';
 import {
   ExportContainer,
   ExportFormatInfo,
@@ -51,6 +55,11 @@ import {
   saveStoredTheme,
 } from './services/theme';
 import {
+  ProjectVersion,
+  addVersionSnapshot,
+  createVersionSnapshot,
+} from './services/versions/versions';
+import {
   HISTORY_LIMIT,
   HistoryState,
   canRedo,
@@ -75,6 +84,7 @@ import {
   FileText,
   Film,
   FolderOpen,
+  History,
   Home,
   Lightbulb,
   Loader2,
@@ -100,6 +110,7 @@ const SECTIONS = [
   { id: 'guion', label: 'Guion', icon: FileText },
   { id: 'storyboard', label: 'Storyboard', icon: Film },
   { id: 'biblioteca', label: 'Biblioteca', icon: FolderOpen },
+  { id: 'versiones', label: 'Versiones', icon: History },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'investigacion', label: 'Investigación', icon: Search },
   { id: 'monitor', label: 'Monitor', icon: MonitorPlay },
@@ -224,6 +235,35 @@ export const App: React.FC = () => {
     void refreshProjects();
   }, [refreshProjects]);
 
+  // Cada proyecto abierto carga sus instantáneas de IndexedDB.
+  const openProjectId = project?.id ?? null;
+  useEffect(() => {
+    if (!openProjectId) {
+      versionsRef.current = [];
+      setVersions([]);
+      return;
+    }
+
+    let cancelled = false;
+    setVersionsLoading(true);
+    getProjectVersions(openProjectId)
+      .then((stored) => {
+        if (cancelled) return;
+        versionsRef.current = stored;
+        setVersions(stored);
+      })
+      .catch((error) => {
+        console.error('No se pudieron leer las versiones del proyecto:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setVersionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openProjectId]);
+
   // Enlace compartido en el hash: se decodifica al abrir y se ofrece importar.
   useEffect(() => {
     const payload = readSharePayload(window.location.hash);
@@ -256,6 +296,11 @@ export const App: React.FC = () => {
 
   const saveTimerRef = useRef<number | null>(null);
   const pendingProjectRef = useRef<Project | null>(null);
+
+  // Versiones guardadas al exportar (fase 44), máximo 5 por proyecto.
+  const [versions, setVersions] = useState<ProjectVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const versionsRef = useRef<ProjectVersion[]>([]);
 
   // Historial de deshacer/rehacer (hasta 50 pasos).
   const historyRef = useRef<HistoryState<Project> | null>(null);
@@ -386,6 +431,29 @@ export const App: React.FC = () => {
     scheduleHistorySave();
     applyProject(restored.present);
   }, [applyProject, scheduleHistorySave, syncHistoryCounts]);
+
+  /** Guarda una instantánea del proyecto exportado y rota las más antiguas. */
+  const recordProjectVersion = useCallback(async (source: Project) => {
+    const snapshot = createVersionSnapshot(source);
+    const next = addVersionSnapshot(versionsRef.current, snapshot);
+    versionsRef.current = next;
+    setVersions(next);
+    try {
+      await saveProjectVersions(source.id, next);
+    } catch (error) {
+      console.error('No se pudo guardar la versión del proyecto:', error);
+    }
+  }, []);
+
+  /** Restaura una instantánea en el proyecto abierto, conservando su id. */
+  const handleRestoreVersion = useCallback(
+    (version: ProjectVersion) => {
+      if (!project) return;
+      handleUpdateProject({ ...version.project, id: project.id, updatedAt: Date.now() });
+      setActiveSection('guion');
+    },
+    [handleUpdateProject, project]
+  );
 
   const flushPendingSave = useCallback(async () => {
     if (saveTimerRef.current !== null) {
@@ -520,6 +588,7 @@ export const App: React.FC = () => {
     async (id: string) => {
       await deleteProjectFromStorage(id);
       await deleteHistoryFromStorage(id).catch(() => undefined);
+      await deleteProjectVersions(id).catch(() => undefined);
       if (project?.id === id) {
         setProject(null);
         historyRef.current = null;
@@ -701,6 +770,9 @@ export const App: React.FC = () => {
         sfxAssetNames: result.sfxAssetNames,
         usedWebCodecs: result.usedWebCodecs,
       });
+
+      // Cada exportación deja una instantánea en «Versiones» (fase 44).
+      await recordProjectVersion(project);
     } catch (error) {
       console.error('Error durante la exportación:', error);
       const message = error instanceof Error ? error.message : 'Error desconocido.';
@@ -708,7 +780,7 @@ export const App: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [exportContainer, project]);
+  }, [exportContainer, project, recordProjectVersion]);
 
   /**
    * Mezcla narración + música (+ efectos) con OfflineAudioContext y descarga el
@@ -1086,6 +1158,13 @@ export const App: React.FC = () => {
               onUpdateProject={handleUpdateProject}
               onGoToScript={() => setActiveSection('guion')}
               onOpenSettings={() => setActiveSection('ajustes')}
+            />
+          )}
+          {activeSection === 'versiones' && (
+            <VersionsPanel
+              versions={versions}
+              isLoading={versionsLoading}
+              onRestore={handleRestoreVersion}
             />
           )}
           {activeSection === 'investigacion' && (
