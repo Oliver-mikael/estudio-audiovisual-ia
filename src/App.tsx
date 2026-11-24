@@ -32,6 +32,13 @@ import { exportProjectAudio } from './engine/audioExport';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import { PLAY_PAUSE_EVENT, matchShortcut } from './engine/shortcuts';
 import {
+  buildShareUrl,
+  canShareProject,
+  decodeProjectFromShare,
+  readSharePayload,
+  summarizeSharedProject,
+} from './engine/shareLink';
+import {
   hasSeenOnboarding,
   markOnboardingSeen,
   shouldShowOnboarding,
@@ -63,6 +70,7 @@ import {
   AlertCircle,
   AudioLines,
   CheckCircle2,
+  Copy,
   Download,
   FileText,
   Film,
@@ -78,6 +86,7 @@ import {
   Redo2,
   Search,
   Settings,
+  Share2,
   Undo2,
   X,
 } from 'lucide-react';
@@ -116,6 +125,12 @@ interface ExportDialogData {
   format: ExportFormatInfo;
   subtitleCount: number;
   durationSeconds: number;
+}
+
+/** Resultado de «Compartir»: una URL o el motivo por el que no se puede. */
+interface ShareDialogData {
+  url?: string;
+  message?: string;
 }
 
 function describeSaveError(error: unknown): string {
@@ -179,6 +194,13 @@ export const App: React.FC = () => {
   const [isExportingAudio, setIsExportingAudio] = useState(false);
   const [audioNotice, setAudioNotice] = useState<string | null>(null);
 
+  // Compartir como enlace (fase 43) e importación de un enlace recibido.
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareDialog, setShareDialog] = useState<ShareDialogData | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [sharedProject, setSharedProject] = useState<Project | null>(null);
+  const [sharedError, setSharedError] = useState<string | null>(null);
+
   // Tema claro/oscuro persistido en localStorage (fase 38).
   const [theme, setTheme] = useState<Theme>(() => readStoredTheme());
 
@@ -201,6 +223,36 @@ export const App: React.FC = () => {
   useEffect(() => {
     void refreshProjects();
   }, [refreshProjects]);
+
+  // Enlace compartido en el hash: se decodifica al abrir y se ofrece importar.
+  useEffect(() => {
+    const payload = readSharePayload(window.location.hash);
+    if (!payload) return;
+    let cancelled = false;
+    decodeProjectFromShare(payload)
+      .then((decoded) => {
+        if (!cancelled) setSharedProject(decoded);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setSharedError(
+            error instanceof Error ? error.message : 'No se pudo leer el proyecto compartido.'
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Cierra el aviso del enlace y borra el hash para que no se repita al recargar. */
+  const clearSharedLink = useCallback(() => {
+    setSharedProject(null);
+    setSharedError(null);
+    if (window.location.hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+  }, []);
 
   const saveTimerRef = useRef<number | null>(null);
   const pendingProjectRef = useRef<Project | null>(null);
@@ -344,6 +396,59 @@ export const App: React.FC = () => {
     pendingProjectRef.current = null;
     if (pending) await persistProject(pending);
   }, [persistProject]);
+
+  /** Importa el proyecto del enlace como uno nuevo (título y escenas intactos). */
+  const handleImportSharedProject = useCallback(async () => {
+    if (!sharedProject) return;
+    const now = Date.now();
+    const imported: Project = {
+      ...sharedProject,
+      id: `project-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    resetHistory(imported);
+    setProject(imported);
+    setActiveSection('guion');
+    setExportedVideo(null);
+    setSaveStatus('saved');
+    setSaveError(null);
+    await persistProject(imported);
+    clearSharedLink();
+  }, [clearSharedLink, persistProject, resetHistory, sharedProject]);
+
+  /** Genera la URL del proyecto o explica por qué no se puede compartir. */
+  const handleShareProject = useCallback(async () => {
+    if (!project) return;
+    const check = canShareProject(project);
+    if (!check.ok) {
+      setShareDialog({ message: check.reason ?? 'Este proyecto no se puede compartir como enlace.' });
+      return;
+    }
+
+    setIsSharing(true);
+    setShareCopied(false);
+    try {
+      const url = await buildShareUrl(project, window.location.href);
+      setShareDialog({ url });
+    } catch (error) {
+      setShareDialog({
+        message: error instanceof Error ? error.message : 'No se pudo generar el enlace del proyecto.',
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  }, [project]);
+
+  const handleCopyShareUrl = useCallback(async () => {
+    if (!shareDialog?.url) return;
+    try {
+      await navigator.clipboard.writeText(shareDialog.url);
+      setShareCopied(true);
+    } catch {
+      setShareDialog((current) => (current ? { ...current, message: 'Copia la URL manualmente desde el campo.' } : current));
+    }
+  }, [shareDialog?.url]);
 
   const handleCreateProject = useCallback(async (title: string, templateId?: string | null) => {
     const created = createEmptyProject(title, templateId);
@@ -695,6 +800,68 @@ export const App: React.FC = () => {
             }}
           />
         )}
+
+        {/* Enlace compartido recibido (fase 43) */}
+        {sharedProject && (
+          <Modal
+            title="Proyecto compartido"
+            onClose={clearSharedLink}
+            footer={
+              <>
+                <button onClick={clearSharedLink} className="btn-secondary">
+                  Descartar
+                </button>
+                <button
+                  onClick={() => {
+                    void handleImportSharedProject();
+                  }}
+                  className="btn-primary"
+                  data-testid="import-shared-project"
+                >
+                  Importar proyecto
+                </button>
+              </>
+            }
+          >
+            <p className="text-sm text-slate-300">
+              Alguien ha compartido contigo un proyecto por enlace. Se importará como un proyecto nuevo en este
+              navegador, con su guion y su configuración.
+            </p>
+            <dl className="space-y-2 text-sm" data-testid="shared-project-summary">
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-400">Título</dt>
+                <dd className="text-slate-100 font-medium text-right">{sharedProject.title}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-400">Escenas</dt>
+                <dd className="text-slate-100 text-right">{summarizeSharedProject(sharedProject).sceneCount}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-400">Duración</dt>
+                <dd className="text-slate-100 text-right">
+                  {summarizeSharedProject(sharedProject).durationSeconds} s
+                </dd>
+              </div>
+            </dl>
+            <p className="text-xs text-slate-500">
+              Los enlaces incluyen solo texto y configuración: nunca imágenes, audio ni video.
+            </p>
+          </Modal>
+        )}
+
+        {sharedError && (
+          <Modal
+            title="Enlace no válido"
+            onClose={clearSharedLink}
+            footer={
+              <button onClick={clearSharedLink} className="btn-secondary">
+                Cerrar
+              </button>
+            }
+          >
+            <p className="text-sm text-rose-300">{sharedError}</p>
+          </Modal>
+        )}
       </>
     );
   }
@@ -772,6 +939,18 @@ export const App: React.FC = () => {
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             <span>{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
+          </button>
+          <button
+            onClick={() => {
+              void handleShareProject();
+            }}
+            disabled={isSharing || isExporting}
+            data-testid="share-project"
+            className="btn-secondary"
+            title="Compartir el proyecto como enlace (solo texto y configuración)"
+          >
+            {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+            <span>{isSharing ? 'Generando...' : 'Compartir'}</span>
           </button>
           <button
             onClick={() => {
@@ -1013,6 +1192,51 @@ export const App: React.FC = () => {
               void handleExportVideo();
             }}
           />
+        </Modal>
+      )}
+
+      {/* Enlace generado para compartir (fase 43) */}
+      {shareDialog && (
+        <Modal
+          title="Compartir proyecto"
+          onClose={() => setShareDialog(null)}
+          footer={
+            <>
+              <button onClick={() => setShareDialog(null)} className="btn-secondary">
+                Cerrar
+              </button>
+              {shareDialog.url && (
+                <button onClick={() => void handleCopyShareUrl()} className="btn-primary" data-testid="copy-share-url">
+                  {shareCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  <span>{shareCopied ? 'Copiado' : 'Copiar enlace'}</span>
+                </button>
+              )}
+            </>
+          }
+        >
+          {shareDialog.url ? (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-300">
+                Copia este enlace y compártelo. Al abrirlo, la app ofrece importar el proyecto con su guion y su
+                configuración. No incluye imágenes, audio ni video.
+              </p>
+              <input
+                readOnly
+                value={shareDialog.url}
+                data-testid="share-url"
+                aria-label="Enlace para compartir el proyecto"
+                onFocus={(event) => event.currentTarget.select()}
+                className="campo font-mono text-xs"
+              />
+              <p className="text-xs text-slate-500">
+                {shareDialog.url.length} caracteres · hash <code>#project=</code>
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-300" data-testid="share-message">
+              {shareDialog.message}
+            </p>
+          )}
         </Modal>
       )}
 
