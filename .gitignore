@@ -12,6 +12,10 @@ build/
 artifacts/*.zip
 artifacts/*.webm
 artifacts/*.png
+artifacts/*.mp4
+artifacts/*.wav
+artifacts/*.mp3
+artifacts/*.mkv
 
 # Logs
 npm-debug.log*
