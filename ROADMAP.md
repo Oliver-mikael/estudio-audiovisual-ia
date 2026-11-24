@@ -3,8 +3,9 @@
 Lista priorizada de lo que falta, empezando por lo que más limita el uso real. Nada de esta lista está
 implementado salvo que se indique lo contrario. Las fases 21–24 (guion con Gemini, voz TTS por escena,
 imágenes de Pexels y cortes automáticos), las fases 33–36 (ElevenLabs opcional, MP4/H.264, resumen previo
-y exportación solo de audio) y las fases 37–40 (audio AAC en MP4, modo claro, atajos de teclado y reporte de
-calidad) están implementadas con claves opcionales del usuario y verificadas en Chromium; la voz y las
+y exportación solo de audio), las fases 37–40 (audio AAC en MP4, modo claro, atajos de teclado y reporte de
+calidad) y las fases 41–44 (bienvenida del primer uso, interfaz móvil, enlaces para compartir e historial de
+versiones) están implementadas con claves opcionales del usuario y verificadas en Chromium; la voz y las
 imágenes se probaron con respuestas simuladas, así que quedan las pruebas contra los servicios reales.
 
 ## 1. IA real (prioridad alta)
@@ -90,6 +91,16 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 - [x] Reporte de calidad antes de exportar con advertencias de imágenes, duración, narración y música, sin
   bloquear la exportación (fase 40).
 
+## 2h. Hecho en las fases 41–44
+
+- [x] Bienvenida de tres pasos en el primer uso, con botón «Saltar» y marca en `localStorage` (fase 41).
+- [x] Interfaz móvil por debajo de 768 px: menú hamburguesa, objetivos táctiles de 44 px y paneles
+  secundarios ocultos (fase 42).
+- [x] Compartir el proyecto como URL con el JSON comprimido en el hash `#project=`, con importación al abrir
+  el enlace y límite a proyectos sin recursos binarios (fase 43).
+- [x] Historial de versiones: una instantánea por exportación, máximo 5 con rotación, panel «Versiones» con
+  fecha y duración, y restauración en el proyecto abierto (fase 44).
+
 ## 3. Edición de audio
 
 - [x] Narración por escena con voz TTS (fase 22) y alternativa ElevenLabs opcional (fase 33).
@@ -119,7 +130,8 @@ Hoy las ideas y la crítica de guion son textos fijos y heurísticas. Falta:
 
 - Sincronización entre dispositivos con backend real (el módulo simulado se eliminó).
 - Autenticación y datos por usuario.
-- Exportar/importar el proyecto completo como archivo para no depender del navegador.
+- Exportar/importar el proyecto completo como archivo para no depender del navegador (los enlaces de la
+  fase 43 solo llevan texto y configuración, no recursos binarios).
 - [x] Deshacer/rehacer, hasta 50 pasos (fase 16).
 - [x] Historial de deshacer persistente en IndexedDB, restaurado al abrir el proyecto (fase 20).
 - Historial de versiones guardadas con nombre y fecha (más allá de los 50 pasos del deshacer).
