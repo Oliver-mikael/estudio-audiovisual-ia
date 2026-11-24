@@ -6,11 +6,12 @@ import { HISTORY_LIMIT } from '../history/history';
 import type { ProjectVersion } from '../versions/versions';
 
 const DB_NAME = 'EstudioAudiovisualDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_PROJECTS = 'projects';
 const STORE_ASSETS = 'assets';
 const STORE_HISTORY = 'history';
 const STORE_VERSIONS = 'versions';
+const STORE_METRICS = 'metrics';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -29,6 +30,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_VERSIONS)) {
         db.createObjectStore(STORE_VERSIONS, { keyPath: 'projectId' });
+      }
+      if (!db.objectStoreNames.contains(STORE_METRICS)) {
+        db.createObjectStore(STORE_METRICS, { keyPath: 'id' });
       }
     };
 
@@ -172,6 +176,37 @@ export async function deleteProjectVersions(projectId: string): Promise<void> {
     const store = tx.objectStore(STORE_VERSIONS);
     const request = store.delete(projectId);
     request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/** Métricas de uso locales (fase 47): un único registro con id «usage». */
+export interface StoredUsageMetrics {
+  id: string;
+  exportedVideos: number;
+  exportedSeconds: number;
+  firstUseAt: number | null;
+  lastUseAt: number | null;
+}
+
+export async function saveUsageMetricsRecord(record: StoredUsageMetrics): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_METRICS, 'readwrite');
+    const store = tx.objectStore(STORE_METRICS);
+    const request = store.put(record);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getUsageMetricsRecord(id: string): Promise<StoredUsageMetrics | null> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_METRICS, 'readonly');
+    const store = tx.objectStore(STORE_METRICS);
+    const request = store.get(id);
+    request.onsuccess = () => resolve((request.result as StoredUsageMetrics | undefined) ?? null);
     request.onerror = () => reject(request.error);
   });
 }

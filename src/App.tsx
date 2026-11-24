@@ -22,8 +22,10 @@ import { Onboarding } from './components/Onboarding';
 import { ProjectStats } from './components/ProjectStats';
 import { QualityReportPanel } from './components/QualityReport';
 import { VersionsPanel } from './components/VersionsPanel';
+import { ActivityPanel } from './components/ActivityPanel';
 import { GuidedTour } from './components/GuidedTour';
 import { TOUR_STEPS } from './services/tour';
+import { recordAppUse, recordVideoExport } from './services/metrics/usage';
 import {
   ExportContainer,
   ExportFormatInfo,
@@ -80,6 +82,7 @@ import { SettingsModule } from './modules/SettingsModule';
 import {
   AlertCircle,
   AudioLines,
+  BarChart3,
   CheckCircle2,
   Copy,
   Download,
@@ -114,6 +117,7 @@ const SECTIONS = [
   { id: 'storyboard', label: 'Storyboard', icon: Film },
   { id: 'biblioteca', label: 'Biblioteca', icon: FolderOpen },
   { id: 'versiones', label: 'Versiones', icon: History },
+  { id: 'actividad', label: 'Mi actividad', icon: BarChart3 },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'investigacion', label: 'Investigación', icon: Search },
   { id: 'monitor', label: 'Monitor', icon: MonitorPlay },
@@ -252,6 +256,11 @@ export const App: React.FC = () => {
   useEffect(() => {
     void refreshProjects();
   }, [refreshProjects]);
+
+  // Fechas de primer y último uso (fase 47). No bloquea la carga inicial.
+  useEffect(() => {
+    void recordAppUse().catch(() => undefined);
+  }, []);
 
   // Cada proyecto abierto carga sus instantáneas de IndexedDB.
   const openProjectId = project?.id ?? null;
@@ -798,6 +807,8 @@ export const App: React.FC = () => {
 
       // Cada exportación deja una instantánea en «Versiones» (fase 44).
       await recordProjectVersion(project);
+      // Y suma el video y su duración real a «Mi actividad» (fase 47).
+      void recordVideoExport(result.durationSeconds).catch(() => undefined);
     } catch (error) {
       console.error('Error durante la exportación:', error);
       const message = error instanceof Error ? error.message : 'Error desconocido.';
@@ -1223,6 +1234,7 @@ export const App: React.FC = () => {
               onRestore={handleRestoreVersion}
             />
           )}
+          {activeSection === 'actividad' && <ActivityPanel />}
           {activeSection === 'investigacion' && (
             <ResearchModule project={project} onUpdateProject={handleUpdateProject} />
           )}

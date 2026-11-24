@@ -6,6 +6,7 @@ import { ConfirmDialog } from './Modal';
 import { STYLE_TEMPLATES, StyleTemplateId } from '../data/styleTemplates';
 import { Archive, Clock, Film, FolderOpen, Pencil, Plus, Trash2, Check, X, Palette, Loader2 } from 'lucide-react';
 import { BATCH_LIMIT, exportProjectsToZip } from '../engine/batchExport';
+import { recordVideoExport } from '../services/metrics/usage';
 
 interface HomeScreenProps {
   projects: Project[];
@@ -69,6 +70,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
     try {
       const result = await exportProjectsToZip(projects, {
+        onFileExported: async (entry) => {
+          await recordVideoExport(entry.durationSeconds).catch(() => undefined);
+        },
         onProgress: (step) =>
           setBatch({
             running: true,
