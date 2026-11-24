@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { Project } from '../types';
 import { ConfirmDialog } from './Modal';
 import { STYLE_TEMPLATES, StyleTemplateId } from '../data/styleTemplates';
-import { Clock, Film, FolderOpen, Pencil, Plus, Trash2, Check, X, Palette } from 'lucide-react';
+import { Archive, Clock, Film, FolderOpen, Pencil, Plus, Trash2, Check, X, Palette, Loader2 } from 'lucide-react';
+import { BATCH_LIMIT, exportProjectsToZip } from '../engine/batchExport';
 
 interface HomeScreenProps {
   projects: Project[];
@@ -33,6 +34,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  // Exportación por lotes (fase 46): estado local mientras se genera el ZIP.
+  const [batch, setBatch] = useState<{
+    running: boolean;
+    message: string;
+    done?: string;
+    error?: string;
+  }>({ running: false, message: '' });
 
   const submitCreate = (event: React.FormEvent) => {
     event.preventDefault();
@@ -52,6 +60,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     const title = renameValue.trim();
     if (title) onRenameProject(id, title);
     setRenamingId(null);
+  };
+
+  /** Exporta los proyectos más recientes en secuencia y descarga el ZIP. */
+  const handleExportAll = async () => {
+    if (batch.running) return;
+    setBatch({ running: true, message: 'Preparando el lote...' });
+
+    try {
+      const result = await exportProjectsToZip(projects, {
+        onProgress: (step) =>
+          setBatch({
+            running: true,
+            message: `${step.index + 1} de ${step.total} · ${step.projectTitle} · ${step.progress}% ${step.message}`,
+          }),
+      });
+
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+      const warning =
+        result.failures.length > 0
+          ? ` No se pudieron exportar: ${result.failures
+              .map((failure) => `${failure.projectTitle} (${failure.message})`)
+              .join('; ')}.`
+          : '';
+      setBatch({
+        running: false,
+        message: '',
+        done: `ZIP descargado: ${result.fileName} · ${result.entries.length} archivo(s): ${result.entries
+          .map((entry) => entry.fileName)
+          .join(', ')}.${warning}`,
+      });
+    } catch (error) {
+      setBatch({
+        running: false,
+        message: '',
+        error: error instanceof Error ? error.message : 'No se pudo exportar el lote.',
+      });
+    }
   };
 
   return (
@@ -169,6 +222,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </form>
           )}
         </section>
+
+        {/* Exportación por lotes: solo con más de un proyecto (fase 46) */}
+        {projects.length > 1 && (
+          <section className="card space-y-2" data-testid="batch-export">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="titulo-seccion">Exportar todos</h2>
+                <p className="text-sm text-slate-400">
+                  Exporta en secuencia los {Math.min(projects.length, BATCH_LIMIT)} proyectos más recientes
+                  (máximo {BATCH_LIMIT}) y descarga un único ZIP con los videos.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  void handleExportAll();
+                }}
+                disabled={batch.running}
+                data-testid="batch-export-start"
+                className="btn-primary"
+              >
+                {batch.running ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Archive className="w-4 h-4" />
+                )}
+                <span>{batch.running ? 'Exportando lote...' : 'Exportar todos'}</span>
+              </button>
+            </div>
+            {batch.running && (
+              <p className="text-sm text-slate-300" data-testid="batch-export-status">
+                {batch.message}
+              </p>
+            )}
+            {batch.done && (
+              <p className="text-sm text-emerald-300 break-words" data-testid="batch-export-done">
+                {batch.done}
+              </p>
+            )}
+            {batch.error && (
+              <p className="text-sm text-rose-300" data-testid="batch-export-error">
+                {batch.error}
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Lista de proyectos guardados */}
         {projects.length === 0 ? (
