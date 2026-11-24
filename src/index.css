@@ -180,6 +180,13 @@ html[data-theme='light'] .campo {
     display: none !important;
   }
 
+  /* El cajón empieza debajo de la cabecera para no tapar el botón de menú. */
+  #app-sidebar {
+    top: 4.5rem;
+    bottom: 0;
+    height: auto;
+  }
+
   ::-webkit-scrollbar {
     width: 12px;
     height: 12px;

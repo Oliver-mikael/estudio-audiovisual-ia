@@ -10,8 +10,6 @@ interface OnboardingProps {
   onClose: () => void;
   /** Lleva al modal de creación de proyecto; la bienvenida se cierra. */
   onCreateProject: () => void;
-  /** Lleva a Ajustes, donde están las claves de API. */
-  onGoToSettings?: () => void;
 }
 
 const ICONS = [KeyRound, Sparkles, ArrowRight];
@@ -73,7 +71,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onClose, onCreateProject
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-800 pt-4">
           <p className="text-xs text-slate-500">
-            Puedes volver a ver estos pasos cuando quieras desde Ajustes.
+            Esta bienvenida solo aparece una vez; no bloquea la creación de proyectos.
           </p>
           <div className="flex gap-2">
             <button onClick={onClose} className="btn-secondary">

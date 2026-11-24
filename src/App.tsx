@@ -944,7 +944,7 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-slate-100">
       {/* Header fijo: proyecto, estado de guardado y exportación */}
-      <header className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+      <header className="relative z-50 shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
             onClick={() => setIsSidebarOpen((value) => !value)}
