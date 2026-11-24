@@ -15,6 +15,7 @@ import { VideoPlayer } from './components/VideoPlayer';
 import { HomeScreen } from './components/HomeScreen';
 import { Modal } from './components/Modal';
 import { StoryboardPreview } from './components/StoryboardPreview';
+import { Onboarding } from './components/Onboarding';
 import { ProjectStats } from './components/ProjectStats';
 import { QualityReportPanel } from './components/QualityReport';
 import {
@@ -30,6 +31,11 @@ import { buildSrt, buildSrtFileName, collectSrtCues } from './engine/srt';
 import { exportProjectAudio } from './engine/audioExport';
 import { resolveSceneMediaUrls } from './engine/mediaResolver';
 import { PLAY_PAUSE_EVENT, matchShortcut } from './engine/shortcuts';
+import {
+  hasSeenOnboarding,
+  markOnboardingSeen,
+  shouldShowOnboarding,
+} from './services/onboarding';
 import {
   Theme,
   applyTheme,
@@ -146,6 +152,10 @@ const SaveIndicator: React.FC<{ status: SaveStatus }> = ({ status }) => {
 
 export const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
+  // La lista de IndexedDB empieza vacía: hasta que termina la lectura no se
+  // puede decidir si toca la bienvenida del primer uso (fase 41).
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [activeSection, setActiveSection] = useState<SectionId>('guion');
 
@@ -178,6 +188,8 @@ export const App: React.FC = () => {
       setProjects(stored.sort((a, b) => b.updatedAt - a.updatedAt));
     } catch (error) {
       console.error('No se pudo leer la lista de proyectos:', error);
+    } finally {
+      setProjectsLoaded(true);
     }
   }, []);
 
@@ -639,22 +651,46 @@ export const App: React.FC = () => {
   }, [project]);
 
   if (!project) {
+    const showOnboarding =
+      !onboardingDismissed &&
+      shouldShowOnboarding({
+        projectsLoaded,
+        projectCount: projects.length,
+        alreadySeen: hasSeenOnboarding(),
+      });
+
+    const closeOnboarding = () => {
+      setOnboardingDismissed(true);
+      markOnboardingSeen();
+    };
+
     return (
-      <HomeScreen
-        projects={projects}
-        onCreateProject={(title, templateId) => {
-          void handleCreateProject(title, templateId);
-        }}
-        onOpenProject={(id) => {
-          void handleOpenProject(id);
-        }}
-        onRenameProject={(id, title) => {
-          void handleRenameProject(id, title);
-        }}
-        onDeleteProject={(id) => {
-          void handleDeleteProject(id);
-        }}
-      />
+      <>
+        <HomeScreen
+          projects={projects}
+          onCreateProject={(title, templateId) => {
+            void handleCreateProject(title, templateId);
+          }}
+          onOpenProject={(id) => {
+            void handleOpenProject(id);
+          }}
+          onRenameProject={(id, title) => {
+            void handleRenameProject(id, title);
+          }}
+          onDeleteProject={(id) => {
+            void handleDeleteProject(id);
+          }}
+        />
+        {showOnboarding && (
+          <Onboarding
+            onClose={closeOnboarding}
+            onCreateProject={() => {
+              closeOnboarding();
+              document.getElementById('new-project-title')?.focus();
+            }}
+          />
+        )}
+      </>
     );
   }
 
