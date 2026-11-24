@@ -22,6 +22,8 @@ import { Onboarding } from './components/Onboarding';
 import { ProjectStats } from './components/ProjectStats';
 import { QualityReportPanel } from './components/QualityReport';
 import { VersionsPanel } from './components/VersionsPanel';
+import { GuidedTour } from './components/GuidedTour';
+import { TOUR_STEPS } from './services/tour';
 import {
   ExportContainer,
   ExportFormatInfo,
@@ -84,6 +86,7 @@ import {
   FileText,
   Film,
   FolderOpen,
+  HelpCircle,
   History,
   Home,
   Lightbulb,
@@ -190,6 +193,11 @@ export const App: React.FC = () => {
   // (fase 42); en escritorio siempre está visible.
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Menú «Ayuda» y tutorial interactivo de 5 pasos (fase 45).
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -219,6 +227,16 @@ export const App: React.FC = () => {
     applyTheme(theme);
     saveStoredTheme(theme);
   }, [theme]);
+
+  // El tutorial abre la sección que contiene el elemento de cada paso y cierra
+  // el cajón móvil para que el tooltip no quede tapado (fase 45).
+  useEffect(() => {
+    if (!isTourOpen) return;
+    const step = TOUR_STEPS[tourStep];
+    if (!step) return;
+    if (step.section) setActiveSection(step.section as SectionId);
+    setIsSidebarOpen(false);
+  }, [isTourOpen, tourStep]);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -599,6 +617,13 @@ export const App: React.FC = () => {
     },
     [project?.id, refreshProjects]
   );
+
+  /** Abre el tutorial desde el primer paso, cerrando el menú de Ayuda. */
+  const startTour = useCallback(() => {
+    setIsHelpOpen(false);
+    setTourStep(0);
+    setIsTourOpen(true);
+  }, []);
 
   const handleBackHome = useCallback(() => {
     void flushPendingSave();
@@ -1040,11 +1065,42 @@ export const App: React.FC = () => {
             )}
             <span>{isExportingAudio ? 'Mezclando...' : 'Exportar audio'}</span>
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsHelpOpen((value) => !value)}
+              data-testid="help-menu"
+              aria-expanded={isHelpOpen}
+              aria-haspopup="menu"
+              className="btn-secondary"
+              title="Ayuda y tutorial"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>Ayuda</span>
+            </button>
+            {isHelpOpen && (
+              <div
+                role="menu"
+                data-testid="help-menu-panel"
+                className="absolute right-0 mt-2 z-[60] w-64 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl"
+              >
+                <button
+                  role="menuitem"
+                  onClick={startTour}
+                  data-testid="tour-start"
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  <span className="block font-medium">Tutorial interactivo</span>
+                  <span className="block text-xs text-slate-400">5 pasos sobre la interfaz real</span>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => {
               void openExportDialog();
             }}
             disabled={isExporting || isPreparingExport}
+            data-testid="export-video"
             className="btn-primary"
             title="Exportar video (Ctrl+E)"
           >
@@ -1251,6 +1307,26 @@ export const App: React.FC = () => {
             )
           )}
         </div>
+      )}
+
+      {/* Tutorial interactivo de 5 pasos (fase 45) */}
+      {isTourOpen && (
+        <GuidedTour
+          stepIndex={tourStep}
+          onNext={() => {
+            if (tourStep >= TOUR_STEPS.length - 1) {
+              setIsTourOpen(false);
+              setTourStep(0);
+            } else {
+              setTourStep((value) => value + 1);
+            }
+          }}
+          onPrevious={() => setTourStep((value) => Math.max(0, value - 1))}
+          onClose={() => {
+            setIsTourOpen(false);
+            setTourStep(0);
+          }}
+        />
       )}
 
       {/* Previsualización del storyboard antes de exportar (fase 31) */}
