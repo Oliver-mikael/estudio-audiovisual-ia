@@ -8,6 +8,11 @@ dist/
 build/
 *.tsbuildinfo
 
+# Artefactos locales de prueba
+artifacts/*.zip
+artifacts/*.webm
+artifacts/*.png
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
