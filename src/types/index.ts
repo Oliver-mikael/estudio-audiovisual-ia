@@ -1,4 +1,4 @@
-// Domain Core Types for Estudio Audiovisual Inteligente
+// Tipos del dominio de Estudio Audiovisual Inteligente
 
 export type ProjectId = string;
 
@@ -22,6 +22,30 @@ export interface NarrativeAngle {
   alternativeApproach: string;
 }
 
+/** Animación de entrada y salida de un subtítulo. */
+export type SubtitleAnimation = 'Fade' | 'Typewriter' | 'SlideUp';
+
+/** Línea de subtítulo con tiempos explícitos dentro de la escena (segundos). */
+export interface SubtitleCue {
+  text: string;
+  /** Inicio desde el comienzo de la escena. Si falta, se reparte automáticamente. */
+  startSeconds?: number;
+  /** Duración visible. Si falta, se reparte automáticamente. */
+  durationSeconds?: number;
+  /** Animación de entrada/salida propia de esta línea (por defecto, fundido). */
+  animation?: SubtitleAnimation;
+}
+
+/** Compatibilidad: las escenas antiguas guardan solo el texto y usan el reparto automático. */
+export type SubtitleEntry = string | SubtitleCue;
+
+/** Corrección de color de una escena; 1.0 es el valor neutro de cada control. */
+export interface SceneColorGrade {
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+}
+
 export interface Scene {
   id: string;
   title: string;
@@ -29,10 +53,29 @@ export interface Scene {
   visualIntent: string; // E.g. "Mostrar gráfico comparativo de datos"
   cameraMotion: 'Static' | 'Zoom In' | 'Zoom Out' | 'Pan Left' | 'Pan Right' | 'Kinetic Text';
   transition: 'Cut' | 'Fade' | 'Slide' | 'Zoom';
+  /** Duración de la transición de entrada, en segundos (por defecto 0,5 s). */
+  transitionDurationSeconds?: number;
   durationSeconds: number;
   imageUrl?: string;
+  /** Id del recurso de imagen de la biblioteca (permite reconstruir la URL). */
+  imageAssetId?: string;
+  /** Imagen secundaria para los cortes automáticos (B-roll). */
+  secondaryImageUrl?: string;
+  secondaryImageAssetId?: string;
+  /** Cortes automáticos cada 3 s entre imagen principal y secundaria. */
+  autoCuts?: boolean;
+  /** Clip de video de la biblioteca que se usa como fondo animado. */
+  videoUrl?: string;
+  videoAssetId?: string;
   audioUrl?: string;
-  subtitles?: string[];
+  /** Efecto de sonido (audio corto de la biblioteca) que suena al iniciar la escena. */
+  sfxAssetId?: string;
+  /** Audio de narración propio de la escena (voz TTS o audio importado). */
+  narrationAssetId?: string;
+  /** Brillo, contraste y saturación aplicados al dibujar la escena. */
+  colorGrade?: SceneColorGrade;
+  /** Subtítulos editables de la escena, en orden. */
+  subtitles?: SubtitleEntry[];
   notes?: string;
 }
 
@@ -93,6 +136,10 @@ export interface Project {
   sources: SourceReference[];
   script: ScriptModel;
   mediaAssets: MediaAsset[];
+  /** Id del MediaAsset de audio usado como pista de narración al exportar. */
+  narrationAssetId?: string;
+  /** Id del MediaAsset de audio usado como música de fondo (con ducking). */
+  musicAssetId?: string;
   settings: {
     fps: number;
     resolution: {

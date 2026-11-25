@@ -11,25 +11,24 @@ import {
   FolderOpen,
   Upload,
   Trash2,
-  Image as ImageIcon,
+  Image,
   Music,
   Film,
-  Sparkles,
-  Loader2,
-  Grid,
-  List,
-  Search,
-  Plus,
+  Mic,
+  AudioLines,
   Play,
-  X,
-  AlertTriangle,
-  FolderPlus,
-  Edit2,
+  Pause,
   Check,
-  RefreshCw,
-  Clock,
-  SlidersHorizontal,
+  ListMusic,
 } from 'lucide-react';
+import { ConfirmDialog } from '../components/Modal';
+import {
+  MUSIC_CATEGORIES,
+  MUSIC_LIBRARY,
+  MusicCategory,
+  MusicLibraryTrack,
+  isMusicCategory,
+} from '../data/musicLibrary';
 
 interface MediaLibraryProps {
   project: Project;
@@ -227,6 +226,85 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({
     sortBy,
     selectedFolderId
   );
+
+  // La narración es el audio asignado explícitamente o, si no hay asignación, el primer audio.
+  const narrationAsset =
+    assets.find((a) => a.id === project.narrationAssetId && a.type === 'audio') ??
+    assets.find((a) => a.type === 'audio' && a.id !== project.musicAssetId);
+
+  const musicAsset = assets.find((a) => a.id === project.musicAssetId && a.type === 'audio') ?? null;
+
+  // La vista previa se detiene al cambiar de sección o desmontar el módulo.
+  useEffect(() => {
+    return () => {
+      previewAudioRef.current?.pause();
+      previewAudioRef.current = null;
+    };
+  }, []);
+
+  const stopPreview = () => {
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    setPreviewingTrackId(null);
+  };
+
+  const handlePreviewTrack = (track: MusicLibraryTrack) => {
+    if (previewingTrackId === track.id) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+    const audio = new Audio(track.url);
+    audio.loop = true;
+    audio.volume = 0.7;
+    previewAudioRef.current = audio;
+    setPreviewingTrackId(track.id);
+    setLibraryMessage(null);
+    void audio.play().catch(() => {
+      // Si la pista ya se detuvo o se asignó, el rechazo es tarde: no se muestra error.
+      if (previewAudioRef.current !== audio) return;
+      setPreviewingTrackId(null);
+      previewAudioRef.current = null;
+      setLibraryMessage('El navegador bloqueó la reproducción. Vuelve a pulsar «Escuchar».');
+    });
+  };
+
+  /** Descarga la pista incluida, la guarda como recurso del proyecto y la asigna como música. */
+  const handleUseLibraryTrack = async (track: MusicLibraryTrack) => {
+    setLibraryBusyId(track.id);
+    setLibraryMessage(null);
+    try {
+      const response = await fetch(track.url);
+      if (!response.ok) throw new Error('No se pudo cargar la pista incluida.');
+      const blob = await response.blob();
+      const asset: MediaAsset = {
+        id: `asset-music-${track.id}`,
+        name: `${track.title}.mp3`,
+        type: 'audio',
+        url: URL.createObjectURL(blob),
+        fileBlob: blob,
+        mimeType: 'audio/mpeg',
+        sizeBytes: blob.size,
+        license: 'CC0 1.0 (dominio público)',
+        provenance: `Biblioteca incluida · ${track.category} · ${track.bpm} BPM`,
+        createdAt: Date.now(),
+      };
+      await saveMediaAssetBlob(asset);
+      const updated = [asset, ...assets.filter((item) => item.id !== asset.id)];
+      setAssets(updated);
+      onUpdateProject({ ...project, mediaAssets: updated, musicAssetId: asset.id });
+      stopPreview();
+      setLibraryMessage(`«${track.title}» se guardó en la Biblioteca y es la música de fondo del proyecto.`);
+    } catch (error) {
+      setLibraryMessage(
+        error instanceof Error ? error.message : 'No se pudo asignar la pista de música.'
+      );
+    } finally {
+      setLibraryBusyId(null);
+    }
+  };
+
+  const visibleTracks = MUSIC_LIBRARY.filter((track) => track.category === musicCategory);
 
   const formatSize = (bytes: number) => {
     const mb = bytes / (1024 * 1024);
@@ -833,6 +911,19 @@ export const MediaLibraryModule: React.FC<MediaLibraryProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {assetToDelete && (
+        <ConfirmDialog
+          title="Eliminar recurso"
+          message={`Se eliminará "${assetToDelete.name}" de la biblioteca. Si estaba asignado como narración o imagen de una escena, dejará de estar disponible.`}
+          confirmLabel="Eliminar recurso"
+          onCancel={() => setAssetToDelete(null)}
+          onConfirm={() => {
+            void handleDeleteAsset(assetToDelete.id);
+            setAssetToDelete(null);
+          }}
+        />
       )}
     </div>
   );

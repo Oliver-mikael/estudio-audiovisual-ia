@@ -26,6 +26,103 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
   onNavigateToScript,
 }) => {
   const [angles, setAngles] = useState<NarrativeAngle[]>(project.angles || []);
+
+  // Generación del guion completo con Gemini.
+  const [topic, setTopic] = useState('');
+  const [tone, setTone] = useState<ScriptTone>('Educativo');
+  const [generating, setGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [generationNotice, setGenerationNotice] = useState<string | null>(null);
+  const [generatedScript, setGeneratedScript] = useState<GeneratedScript | null>(null);
+  const [pendingScript, setPendingScript] = useState<GeneratedScript | null>(null);
+  const [imageProgress, setImageProgress] = useState<string | null>(null);
+  const geminiKey = (project.settings.geminiApiKey ?? '').trim();
+  const pexelsKey = (project.settings.pexelsApiKey ?? '').trim();
+
+  const applyGeneratedScript = async (script: GeneratedScript) => {
+    const scenes = generatedScriptToScenes(script);
+    let working: Project = {
+      ...project,
+      script: {
+        ...project.script,
+        title: script.title || project.script.title,
+        summary: script.hook,
+        tone: TONE_TO_SCRIPT[tone],
+        scenes,
+      },
+    };
+    onUpdateProject(working);
+    setGeneratedScript(script);
+    setPendingScript(null);
+    setGenerationError(null);
+    setGenerationNotice(`Guion cargado en el Taller: ${scenes.length} escenas editables.`);
+
+    // Si hay clave de Pexels, se busca una imagen por escena (secuencialmente
+    // para no saturar la API) y se asignan al guion generado.
+    if (!pexelsKey) {
+      setGenerationNotice(
+        `Guion cargado en el Taller: ${scenes.length} escenas editables. Configura la clave de Pexels en Ajustes para añadir imágenes automáticamente.`
+      );
+      return;
+    }
+
+    let attached = 0;
+    const failed: string[] = [];
+    for (let index = 0; index < scenes.length; index++) {
+      const scene = scenes[index];
+      setImageProgress(`Buscando imagen ${index + 1} de ${scenes.length}: ${scene.title}`);
+      try {
+        const { asset } = await createPexelsImageAsset(scene.visualIntent || scene.title, {
+          apiKey: pexelsKey,
+          sceneTitle: scene.title,
+        });
+        working = assignImageAssetToScene(working, scene.id, asset);
+        attached += 1;
+      } catch {
+        failed.push(scene.title);
+      }
+    }
+    setImageProgress(null);
+
+    if (attached > 0) onUpdateProject(working);
+    const failedNote = failed.length > 0 ? ` Sin imagen: ${failed.join(', ')}.` : '';
+    setGenerationNotice(
+      `Guion cargado en el Taller: ${scenes.length} escenas editables. Imágenes de Pexels asignadas: ${attached}/${scenes.length}.${failedNote}`
+    );
+  };
+
+  const handleGenerateScript = async () => {
+    setGenerationError(null);
+    setGenerationNotice(null);
+
+    if (!geminiKey) {
+      setGenerationError('Falta la clave de API de Gemini. Configúrala en Ajustes del proyecto.');
+      return;
+    }
+    if (!topic.trim()) {
+      setGenerationError('Escribe el tema del video antes de generar el guion.');
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const script = await generateScriptWithGemini({
+        apiKey: geminiKey,
+        topic,
+        tone,
+        model: project.settings.geminiModel || DEFAULT_GEMINI_MODEL,
+      });
+      // No se pisa un guion existente sin confirmación.
+      if ((project.script.scenes ?? []).length > 0) setPendingScript(script);
+      else await applyGeneratedScript(script);
+    } catch (error) {
+      setGenerationError(
+        error instanceof Error ? error.message : 'No se pudo generar el guion con Gemini.'
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
   const [title, setTitle] = useState('');
   const [hook, setHook] = useState('');
   const [perspective, setPerspective] = useState('');
@@ -136,7 +233,7 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
       {/* Top Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-lg">
+          <div className="flex items-center gap-2 text-indigo-400 titulo-seccion">
             <Lightbulb className="w-5 h-5" />
             <span>Laboratorio de Ideas & Ángulos Narrativos</span>
             <span className="text-xs px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 font-mono border border-indigo-800">

@@ -16,6 +16,22 @@ interface StoryboardModuleProps {
   onUpdateProject?: (updated: Project) => void;
 }
 
+const CAMERA_LABELS: Record<Scene['cameraMotion'], string> = {
+  Static: 'Estático',
+  'Zoom In': 'Acercar',
+  'Zoom Out': 'Alejar',
+  'Pan Left': 'Panorámica izquierda',
+  'Pan Right': 'Panorámica derecha',
+  'Kinetic Text': 'Texto cinético',
+};
+
+const TRANSITION_LABELS: Record<Scene['transition'], string> = {
+  Cut: 'Corte',
+  Fade: 'Fundido',
+  Slide: 'Deslizamiento',
+  Zoom: 'Zoom',
+};
+
 export const StoryboardModule: React.FC<StoryboardModuleProps> = ({ project }) => {
   const scenes = project.script.scenes || [];
   const [isRecommending, setIsRecommending] = useState(false);
@@ -46,7 +62,7 @@ export const StoryboardModule: React.FC<StoryboardModuleProps> = ({ project }) =
       {/* Top Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-lg">
+          <div className="flex items-center gap-2 text-indigo-400 titulo-seccion">
             <Film className="w-5 h-5" />
             <span>Dirección Audiovisual & Storyboard Cinemático</span>
           </div>
@@ -128,7 +144,7 @@ export const StoryboardModule: React.FC<StoryboardModuleProps> = ({ project }) =
 
                 <div className="absolute bottom-2 left-2 bg-indigo-950/90 backdrop-blur border border-indigo-800 px-2 py-0.5 rounded text-[10px] font-mono text-indigo-300 flex items-center gap-1">
                   <ArrowRightLeft className="w-3 h-3" />
-                  <span>Transición: {scene.transition}</span>
+                  <span>Transición: {TRANSITION_LABELS[scene.transition]}</span>
                 </div>
               </div>
 
@@ -137,7 +153,7 @@ export const StoryboardModule: React.FC<StoryboardModuleProps> = ({ project }) =
                 <div className="space-y-1.5">
                   <h4 className="font-semibold text-slate-200 text-sm">{scene.title}</h4>
                   <p className="text-xs text-indigo-300 font-medium bg-slate-950/60 p-2 rounded border border-slate-800/80">
-                    🎯 <strong className="text-slate-400 uppercase">Intención:</strong> {scene.visualIntent}
+                    <strong className="text-slate-400 uppercase">Intención:</strong> {scene.visualIntent}
                   </p>
                 </div>
 
