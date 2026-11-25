@@ -79,6 +79,22 @@ export interface Scene {
   notes?: string;
 }
 
+export interface MediaFolder {
+  id: string;
+  name: string;
+  parentId?: string;
+  createdAt: number;
+}
+
+export interface MissingMediaRef {
+  assetId: string;
+  expectedName: string;
+  expectedType: 'image' | 'audio' | 'video';
+  affectedClipsCount: number;
+  expectedSizeBytes?: number;
+  expectedDurationSeconds?: number;
+}
+
 export interface MediaAsset {
   id: string;
   name: string;
@@ -90,6 +106,16 @@ export interface MediaAsset {
   license: string;
   provenance: string;
   createdAt: number;
+  // Phase 7E - Technical metadata and organization
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  aspectRatio?: string;
+  thumbnailUrl?: string;
+  sha256?: string;
+  folderId?: string;
+  tags?: string[];
+  isMissing?: boolean;
 }
 
 export interface ScriptModel {
@@ -120,32 +146,132 @@ export interface Project {
       width: number;
       height: number;
     };
-    aspectRatio: '16:9' | '9:16' | '1:1';
-    /** Volumen general de la música de fondo, de 0 a 1 (por defecto 0,6). */
-    musicVolume?: number;
-    /** Clave de la API de Gemini para generar guiones. Solo se guarda en este proyecto. */
-    geminiApiKey?: string;
-    /** Modelo de Gemini a usar (por defecto gemini-2.5-flash). */
-    geminiModel?: string;
-    /** Clave de Google Cloud Text-to-Speech para generar voces. */
-    ttsApiKey?: string;
-    /** Clave de ElevenLabs; si está, sustituye a Google Cloud TTS (voz Rachel). */
-    elevenlabsApiKey?: string;
-    /** Voz de Google Cloud TTS elegida (femenina o masculina). */
-    ttsVoice?: string;
-    /** Clave de la API de Pexels para buscar imágenes de escena. */
-    pexelsApiKey?: string;
-    /** Gancho visual superpuesto en los primeros 3 s (activado por defecto). */
-    introHookEnabled?: boolean;
-    /** Texto del gancho; si está vacío se usa el título de la primera escena. */
-    introHookText?: string;
-    /** Familia tipográfica de los subtítulos (plantilla de estilo). */
-    subtitleFontFamily?: string;
-    /** Color del texto de los subtítulos (plantilla de estilo). */
-    subtitleColor?: string;
-    /** Categoría de música que abre la Biblioteca incluida. */
-    musicCategory?: string;
-    /** Transición que se asigna a las escenas nuevas y al aplicar una plantilla. */
-    defaultTransition?: Scene['transition'];
+    aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
   };
+  // Phase 7B - Multi-track timeline & professional color/audio extensions
+  timeline?: {
+    tracks: TimelineTrack[];
+    activeTrackId?: string;
+    markers?: TimelineMarker[];
+  };
+  // Phase 7E - Media library folders
+  folders?: MediaFolder[];
+}
+
+export type TrackType = 'video' | 'audio' | 'text' | 'subtitles';
+
+export interface TimelineClip {
+  id: string;
+  name: string;
+  trackId: string;
+  sceneId?: string; // Links to documentary scene if applicable
+  assetId?: string; // Links to MediaAsset in IndexedDB
+  type: 'video' | 'image' | 'audio' | 'text' | 'caption';
+  startMs: number;
+  durationMs: number;
+  offsetMs: number; // In-point offset within media
+  volume?: number; // 0.0 to 2.0
+  speed?: number; // 0.25 to 4.0
+  opacity?: number; // 0.0 to 1.0
+  transform?: {
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+  };
+  colorAdjustments?: {
+    brightness: number; // -1.0 to 1.0
+    contrast: number; // 0.0 to 2.0
+    saturation: number; // 0.0 to 2.0
+    temperature: number; // -100 to 100
+    vignette: number; // 0.0 to 1.0
+  };
+  filterPreset?: 'none' | 'cinematic' | 'documentary-warm' | 'noir' | 'vintage' | 'vivid';
+  textPayload?: string;
+  isMuted?: boolean;
+  isLocked?: boolean;
+  // Phase 7F - Transition and Keyframe Animations
+  transition?: ClipTransition;
+  animations?: ClipAnimation[];
+}
+
+// Phase 7F - Transitions & Keyframe Animations System Types
+export type TransitionType =
+  | 'cut'
+  | 'fade'
+  | 'crossfade'
+  | 'slide-left'
+  | 'slide-right'
+  | 'slide-up'
+  | 'slide-down'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'wipe-left'
+  | 'wipe-right'
+  | 'fade-to-black'
+  | 'fade-from-black';
+
+export type EasingCurve = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+
+export interface ClipTransition {
+  id: string;
+  type: TransitionType;
+  durationMs: number;
+  easing?: EasingCurve;
+  fromClipId?: string;
+  toClipId?: string;
+}
+
+export type KeyframeProperty = 'positionX' | 'positionY' | 'scale' | 'rotation' | 'opacity';
+
+export interface AnimationKeyframe {
+  id: string;
+  timeOffsetMs: number;
+  value: number;
+  easing?: EasingCurve;
+}
+
+export interface ClipAnimation {
+  property: KeyframeProperty;
+  keyframes: AnimationKeyframe[];
+}
+
+export interface TimelineTrack {
+  id: string;
+  name: string;
+  type: TrackType;
+  order: number;
+  isMuted: boolean;
+  isLocked: boolean;
+  isVisible: boolean;
+  clips: TimelineClip[];
+  transitions?: ClipTransition[];
+}
+
+export interface TimelineMarker {
+  id: string;
+  timeMs: number;
+  label: string;
+  color: 'indigo' | 'emerald' | 'amber' | 'rose' | 'purple';
+}
+
+export interface SubtitleCue {
+  id: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+  speaker?: string;
+  isVerified?: boolean;
+}
+
+export interface ExportProfile {
+  id: string;
+  name: string;
+  format: 'webm' | 'mp4';
+  aspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
+  resolution: { width: number; height: number };
+  fps: 24 | 30 | 60;
+  bitrateBps: number;
+  includeAudio: boolean;
+  description: string;
 }

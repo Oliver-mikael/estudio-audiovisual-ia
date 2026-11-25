@@ -7,6 +7,12 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+android/
+*.apk
+!app-debug.apk
+!public/app-debug.apk
+gradle.log
+preview.log
 
 # Artefactos locales de prueba
 artifacts/*.zip

@@ -1,51 +1,29 @@
-// Módulo del laboratorio de ideas
+// Redesigned IdeaLab with Real AI Integration
 import React, { useState } from 'react';
 import { Project, NarrativeAngle } from '../types';
+import { aiEngine } from '../services/ai/aiEngine';
 import {
-  AlertCircle,
-  ArrowRight,
-  CheckCircle2,
-  HelpCircle,
-  KeyRound,
   Lightbulb,
-  Loader2,
   Plus,
-  Sparkles,
   Trash2,
-  Wand2,
+  HelpCircle,
+  CheckCircle2,
+  Sparkles,
+  ArrowRight,
+  Loader2,
+  StopCircle,
 } from 'lucide-react';
-import {
-  DEFAULT_GEMINI_MODEL,
-  GeneratedScript,
-  SCRIPT_TONES,
-  ScriptTone,
-  generateScriptWithGemini,
-  generatedScriptToScenes,
-} from '../engine/gemini';
-import { ConfirmDialog } from '../components/Modal';
-import { assignImageAssetToScene, createPexelsImageAsset } from '../engine/pexels';
 
 interface IdeaLabProps {
   project: Project;
   onUpdateProject: (updated: Project) => void;
-  /** Abre el Taller de guion con las escenas generadas. */
-  onGoToScript?: () => void;
-  /** Abre los ajustes para configurar la clave de Gemini. */
-  onOpenSettings?: () => void;
+  onNavigateToScript?: () => void;
 }
-
-const TONE_TO_SCRIPT: Record<ScriptTone, Project['script']['tone']> = {
-  Educativo: 'Divulgativo',
-  Documental: 'Riguroso',
-  Entretenimiento: 'Dramático',
-  Historia: 'Riguroso',
-};
 
 export const IdeaLab: React.FC<IdeaLabProps> = ({
   project,
   onUpdateProject,
-  onGoToScript,
-  onOpenSettings,
+  onNavigateToScript,
 }) => {
   const [angles, setAngles] = useState<NarrativeAngle[]>(project.angles || []);
 
@@ -151,24 +129,27 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
   const [questions, setQuestions] = useState('');
   const [alternative, setAlternative] = useState('');
 
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [aiStatus, setAiStatus] = useState<string>('');
+
   const handleAddAngle = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !hook.trim()) return;
 
     const newAngle: NarrativeAngle = {
       id: `ang-${Date.now()}`,
-      title: title.trim(),
-      hook: hook.trim(),
-      perspective: perspective.trim() || 'Enfoque general',
-      criticalQuestions: questions ? questions.split('\n').filter((q) => q.trim()) : [],
-      alternativeApproach: alternative.trim() || 'Perspectiva estándar',
+      title,
+      hook,
+      perspective,
+      criticalQuestions: questions.split('\n').filter((q) => q.trim().length > 0),
+      alternativeApproach: alternative,
     };
 
     const updatedAngles = [newAngle, ...angles];
     setAngles(updatedAngles);
     onUpdateProject({ ...project, angles: updatedAngles });
 
-    // Limpia el formulario
     setTitle('');
     setHook('');
     setPerspective('');
@@ -182,290 +163,194 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
     onUpdateProject({ ...project, angles: updatedAngles });
   };
 
-  const handleGenerateAISugestion = () => {
-    const suggestions: NarrativeAngle[] = [
-      {
-        id: `ang-ai-${Date.now()}`,
-        title: 'El Paradigma Invertido',
-        hook: '¿Y si la nube no fuera el destino final sino solo una fase de transición?',
-        perspective: 'Cuestiona la premisa de que los servidores remotos son más eficientes.',
-        criticalQuestions: [
-          '¿Qué ocurre con la latencia cuando millones de dispositivos soliciten IA al mismo tiempo?',
-          '¿Cómo afecta la soberanía de datos a las leyes locales?'
-        ],
-        alternativeApproach: 'Demostrar mediante benchmark directo cómo un modelo local responde en milisegundos sin conexión.'
-      },
-      {
-        id: `ang-ai-2-${Date.now()}`,
-        title: 'Análisis de Coste Energético y Ecológico',
-        hook: 'El precio oculto de cada consulta en la nube.',
-        perspective: 'Enfoque en la sostenibilidad ambiental del hardware personal versus centros de cómputo masivos.',
-        criticalQuestions: [
-          '¿Cuántos litros de agua consume enfriar un servidor por cada generación de video?',
-          '¿Es el cómputo distribuido más respetuoso con el medio ambiente?'
-        ],
-        alternativeApproach: 'Presentar una comparativa visual entre el consumo de un teléfono vs un data center.'
-      }
-    ];
+  const handleGenerateAISuggestion = async () => {
+    if (isGeneratingAI) return;
+    setIsGeneratingAI(true);
+    setAiStatus('Invocando motor de IA con contexto del proyecto...');
 
-    const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
-    const updatedAngles = [randomSuggestion, ...angles];
-    setAngles(updatedAngles);
-    onUpdateProject({ ...project, angles: updatedAngles });
+    const controller = new AbortController();
+    setAbortController(controller);
+
+    const context = aiEngine.buildContextFromProject(project);
+
+    const res = await aiEngine.executeTask<NarrativeAngle[]>({
+      task: 'SUGGEST_NARRATIVE_ANGLES',
+      context,
+      userPrompt: `Sugiere ángulos críticos no convencionales para el documental "${project.title}".`,
+      abortSignal: controller.signal,
+    });
+
+    setIsGeneratingAI(false);
+    setAbortController(null);
+
+    if (res.success && res.parsedData && Array.isArray(res.parsedData)) {
+      const newAngles = [...res.parsedData, ...angles];
+      setAngles(newAngles);
+      onUpdateProject({ ...project, angles: newAngles });
+      setAiStatus(`Generados ${res.parsedData.length} ángulos con ${res.modelName} (${res.latencyMs}ms).`);
+      setTimeout(() => setAiStatus(''), 4000);
+    } else {
+      setAiStatus(`Error o respuesta no estructurada: ${res.error || 'Verifica el proveedor'}`);
+    }
+  };
+
+  const handleCancelAI = () => {
+    if (abortController) {
+      abortController.abort();
+      setIsGeneratingAI(false);
+      setAbortController(null);
+      setAiStatus('Generación cancelada por el usuario.');
+    }
+  };
+
+  const handlePromoteToScene = (angle: NarrativeAngle) => {
+    const newScene = {
+      id: `scene-promoted-${Date.now()}`,
+      title: angle.title,
+      durationSeconds: 15,
+      narrationText: `${angle.hook} ${angle.perspective}`,
+      visualIntent: `Plano documental: ${angle.alternativeApproach || 'Contraste visual de la hipótesis'}`,
+      cameraMotion: 'Zoom In' as const,
+      transition: 'Fade' as const,
+    };
+
+    const updatedScenes = [...project.script.scenes, newScene];
+    onUpdateProject({
+      ...project,
+      script: {
+        ...project.script,
+        scenes: updatedScenes,
+      },
+    });
+
+    if (onNavigateToScript) {
+      onNavigateToScript();
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Top Banner */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-indigo-400 titulo-seccion">
             <Lightbulb className="w-5 h-5" />
-            <span>Laboratorio de ideas y ángulos narrativos</span>
+            <span>Laboratorio de Ideas & Ángulos Narrativos</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 font-mono border border-indigo-800">
+              IA Contextual
+            </span>
           </div>
-          <p className="text-slate-400 text-sm mt-1">
-            Explora cuestionamientos críticos, evita introducciones clónicas y descubre enfoques originales para tus producciones.
+          <p className="text-slate-400 text-xs md:text-sm mt-1">
+            Explora cuestionamientos críticos, evita introducciones clónicas y convierte ángulos aprobados en escenas con un solo clic.
           </p>
         </div>
 
-        <button
-          onClick={handleGenerateAISugestion}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg text-sm transition-all shadow-lg shadow-indigo-500/20 whitespace-nowrap"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>Sugerir ángulo crítico</span>
-        </button>
-      </div>
-
-      {/* Generación del guion completo con Gemini */}
-      <div className="bg-slate-900 border border-indigo-900/50 rounded-xl p-5 space-y-4" data-testid="gemini-panel">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="text-md font-semibold text-slate-100 flex items-center gap-2">
-              <Wand2 className="w-4 h-4 text-indigo-400" />
-              <span>Generar guion completo con IA</span>
-            </h3>
-            <p className="text-sm text-slate-400 mt-1">
-              Gemini escribe un gancho, entre 4 y 6 escenas con narración e intención visual, y un cierre con
-              llamada a la acción. El resultado se carga como escenas editables en el Taller de guion.
-            </p>
-          </div>
-          <span className="text-[11px] font-mono text-slate-500">
-            {project.settings.geminiModel || DEFAULT_GEMINI_MODEL}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <div className="md:col-span-8 space-y-1">
-            <label htmlFor="gemini-topic" className="etiqueta">
-              Tema del video
-            </label>
-            <input
-              id="gemini-topic"
-              data-testid="gemini-topic"
-              type="text"
-              value={topic}
-              onChange={(event) => setTopic(event.target.value)}
-              placeholder="Ej. Por qué los minerales de tu celular viajan 40.000 km"
-              className="campo"
-            />
-          </div>
-          <div className="md:col-span-4 space-y-1">
-            <label htmlFor="gemini-tone" className="etiqueta">
-              Tono
-            </label>
-            <select
-              id="gemini-tone"
-              data-testid="gemini-tone"
-              value={tone}
-              onChange={(event) => setTone(event.target.value as ScriptTone)}
-              className="campo"
-            >
-              {SCRIPT_TONES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {!geminiKey ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-800/60 bg-amber-950/40 p-3">
-            <p className="text-sm text-amber-200 flex items-start gap-2">
-              <KeyRound className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>
-                Configura tu clave de API de Gemini en Ajustes del proyecto para generar guiones. La clave se
-                guarda solo en este proyecto, en el navegador.
-              </span>
-            </p>
-            {onOpenSettings && (
-              <button onClick={onOpenSettings} className="btn-secondary text-xs shrink-0">
-                Abrir Ajustes
-              </button>
-            )}
-          </div>
-        ) : (
-          <p className="text-xs text-emerald-300/80 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Clave de Gemini configurada en este proyecto.</span>
-          </p>
-        )}
-
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 w-full md:w-auto">
           <button
-            onClick={() => {
-              void handleGenerateScript();
-            }}
-            disabled={generating || !geminiKey}
-            data-testid="gemini-generate"
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-medium rounded-lg text-sm transition-colors"
+            onClick={handleGenerateAISuggestion}
+            disabled={isGeneratingAI}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium rounded-lg text-xs md:text-sm transition-all shadow-lg shadow-indigo-500/20 whitespace-nowrap disabled:opacity-50"
           >
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            <span>{generating ? 'Generando guion...' : 'Generar guion'}</span>
+            {isGeneratingAI ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Generando...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Sugerir Ángulos Críticos (IA Real)</span>
+              </>
+            )}
           </button>
-          {generatedScript && onGoToScript && (
-            <button onClick={onGoToScript} data-testid="gemini-open-script" className="btn-secondary">
-              <ArrowRight className="w-4 h-4" />
-              <span>Ver en el Taller de guion</span>
+
+          {isGeneratingAI && (
+            <button
+              onClick={handleCancelAI}
+              className="p-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-lg"
+              title="Cancelar generación"
+            >
+              <StopCircle className="w-4 h-4" />
             </button>
           )}
         </div>
-
-        {imageProgress && (
-          <p data-testid="gemini-image-progress" className="text-sm text-indigo-300 flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>{imageProgress}</span>
-          </p>
-        )}
-        {generationNotice && (
-          <p data-testid="gemini-status" className="text-sm text-emerald-300 flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>{generationNotice}</span>
-          </p>
-        )}
-        {generationError && (
-          <p data-testid="gemini-status" className="text-sm text-rose-300 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>{generationError}</span>
-          </p>
-        )}
-
-        {generatedScript && (
-          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-            <p className="text-xs uppercase tracking-wider text-slate-500">Último guion generado</p>
-            <div className="rounded-lg border border-indigo-900/60 bg-indigo-950/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400 mb-1">Gancho</p>
-              <p data-testid="generated-hook" className="text-sm text-indigo-100 font-medium">
-                “{generatedScript.hook}”
-              </p>
-            </div>
-            <ol className="space-y-2" data-testid="generated-scenes">
-              {generatedScript.scenes.map((scene, index) => (
-                <li key={`${scene.title}-${index}`} className="text-sm text-slate-300">
-                  <span className="font-mono text-xs text-slate-500 mr-2">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="font-semibold text-slate-100">{scene.title}</span>
-                  <span className="text-xs text-slate-500 font-mono"> · {scene.durationSeconds}s</span>
-                  <p className="text-xs text-slate-400 mt-0.5">{scene.narration}</p>
-                  <p className="text-[11px] text-indigo-300/70 mt-0.5">Visual: {scene.visualIntent}</p>
-                </li>
-              ))}
-            </ol>
-            {generatedScript.closing && (
-              <div className="border-t border-slate-800 pt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-1">
-                  Cierre con llamada a la acción
-                </p>
-                <p className="text-sm text-slate-200">{generatedScript.closing}</p>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {pendingScript && (
-        <ConfirmDialog
-          title="Reemplazar el guion actual"
-          message={`El proyecto ya tiene ${project.script.scenes.length} escena(s). El guion generado las reemplazará por ${pendingScript.scenes.length + 2} escenas nuevas (gancho, cuerpo y cierre). El cambio se puede deshacer con Ctrl+Z.`}
-          confirmLabel="Reemplazar guion"
-          onCancel={() => setPendingScript(null)}
-          onConfirm={() => {
-            void applyGeneratedScript(pendingScript);
-          }}
-        />
+      {aiStatus && (
+        <div className="px-4 py-2 bg-slate-900 border border-indigo-500/30 rounded-lg text-xs font-mono text-indigo-300">
+          {aiStatus}
+        </div>
       )}
 
       {/* Grid: Form & List */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Form Column */}
         <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-          <h3 className="text-md font-semibold text-slate-200 border-b border-slate-800 pb-3">
-            Formular Nuevo Ángulo
+          <h3 className="text-sm font-semibold text-slate-200 border-b border-slate-800 pb-3">
+            Formular Ángulo Manualmente
           </h3>
 
-          <form onSubmit={handleAddAngle} className="space-y-4">
+          <form onSubmit={handleAddAngle} className="space-y-3.5 text-xs">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Título del Ángulo</label>
+              <label className="block font-medium text-slate-400 mb-1">Título del Ángulo</label>
               <input
                 type="text"
                 placeholder="Ej. La perspectiva histórica de la computación local"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1">Gancho narrativo</label>
+              <label className="block font-medium text-slate-400 mb-1">Gancho Narrativo (Hook)</label>
               <textarea
                 rows={2}
                 placeholder="Pregunta o afirmación contundente para captar atención..."
                 value={hook}
                 onChange={(e) => setHook(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Perspectiva / Tesis Principal</label>
+              <label className="block font-medium text-slate-400 mb-1">Perspectiva / Tesis Principal</label>
               <input
                 type="text"
                 placeholder="Explicación del enfoque único..."
                 value={perspective}
                 onChange={(e) => setPerspective(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Preguntas Críticas (una por línea)</label>
+              <label className="block font-medium text-slate-400 mb-1">Preguntas Críticas (una por línea)</label>
               <textarea
                 rows={2}
                 placeholder="¿Por qué la mayoría supone X?&#10;¿Qué evidencia contradice Y?"
                 value={questions}
                 onChange={(e) => setQuestions(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Enfoque Alternativo Sugerido</label>
+              <label className="block font-medium text-slate-400 mb-1">Enfoque Alternativo Sugerido</label>
               <input
                 type="text"
                 placeholder="Contra-argumento o experimento visual..."
                 value={alternative}
                 onChange={(e) => setAlternative(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-medium rounded-lg text-sm transition-colors border border-indigo-500/30"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-medium rounded-lg transition-colors border border-indigo-500/30"
             >
               <Plus className="w-4 h-4" />
               <span>Guardar Ángulo Narrativo</span>
@@ -475,44 +360,54 @@ export const IdeaLab: React.FC<IdeaLabProps> = ({
 
         {/* List Column */}
         <div className="lg:col-span-7 space-y-4">
-          <h3 className="text-md font-semibold text-slate-200 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-200 flex items-center justify-between">
             <span>Ángulos Registrados ({angles.length})</span>
           </h3>
 
           {angles.length === 0 ? (
-            <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-xl p-8 text-center text-slate-500">
-              No hay ángulos narrativos registrados aún. Crea uno manualmente o solicita una sugerencia de IA.
+            <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-xl p-8 text-center text-slate-500 text-xs">
+              No hay ángulos registrados aún. Utiliza el botón de IA o formula uno manualmente para estructurar tu narrativa.
             </div>
           ) : (
             <div className="space-y-4">
               {angles.map((ang) => (
-                <div key={ang.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3 relative group">
-                  <div className="flex items-start justify-between pr-8">
+                <div key={ang.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3 relative group shadow-sm">
+                  <div className="flex items-start justify-between">
                     <div>
                       <span className="text-xs font-mono px-2 py-0.5 bg-indigo-950 text-indigo-400 rounded border border-indigo-800/50">
                         Ángulo Crítico
                       </span>
                       <h4 className="text-base font-semibold text-slate-100 mt-2">{ang.title}</h4>
                     </div>
-                    <button
-                      onClick={() => handleDeleteAngle(ang.id)}
-                      className="text-slate-500 hover:text-red-400 transition-colors p-1"
-                      title="Eliminar Ángulo"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handlePromoteToScene(ang)}
+                        className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-800/80 px-2.5 py-1 rounded transition-colors"
+                        title="Convertir ángulo directamente en escena de guion"
+                      >
+                        <span>A Guion</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAngle(ang.id)}
+                        className="text-slate-500 hover:text-red-400 transition-colors p-1"
+                        title="Eliminar Ángulo"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="bg-slate-950 border border-slate-800/80 rounded-lg p-3">
-                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Gancho</p>
-                    <p className="text-sm text-indigo-200 font-medium italic">"{ang.hook}"</p>
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">Gancho (Hook)</p>
+                    <p className="text-xs text-indigo-200 font-medium italic">"{ang.hook}"</p>
                   </div>
 
-                  <p className="text-sm text-slate-300"><strong className="text-slate-400">Perspectiva:</strong> {ang.perspective}</p>
+                  <p className="text-xs text-slate-300"><strong className="text-slate-400">Perspectiva:</strong> {ang.perspective}</p>
 
-                  {ang.criticalQuestions.length > 0 && (
+                  {ang.criticalQuestions && ang.criticalQuestions.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-slate-400 flex items-center gap-1 mb-1">
+                      <p className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mb-1">
                         <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
                         <span>Preguntas de Cuestionamiento:</span>
                       </p>

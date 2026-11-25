@@ -1,22 +1,8 @@
-// Exportador determinista: cada cuadro se renderiza y codifica con WebCodecs
-// (VideoEncoder + AudioEncoder) y se empaqueta en WebM con webm-muxer.
-// No se genera ningún tono sintético: la pista de audio es la mezcla de los
-// archivos importados (narración, música de fondo y efectos de escena).
-// Si WebCodecs no está disponible, se usa MediaRecorder con captureStream(0) + requestFrame
-// como respaldo, manteniendo esa misma mezcla real.
-
-import { ArrayBufferTarget as WebmArrayBufferTarget, Muxer as WebmMuxer } from 'webm-muxer';
-import { ArrayBufferTarget as Mp4ArrayBufferTarget, Muxer as Mp4Muxer } from 'mp4-muxer';
+// Client-side Video Exporter using Canvas Capture & Web Audio Multitrack Engine (Phase 7D)
 import { Project } from '../types';
 import { CanvasRenderEngine } from './renderEngine';
-import {
-  NARRATION_CHANNELS,
-  NARRATION_SAMPLE_RATE,
-  PreparedAudio,
-  prepareProjectAudio,
-} from './audioTrack';
-import { effectiveSettings, isLimitedForMobile } from './capabilities';
-import { resolveSceneMediaUrls } from './mediaResolver';
+import { audioEngine } from '../services/audio/AudioEngine';
+import { TimelineEngine } from '../services/timeline/timelineEngine';
 
 export interface ExportProgressCallback {
   (progress: number, statusMessage: string): void;
@@ -483,25 +469,19 @@ interface ExportContext {
 export class VideoExporter {
   public static async exportProjectVideo(
     project: Project,
-    onProgress: ExportProgressCallback,
-    options: { container?: ExportContainer } = {}
-  ): Promise<VideoExportResult> {
-    const durationSeconds = projectDurationSeconds(project);
-    if (durationSeconds <= 0) {
-      throw new Error('El proyecto no contiene escenas con duración válida.');
-    }
+    onProgress: ExportProgressCallback
+  ): Promise<Blob> {
+    onProgress(0, 'Iniciando motor de renderizado y mezcla de audio...');
 
-    // Ajustes efectivos: en móvil se recorta a 720p/30 fps.
-    const settings = effectiveSettings(project);
-    const settingsProject: Project = settings === project.settings ? project : { ...project, settings };
-    // Reconstruye las URLs de imagen/video de las escenas desde sus blobs.
-    const exportProject = await resolveSceneMediaUrls(settingsProject);
+    const initializedProject = TimelineEngine.ensureTimeline(project);
+    const { width, height } = initializedProject.settings.resolution;
+    const fps = initializedProject.settings.fps || 30;
 
-    const fps = settings.fps || 30;
-    // Los codificadores exigen dimensiones pares.
-    const width = Math.max(2, Math.round(settings.resolution.width / 2) * 2);
-    const height = Math.max(2, Math.round(settings.resolution.height / 2) * 2);
-    const totalFrames = Math.max(1, Math.round(durationSeconds * fps));
+    // Calculate total project duration
+    const totalDuration = initializedProject.script.scenes.reduce(
+      (sum, scene) => sum + scene.durationSeconds,
+      0
+    );
 
     onProgress(0, 'Iniciando renderizado cuadro por cuadro...');
 
@@ -510,17 +490,24 @@ export class VideoExporter {
     canvas.height = height;
     const renderEngine = new CanvasRenderEngine(canvas);
 
-    onProgress(2, 'Precargando imágenes y clips del proyecto...');
-    await renderEngine.preloadImages(exportProject.script.scenes);
-    await renderEngine.preloadVideos(exportProject.script.scenes);
+    onProgress(10, 'Precargando recursos visuales...');
+    await renderEngine.preloadImages(initializedProject.script.scenes);
 
-    onProgress(5, 'Mezclando narración, música y efectos de sonido...');
-    const audio = await prepareProjectAudio(exportProject, durationSeconds);
+    // 2. Initialize Web Audio Engine for Multitrack Destination Mixing
+    onProgress(20, 'Configurando motor de audio multicanal...');
+    await audioEngine.initContext();
+    const audioStream = audioEngine.getDestinationStream();
 
-    const container = options.container ?? 'webm';
-    const codecPlan = await planVideoCodec(width, height, fps, container);
-    const audioPlan = audio ? await planAudioCodec(container) : null;
-    const canEncodeAudio = audio ? Boolean(audioPlan) : true;
+    if (!audioStream) {
+      throw new Error('No se pudo inicializar el flujo de destino de audio Web Audio API');
+    }
+
+    // 3. MediaRecorder setup with WebM/MP4 support detection
+    const canvasStream = canvas.captureStream(fps);
+    const combinedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...audioStream.getAudioTracks(),
+    ]);
 
     if (container === 'mp4' && !codecPlan) {
       throw new Error(MP4_UNSUPPORTED_MESSAGE);
@@ -543,46 +530,10 @@ export class VideoExporter {
       return VideoExporter.exportWithWebCodecs(context, codecPlan, audio, audioPlan);
     }
 
-    onProgress(8, 'WebCodecs no disponible: exportando con MediaRecorder...');
-    return VideoExporter.exportWithMediaRecorder(context, audio);
-  }
-
-  private static async exportWithWebCodecs(
-    context: ExportContext,
-    codecPlan: VideoCodecPlan,
-    audio: PreparedAudio | null,
-    audioPlan: AudioCodecPlan | null
-  ): Promise<VideoExportResult> {
-    const { label: audioLabel, ...audioNames } = VideoExporter.describeMixedAudio(audio);
-    const { project, canvas, renderEngine, durationSeconds, totalFrames, fps, onProgress } = context;
-
-    const muxer = createMuxer(codecPlan, canvas.width, canvas.height, fps, audio ? audioPlan : null);
-
-    // 1. Mezcla real de audio (sin tonos sintéticos): AAC-LC en MP4 y Opus en el resto.
-    const audioCodecLabel = audioPlan ? audioPlan.label : 'sin audio';
-    if (audio && audioPlan) {
-      onProgress(10, `Codificando audio ${audioCodecLabel}: ${audioLabel}...`);
-      await VideoExporter.encodeAudioBuffer(muxer.sink, audio.buffer, audioPlan);
-    }
-
-    // 2. Video cuadro por cuadro: el tiempo de cada cuadro es i / fps, no el reloj de pared.
-    let encoderError: Error | null = null;
-    const videoEncoder = new VideoEncoder({
-      output: (chunk, meta) => muxer.sink.addVideoChunk(chunk, meta),
-      error: (error) => {
-        encoderError = error;
-      },
-    });
-
-    videoEncoder.configure({
-      codec: codecPlan.encoderCodec,
-      width: canvas.width,
-      height: canvas.height,
-      bitrate: VIDEO_BITRATE,
-      framerate: fps,
-      latencyMode: 'quality',
-      // En MP4 los chunks se piden en formato AVCC (longitud por NAL), no Annex B.
-      ...(codecPlan.container === 'mp4' ? { avc: { format: 'avc' as const } } : {}),
+    const recordedChunks: Blob[] = [];
+    const mediaRecorder = new MediaRecorder(combinedStream, {
+      mimeType,
+      videoBitsPerSecond: 2500000, // 2.5 Mbps for 720p crisp video
     });
 
     const keyFrameInterval = Math.max(1, Math.round(fps * 2));
@@ -634,21 +585,14 @@ export class VideoExporter {
     };
   }
 
-  /** Nombres de los recursos que forman la pista de audio exportada. */
-  private static describeMixedAudio(audio: PreparedAudio | null): {
-    narrationAssetName: string | null;
-    sceneNarrationCount: number;
-    musicAssetName: string | null;
-    sfxAssetNames: string[];
-    label: string;
-  } {
-    if (!audio) {
-      return {
-        narrationAssetName: null,
-        sceneNarrationCount: 0,
-        musicAssetName: null,
-        sfxAssetNames: [],
-        label: 'sin audio',
+    return new Promise((resolve, reject) => {
+      mediaRecorder.onstop = () => {
+        try {
+          audioEngine.stop();
+        } catch (_) {}
+        const finalBlob = new Blob(recordedChunks, { type: mimeType });
+        onProgress(100, 'Exportación finalizada exitosamente.');
+        resolve(finalBlob);
       };
     }
     const parts: string[] = [];
@@ -686,82 +630,37 @@ export class VideoExporter {
       },
     });
 
-    encoder.configure(audioEncoderConfig(audioPlan.encoderCodec));
+      // Start Recording
+      mediaRecorder.start(100);
 
-    const channels: Float32Array[] = [];
-    for (let channel = 0; channel < NARRATION_CHANNELS; channel++) {
-      const sourceChannel = Math.min(channel, buffer.numberOfChannels - 1);
-      channels.push(buffer.getChannelData(sourceChannel));
-    }
+      // Trigger Web Audio playback synchronized with export
+      audioEngine.play(initializedProject, 0);
 
-    for (let offset = 0; offset < buffer.length; offset += AUDIO_CHUNK_FRAMES) {
-      if (encoderError) throw encoderError;
+      // Frame rendering loop (30 FPS simulation)
+      const totalFrames = Math.ceil(totalDuration * fps);
+      let currentFrame = 0;
+      const frameIntervalMs = 1000 / fps;
 
-      const frames = Math.min(AUDIO_CHUNK_FRAMES, buffer.length - offset);
-      const planar = new Float32Array(frames * NARRATION_CHANNELS);
-      channels.forEach((data, channel) => {
-        planar.set(data.subarray(offset, offset + frames), channel * frames);
-      });
+      const renderInterval = setInterval(() => {
+        const currentTime = currentFrame / fps;
+        renderEngine.renderFrame(initializedProject, currentTime);
 
-      const audioData = new AudioData({
-        format: 'f32-planar',
-        sampleRate: NARRATION_SAMPLE_RATE,
-        numberOfFrames: frames,
-        numberOfChannels: NARRATION_CHANNELS,
-        timestamp: Math.round((offset / NARRATION_SAMPLE_RATE) * 1_000_000),
-        data: planar,
-      });
-      encoder.encode(audioData);
-      audioData.close();
-    }
+        currentFrame++;
+        const progressPercent = Math.min(95, Math.floor((currentFrame / totalFrames) * 75) + 20);
+        onProgress(
+          progressPercent,
+          `Renderizando cuadro ${currentFrame} de ${totalFrames} (${currentTime.toFixed(1)}s / ${totalDuration}s)...`
+        );
 
-    await encoder.flush();
-    encoder.close();
-    if (encoderError) throw encoderError;
-  }
-
-  /**
-   * Respaldo para navegadores sin WebCodecs: captura de canvas sin reloj propio
-   * (captureStream(0) + requestFrame) con la narración real por MediaStreamDestination.
-   */
-  private static async exportWithMediaRecorder(
-    context: ExportContext,
-    audio: PreparedAudio | null
-  ): Promise<VideoExportResult> {
-    const { project, canvas, renderEngine, durationSeconds, totalFrames, fps, onProgress } = context;
-    const { label: audioLabel, ...audioNames } = VideoExporter.describeMixedAudio(audio);
-    void audioLabel;
-
-    const audioCtx = new AudioContext();
-    await audioCtx.resume().catch(() => undefined);
-    const destination = audioCtx.createMediaStreamDestination();
-    let audioSource: AudioBufferSourceNode | null = null;
-    if (audio) {
-      audioSource = audioCtx.createBufferSource();
-      audioSource.buffer = audio.buffer;
-      audioSource.connect(destination);
-    }
-
-    const canvasStream = canvas.captureStream(0);
-    const videoTrack = canvasStream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack;
-    const tracks: MediaStreamTrack[] = [videoTrack];
-    if (audio) tracks.push(...destination.stream.getAudioTracks());
-
-    const stream = new MediaStream(tracks);
-    const mimeType = pickRecorderMimeType(Boolean(audio));
-    const recorder = new MediaRecorder(
-      stream,
-      mimeType ? { mimeType, videoBitsPerSecond: VIDEO_BITRATE } : { videoBitsPerSecond: VIDEO_BITRATE }
-    );
-
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) chunks.push(event.data);
-    };
-
-    const stopped = new Promise<void>((resolve, reject) => {
-      recorder.onstop = () => resolve();
-      recorder.onerror = () => reject(new Error('MediaRecorder falló durante la exportación.'));
+        if (currentFrame >= totalFrames) {
+          clearInterval(renderInterval);
+          audioEngine.stop();
+          // Small buffer delay before stopping recorder
+          setTimeout(() => {
+            mediaRecorder.stop();
+          }, 300);
+        }
+      }, frameIntervalMs);
     });
 
     recorder.start(100);

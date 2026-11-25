@@ -1,16 +1,8 @@
-// Motor de renderizado 2D en canvas de Estudio Audiovisual Inteligente
-//
-// Cada escena se dibuja primero en un canvas fuera de pantalla y luego se compone
-// en el canvas visible. Eso permite aplicar transiciones reales entre la escena
-// anterior y la entrante (Fundido, Deslizamiento y Zoom) sin que se pisen los
-// dibujos de una y otra.
+// Canvas 2D Render Engine for Estudio Audiovisual Inteligente
 
-import { Scene, Project, SubtitleAnimation, SubtitleEntry } from '../types';
-import { visualSlotAt } from './visualRhythm';
-import { normalizeSubtitleAnimation, subtitleAnimationFrame } from './textAnimation';
-import { introHookFrame } from './introHook';
-import { colorGradeFor } from './colorGrade';
-import { sceneTitleFrame } from './sceneTitle';
+import { Scene, Project, TimelineClip } from '../types';
+import { KeyframeEngine } from '../services/animation/keyframeEngine';
+import { TransitionEngine } from '../services/animation/transitionEngine';
 
 export interface RenderState {
   currentTime: number; // in seconds
@@ -211,12 +203,8 @@ export class CanvasRenderEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private imageCache: Map<string, HTMLImageElement> = new Map();
-  private videoCache: Map<string, HTMLVideoElement> = new Map();
-  private videoReady: Map<string, Promise<void>> = new Map();
-
-  // Dos buffers: 0 = escena entrante, 1 = escena saliente.
-  private buffers: [HTMLCanvasElement, HTMLCanvasElement];
-  private bufferCtxs: [CanvasRenderingContext2D, CanvasRenderingContext2D];
+  private scratchCanvasA: HTMLCanvasElement | null = null;
+  private scratchCanvasB: HTMLCanvasElement | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -232,6 +220,24 @@ export class CanvasRenderEngine {
       if (!bufferCtx) throw new Error('No se pudo crear el contexto 2D del búfer de escena');
       return bufferCtx;
     }) as [CanvasRenderingContext2D, CanvasRenderingContext2D];
+  }
+
+  private getScratchCanvases(width: number, height: number): [HTMLCanvasElement, HTMLCanvasElement] {
+    if (!this.scratchCanvasA) {
+      this.scratchCanvasA = document.createElement('canvas');
+    }
+    if (!this.scratchCanvasB) {
+      this.scratchCanvasB = document.createElement('canvas');
+    }
+    if (this.scratchCanvasA.width !== width || this.scratchCanvasA.height !== height) {
+      this.scratchCanvasA.width = width;
+      this.scratchCanvasA.height = height;
+    }
+    if (this.scratchCanvasB.width !== width || this.scratchCanvasB.height !== height) {
+      this.scratchCanvasB.width = width;
+      this.scratchCanvasB.height = height;
+    }
+    return [this.scratchCanvasA, this.scratchCanvasB];
   }
 
   public async preloadImages(scenes: Scene[]): Promise<void> {
@@ -374,54 +380,50 @@ export class CanvasRenderEngine {
       this.canvas.height = height;
     }
 
-    const target = computeTransitionFrame(project, timeSeconds);
-    if (!target) {
+    // Check if timeline model is present and has video tracks
+    const v1Track = project.timeline?.tracks.find((t) => t.id === 'track-v1');
+    const isV1Visible = v1Track ? v1Track.isVisible : true;
+
+    const scenes = project.script.scenes;
+    if (!scenes || scenes.length === 0) {
       this.drawEmptyState(width, height);
       return;
     }
 
-    const { current, localTime, progress, previous, previousLocalTime } = target;
-
-    if (previous) {
-      const incoming = this.buffers[0];
-      const outgoing = this.buffers[1];
-      this.prepareBuffer(incoming, width, height);
-      this.prepareBuffer(outgoing, width, height);
-
-      this.drawSceneInto(
-        this.bufferCtxs[0],
-        width,
-        height,
-        current.scene,
-        localTime,
-        current.start + localTime,
-        project
-      );
-      this.drawSceneInto(
-        this.bufferCtxs[1],
-        width,
-        height,
-        previous.scene,
-        previousLocalTime,
-        previous.start + previousLocalTime,
-        project
-      );
-
-      this.compositeTransition(current.scene.transition, incoming, outgoing, width, height, progress);
+    // If V1 track is explicitly hidden, draw blackout
+    if (!isV1Visible) {
+      this.ctx.fillStyle = '#05070e';
+      this.ctx.fillRect(0, 0, width, height);
+      this.drawWatermark(width, height, '(Pista V1 Oculta)', timeSeconds);
       return;
     }
 
-    // Sin transición: la escena se dibuja directamente en el canvas visible.
-    this.drawSceneInto(
-      this.ctx,
-      width,
-      height,
-      current.scene,
-      localTime,
-      current.start + localTime,
-      project
-    );
-  }
+    // Calculate total project duration & current scene index
+    let accumulatedTime = 0;
+    let currentScene: Scene | null = null;
+    let previousScene: Scene | null = null;
+    let currentSceneIndex = 0;
+    let sceneStartTime = 0;
+
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
+      if (timeSeconds >= accumulatedTime && timeSeconds <= accumulatedTime + scene.durationSeconds) {
+        currentScene = scene;
+        currentSceneIndex = i;
+        previousScene = i > 0 ? scenes[i - 1] : null;
+        sceneStartTime = accumulatedTime;
+        break;
+      }
+      accumulatedTime += scene.durationSeconds;
+    }
+
+    // If time is past the end, pin to last scene
+    if (!currentScene && scenes.length > 0) {
+      currentSceneIndex = scenes.length - 1;
+      currentScene = scenes[currentSceneIndex];
+      previousScene = currentSceneIndex > 0 ? scenes[currentSceneIndex - 1] : null;
+      sceneStartTime = accumulatedTime - currentScene.durationSeconds;
+    }
 
   private prepareBuffer(buffer: HTMLCanvasElement, width: number, height: number): void {
     if (buffer.width !== width || buffer.height !== height) {
@@ -465,8 +467,63 @@ export class CanvasRenderEngine {
       ctx.drawImage(incoming, 0, 0, width, height);
     }
 
-    ctx.restore();
-  }
+    // Check if timeline V1 has an active clip at this time
+    const timeMs = timeSeconds * 1000;
+    const v1ClipIndex = v1Track?.clips.findIndex(
+      (c) => timeMs >= c.startMs && timeMs < c.startMs + c.durationMs
+    ) ?? -1;
+    const v1Clip = v1ClipIndex >= 0 ? v1Track!.clips[v1ClipIndex] : undefined;
+    const prevV1Clip = v1ClipIndex > 0 ? v1Track!.clips[v1ClipIndex - 1] : undefined;
+
+    const clipOffsetMs = v1Clip ? timeMs - v1Clip.startMs + v1Clip.offsetMs : sceneLocalTime * 1000;
+
+    // Check if there is an active transition (either on clip or scene)
+    const clipTransition = v1Clip?.transition;
+    const transDurationMs = clipTransition?.durationMs || 1000;
+    const transDurationSec = transDurationMs / 1000;
+    const isTransitionActive = clipTransition && v1Clip && clipOffsetMs < transDurationMs;
+
+    if (isTransitionActive && (previousScene || prevV1Clip)) {
+      // Offscreen multi-buffer rendering for seamless transition blend
+      const [canvasFrom, canvasTo] = this.getScratchCanvases(width, height);
+      const ctxFrom = canvasFrom.getContext('2d');
+      const ctxTo = canvasTo.getContext('2d');
+
+      if (ctxFrom && ctxTo) {
+        // Draw Outgoing (From) Frame onto canvasFrom
+        const origCtx = this.ctx;
+        this.ctx = ctxFrom;
+        this.ctx.clearRect(0, 0, width, height);
+        const fromScene = previousScene || currentScene;
+        this.drawBackground(width, height, fromScene, 1.0, prevV1Clip, prevV1Clip ? prevV1Clip.durationMs : fromScene.durationSeconds * 1000);
+
+        // Draw Incoming (To) Frame onto canvasTo
+        this.ctx = ctxTo;
+        this.ctx.clearRect(0, 0, width, height);
+        this.drawBackground(width, height, currentScene, sceneProgress, v1Clip, clipOffsetMs);
+
+        // Restore primary context and render transition
+        this.ctx = origCtx;
+        this.ctx.clearRect(0, 0, width, height);
+
+        const rawProgress = Math.max(0, Math.min(1, clipOffsetMs / transDurationMs));
+        TransitionEngine.renderTransition(
+          this.ctx,
+          width,
+          height,
+          canvasFrom,
+          canvasTo,
+          clipTransition.type,
+          rawProgress,
+          clipTransition.easing || 'ease-in-out'
+        );
+      } else {
+        this.drawBackground(width, height, currentScene, sceneProgress, v1Clip, clipOffsetMs);
+      }
+    } else {
+      // 1. Draw Background & Image (with keyframe transform if available)
+      this.drawBackground(width, height, currentScene, sceneProgress, v1Clip, clipOffsetMs);
+    }
 
   private drawScaled(source: HTMLCanvasElement, width: number, height: number, scale: number): void {
     const ctx = this.ctx;
@@ -477,41 +534,12 @@ export class CanvasRenderEngine {
     ctx.restore();
   }
 
-  /** Dibuja una escena completa en el contexto indicado (canvas visible o búfer). */
-  private drawSceneInto(
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    scene: Scene,
-    sceneLocalTime: number,
-    absoluteTime: number,
-    project: Project
-  ): void {
-    const sceneProgress = scene.durationSeconds > 0 ? Math.min(1, sceneLocalTime / scene.durationSeconds) : 0;
-
-    ctx.clearRect(0, 0, width, height);
-
-    // 1 y 2. Fondo, imagen/clip y superposiciones de la escena, con la
-    // corrección de color de la escena aplicada por el canvas.
-    const colorFilter = colorGradeFor(scene);
-    ctx.save();
-    if (colorFilter !== 'none') ctx.filter = colorFilter;
-    this.drawBackground(ctx, width, height, scene, sceneProgress, sceneLocalTime);
-    this.drawSceneVisuals(ctx, width, height, scene, sceneProgress);
-    ctx.restore();
-
-    // 3. Tipografía cinética y subtítulos animados
-    this.drawSubtitlesAndText(ctx, width, height, scene, sceneLocalTime, project);
-
-    // 4. Marca del estudio e información de la escena
-    this.drawWatermark(ctx, width, height, scene.title, absoluteTime);
-
-    // 5. Gancho visual de la intro (solo en los primeros 3 s del primer escena)
-    this.drawIntroHook(ctx, width, height, project, scene, absoluteTime);
-
-    // 6. Título del proyecto en el tercio inferior de la primera escena.
-    this.drawSceneTitle(ctx, width, height, project, scene, absoluteTime);
-  }
+    // 3. Draw Kinetic Typography / Animated Subtitles (only if T1 track is visible)
+    const t1Track = project.timeline?.tracks.find((t) => t.id === 'track-t1');
+    const isT1Visible = t1Track ? t1Track.isVisible : true;
+    if (isT1Visible) {
+      this.drawSubtitlesAndText(width, height, currentScene, sceneLocalTime);
+    }
 
   /** Título animado de la escena 1, con fondo semitransparente (fase 32). */
   private drawSceneTitle(
@@ -565,52 +593,50 @@ export class CanvasRenderEngine {
     this.ctx.fillText('Sin escenas para reproducir', width / 2, height / 2);
   }
 
-  private drawBackground(
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    scene: Scene,
-    progress: number,
-    sceneLocalTime: number
-  ): void {
-    const primaryImg = scene.imageUrl ? this.imageCache.get(scene.imageUrl) ?? null : null;
-    const secondaryImg = scene.secondaryImageUrl
-      ? this.imageCache.get(scene.secondaryImageUrl) ?? null
-      : null;
-    // Ritmo visual: si la escena dura más de 4 s y tiene secundaria, la imagen
-    // cambia cada 3 s. Sin secundaria (o con los cortes desactivados) se usa la
-    // principal toda la escena.
-    const img =
-      visualSlotAt(scene, sceneLocalTime) === 'secondary' ? secondaryImg ?? primaryImg : primaryImg;
-    const video = scene.videoUrl ? this.videoCache.get(scene.videoUrl) : null;
-    const videoReady = Boolean(video && video.readyState >= 2 && video.videoWidth > 0);
+  private drawBackground(width: number, height: number, scene: Scene, progress: number, activeClip?: TimelineClip, clipTimeMs?: number): void {
+    const img = scene.imageUrl ? this.imageCache.get(scene.imageUrl) : null;
 
-    // El clip de video tiene prioridad sobre la imagen; si aún no está listo se
-    // usa la imagen (o el fondo generado) para no dejar el cuadro vacío.
-    const source: CanvasImageSource | null = videoReady ? (video as HTMLVideoElement) : img ?? null;
-    const sourceWidth = videoReady ? (video as HTMLVideoElement).videoWidth : img?.width ?? 0;
-    const sourceHeight = videoReady ? (video as HTMLVideoElement).videoHeight : img?.height ?? 0;
+    if (img) {
+      this.ctx.save();
 
-    if (source && sourceWidth > 0 && sourceHeight > 0) {
-      ctx.save();
-
-      // Transformación del movimiento de cámara
+      // Calculate camera motion transform (or interpolated keyframes if clip has animations)
       let scale = 1.0;
       let dx = 0;
-      const dy = 0;
+      let dy = 0;
+      let rotation = 0;
+      let opacity = 1.0;
 
-      if (scene.cameraMotion === 'Zoom In') {
-        scale = 1.0 + progress * 0.15;
-      } else if (scene.cameraMotion === 'Zoom Out') {
-        scale = 1.15 - progress * 0.15;
-      } else if (scene.cameraMotion === 'Pan Left') {
-        dx = -progress * 40;
-      } else if (scene.cameraMotion === 'Pan Right') {
-        dx = progress * 40;
+      if (activeClip?.animations && activeClip.animations.length > 0 && clipTimeMs !== undefined) {
+        const keyframeTransform = KeyframeEngine.interpolateClipTransform(
+          activeClip.animations,
+          clipTimeMs,
+          activeClip.transform,
+          activeClip.opacity
+        );
+        dx = keyframeTransform.positionX;
+        dy = keyframeTransform.positionY;
+        scale = keyframeTransform.scale;
+        rotation = keyframeTransform.rotation;
+        opacity = keyframeTransform.opacity;
+      } else {
+        // Fallback procedural camera motion
+        if (scene.cameraMotion === 'Zoom In') {
+          scale = 1.0 + progress * 0.15;
+        } else if (scene.cameraMotion === 'Zoom Out') {
+          scale = 1.15 - progress * 0.15;
+        } else if (scene.cameraMotion === 'Pan Left') {
+          dx = -progress * 40;
+        } else if (scene.cameraMotion === 'Pan Right') {
+          dx = progress * 40;
+        }
       }
 
-      ctx.translate(width / 2 + dx, height / 2 + dy);
-      ctx.scale(scale, scale);
+      this.ctx.translate(width / 2 + dx, height / 2 + dy);
+      if (rotation !== 0) {
+        this.ctx.rotate((rotation * Math.PI) / 180);
+      }
+      this.ctx.scale(scale, scale);
+      this.ctx.globalAlpha = opacity;
 
       // Fuente escalada para cubrir el lienzo
       const sourceRatio = sourceWidth / sourceHeight;
